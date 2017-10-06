@@ -8,11 +8,11 @@ trait JSONConverter[T] {
 }
 
 object Converters {
-  implicit object StringJSONConverter extends JSONConverter[String] {
+  implicit object StringJSONConverter extends JSONConverter[String] {// assert: ImplicitTypeClass.ImplicitTypeClass
     override def convert(x: String): String = x
   }
 
-  implicit object IntJSONConverter extends JSONConverter[Int] {
+  implicit object IntJSONConverter extends JSONConverter[Int] {// assert: ImplicitTypeClass.ImplicitTypeClass
     override def convert(x: Int): String = x.toString
   }
 
