@@ -19,6 +19,8 @@ Links:
 
     	- The implicit value might even be mutable! This is certainly the case for Akka's ActorSystems, which encapsulate a large pool of Actors and the ability to spawn new ones or send them messages.
 
+
+
 ## Type Classes
 
 Uses implicits to provide (usually `object`) implementations of generic type parameters, thus allowing us to create type classes. It's mentioned in most blog posts about implicits in Scala.
@@ -89,6 +91,59 @@ def convertToJsonAndPrint[T: Jsonable](x: T) = println(convertToJson(x))
 def convertMultipleItemsToJson[T: Jsonable](t: Array[T]) = t.map(convertToJson(_))
 ```
 
+### Examples
+
+**Taken from `airbnb/aerosolve`**
+
+#### In file `com/airbnb/aerosolve/training/utils/Sort.scala`
+
+Note how an implicit evidence parameter is necessary, to prove that A is orderable. In this case, I guess the ordering function is defined implicit elsewhere.
+I'm not sure whether this constitutes an example of the Type Class Pattern though. It's basically the same as the blogs' examples, except the evidence function is out there in the wild and not in an `Orderable` trait or something like that. 
+
+In this case, the only use of Sort inside the library is in a test case with an Array (which I guess defines the evidence function). Then it's clear that this function is a case of a library that wants to be open for extension.
+
+```scala
+  @tailrec
+  def quickSelect[A](
+      seq: Seq[A], n: Int, rand: Random = new Random)(implicit evidence: A => Ordered[A]): A = {
+    assert(n < seq.length, s"n $n cannot be larger than length of sequence ${seq.length}")
+    val pivot = rand.nextInt(seq.length)
+    val (left, right) = seq.partition(seq(pivot).>)
+    if (left.length == n) {
+      seq(pivot)
+    } else if (left.isEmpty) {
+      val (left, right) = seq.partition(seq(pivot).==)
+      if (left.length > n) {
+        seq(pivot)
+      } else {
+        quickSelect(right, n - left.length, rand)
+      }
+    } else if (left.length < n) {
+      quickSelect(right, n - left.length, rand)
+    } else {
+      quickSelect(left, n, rand)
+    }
+  }
+```
+
+#### In file `com/airbnb/aerosolve/training/utils/JsonParser.scala`
+
+An example of client-side typeclass implicits.
+
+```scala
+def parseJson[T](json: String)(implicit m : Manifest[T]): T = {
+   mapper.readValue[T](json)
+}
+```
+
+In this case, readValue in the mapper object (of class ScalaObjectMapper, from [Jackson Module Scala](https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala_2.10)) requires the Manifest implicit parameter, and is used as a typeclass in the library (shown below):
+
+```scala
+def readValue[T: Manifest](jp: JsonParser): T = {
+	readValue(jp, constructType[T])
+}
+```
+
 ## Comparison: Type classes vs Implicit Contexts
 
 These are some differences that may help when trying to figure out patterns.
@@ -123,7 +178,7 @@ object Jsonable {
 
 Here we have a `serialize` method that accepts a Seq of Jsonables, which can itself be a Seq[Jsonable].
 
-## Extending type classes
+## Extending type classes from the user side
 
 Type classes can be extended in the user side, just providing some `implicit object` that implements the desired trait with the correct type parameter.
 
@@ -148,6 +203,18 @@ To implement this pattern you need:
 Different from type classes because we want just the conversion function that will get called and implicitly filled with the required type parameters. The conversion function itself is not part of a trait type.
 
 This is used to **control how types are inferred**, since implicits are solved statically and can influence the type checker.
+
+### Examples
+
+**Taken from `airbnb/aerosolve`**
+
+In file `com/airbnb/aerosolve/training/AdditiveModelTrainer.scala`
+
+Creating an implicit conversion from a Scala type to their own function.
+
+```scala
+implicit def valueToPlanetVal(x: Value): LossFunction = x.asInstanceOf[LossFunction]
+```
 
 ## Aux pattern
 
@@ -189,7 +256,6 @@ def rightFoo[B0](f: FooAux[B0], dep: DependentFoo[B0]): B0 = dep.dependentValue
 
 ```
 
-
 ## Implicit classes to extend functionality
 
 The simplest use of implicit classes, to extend the functionality of an existing class without modifying it:
@@ -206,3 +272,83 @@ object ImplicitClasses {
 scala> ImplicitClasses.test
 Hello, World
 ```
+
+### Examples
+
+**Taken from `airbnb/aerosolve`**
+
+In file `com/airbnb/aerosolve/training/pipeline/PipelineTestingUtil.scala`
+
+Rather unexciting use of implicit classes to extend the functionality of the tuples.
+
+```scala
+  implicit class Tupple4Add(t: (Long, Long, Long, Long)) {
+    def +(p: (Long, Long, Long, Long)) = (p._1 + t._1, p._2 + t._2, p._3 + t._3, p._4 + t._4)
+  }
+
+  implicit class Tupple2Add(t: (Long, Long)) {
+    def +(p: (Long, Long)) = (p._1 + t._1, p._2 + t._2)
+  }
+```
+
+## Refine return types on the fly
+
+**Taken from `airbnb/aerosolve`**
+
+Here, I believe they are just passing the ClassTag[T] around 
+
+File `/airlearner-utils/src/main/scala/com/airbnb/common/ml/util/HiveUtil.scala`:
+
+They have only one caller each, shown below. Note how the callers refine T in the return types.
+
+```scala
+  def loadDataFromHive[T](
+      hiveContext: HiveContext,
+      dataQuery: String,
+      parseKeyFromHiveRow: (Row) => String,
+      parseSampleFromHiveRow: (Row) => T
+  )(implicit c: ClassTag[T]):
+  RDD[(String, T)] = {
+    loadDataFromDataFrame(hiveContext.sql(dataQuery), parseKeyFromHiveRow, parseSampleFromHiveRow)
+  }
+
+  def loadDataFromDataFrame[T](
+      data: DataFrame,
+      parseKeyFromHiveRow: (Row) => String,
+      parseSampleFromHiveRow: (Row) => T
+  )
+    (implicit c: ClassTag[T]): RDD[(String, T)] = {
+    data.map(row => {
+      val key = parseKeyFromHiveRow(row)
+      val t = parseSampleFromHiveRow(row)
+      (key, t)
+    })
+	}
+```
+
+File `com/airbnb/common/ml/xgboost/data/ModelData.scala`:
+
+Here it calls the above two functions, and I guess ClassTag is used to specify the type parameters for the return types.
+```scala
+ def getScoringLabeledPoints(sc: SparkContext,
+                              query: String, scoringLabeledPoint: ScoringModelData): RDD[(String, ScoringLabeledPoint)] = {
+    val df = ModelData.getDataFrame(sc, query)
+    HiveUtil.loadDataFromDataFrame(
+      df,
+      // score_query_head of scoring.conf also defined S_node_10k_id same as TRAINING_KEY_INDEX
+      ModelData.parseKeyFromHiveRow(ModelData.TRAINING_KEY_INDEX),
+      scoringLabeledPoint.parseRowToXgboostLabeledPointAndData)
+  }
+
+  def getLabeledPointsAndString(sc: SparkContext,
+                                query: String, scoringLabeledPoint: ScoringModelData): RDD[(String, Seq[ScoringLabeledPoint])] = {
+    val df = ModelData.getDataFrame(sc, query)
+    HiveUtil.loadDataFromDataFrameGroupByKey(
+      df,
+      // score_query_head of scoring.conf also defined S_node_10k_id same as TRAINING_KEY_INDEX
+      ModelData.parseKeyFromHiveRow(ModelData.TRAINING_KEY_INDEX),
+      scoringLabeledPoint.parseRowToXgboostLabeledPointAndData)
+  }
+```
+
+**NOTE:** There is another example of just this in the file `com/airbnb/common/ml/strategy/trainer/BinaryRegressionTrainer.scala` of the same project
