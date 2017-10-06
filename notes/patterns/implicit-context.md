@@ -19,3 +19,11 @@ Links:
     	- The implicit value might even be mutable! This is certainly the case for Akka's ActorSystems, which encapsulate a large pool of Actors and the ability to spawn new ones or send them messages.
 
 
+## Repos to look at:
+
+[gitbucket/gitbucket](https://github.com/gitbucket/gitbucket)
+[playframework/playframework](https://github.com/playframework/playframework)
+[mesos/chronos](https://github.com/mesos/chronos)
+[ornicar/lila](https://github.com/ornicar/lila)
+[ensime/ensime-server](https://github.com/ensime/ensime-server/)
+[ThoughtWorksInc/Binding.scala](https://github.com/ThoughtWorksInc/Binding.scala/)
