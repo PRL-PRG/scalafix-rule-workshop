@@ -23,7 +23,7 @@ Links:
 
 [gitbucket/gitbucket](https://github.com/gitbucket/gitbucket)
 [playframework/playframework](https://github.com/playframework/playframework)
-[mesos/chronos](https://github.com/mesos/chronos)
 [ornicar/lila](https://github.com/ornicar/lila)
 [ensime/ensime-server](https://github.com/ensime/ensime-server/)
 [ThoughtWorksInc/Binding.scala](https://github.com/ThoughtWorksInc/Binding.scala/)
+[tumblr/colossus](https://github.com/tumblr/colossus)
