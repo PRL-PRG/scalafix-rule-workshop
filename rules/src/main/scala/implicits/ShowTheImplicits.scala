@@ -1,4 +1,4 @@
-package fix
+package implicits
 
 import scalafix._
 import scala.meta._

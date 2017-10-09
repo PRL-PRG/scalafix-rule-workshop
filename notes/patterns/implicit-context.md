@@ -18,6 +18,27 @@ Links:
 
     	- The implicit value might even be mutable! This is certainly the case for Akka's ActorSystems, which encapsulate a large pool of Actors and the ability to spawn new ones or send them messages.
 
+### Examples
+
+**From [a blog post](http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html)**
+
+Execution Context from the Scala standard library
+
+```scala
+// Define a single execution context
+implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+
+// Usage
+def getEmployee(id: Int)(implicit e: ExecutionContext): Future[Employee] = ???
+def getRole(employee :Employee)(implicit e: ExecutionContext): Future[Role] = ???
+val bigEmployee: Future[EmployeeWithRole] =
+  getEmployee(100).flatMap { e =>
+    getRole(e).map { r =>
+      EmployeeWithRole(e.id, e.name,r) 
+    }
+  }
+```
+
 
 ## Repos to look at:
 
