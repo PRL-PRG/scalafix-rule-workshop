@@ -15,21 +15,60 @@ final case class ImplicitContext(index: SemanticdbIndex)
   override def fix(ctx: RuleCtx): Patch = {
     //ctx.debugIndex()
 
-    val explicitSymbols = ctx.tree.collect {
-      case node: Defn.Object if node.hasMod(mod"implicit") => node
-    }
-    println(explicitSymbols)
-
-    var syntheticSymbols : List[Symbol] = List[Symbol]()
+    var syntheticImplicits : Map[Int, Symbol] = Map[Int, Symbol]()
     for {synth <- ctx.index.database.synthetics} {
       synth.names(1).symbol.denotation match {
         case Some(den) => if (den.isImplicit) {
-          syntheticSymbols = syntheticSymbols ++ List(synth.names(1).symbol)
+          syntheticImplicits = syntheticImplicits ++ Map(synth.position.start -> synth.names(1).symbol)
         }
         case None => {}
       }
     }
-    println(syntheticSymbols)
+    println(s"Synthetic Implicits: ${syntheticImplicits}")
+
+    var explicitSymbols : List[Tree] = List[Tree]()
+    for {node <- ctx.tree} {
+      node match {
+        case node: Defn.Object => {
+          if (node.hasMod(mod"implicit")) {
+            explicitSymbols = explicitSymbols ++ List(node)
+          }
+        }
+        case node: Defn.Val => {
+          if (node.hasMod(mod"implicit")) {
+            explicitSymbols = explicitSymbols ++ List(node)
+          }
+        }
+        case node: Defn.Def => {
+          if (node.hasMod(mod"implicit")) {
+            explicitSymbols = explicitSymbols ++ List(node)
+          }
+        }
+        case node: Term.Param =>
+
+        /*{node.symbol match{
+          case Some(symbol) => symbol.denotation match {
+            case Some(denotation) => {
+              if (denotation.isImplicit) {
+                explicitSymbols = explicitSymbols ++ List(node)
+              }
+            }
+            case None => {}
+          }
+          case None => {}
+        }}*/
+        case node: Term.Apply => {
+          // For some reason it doesn't recognize the denotation
+          val end = node.pos.end
+          val implicitParams = syntheticImplicits.collect {
+            case (end, sym) => sym
+          }
+          println(implicitParams)
+        }
+        case _ => {}
+      }
+    }
+    println(explicitSymbols)
 
     Patch.empty
   }
