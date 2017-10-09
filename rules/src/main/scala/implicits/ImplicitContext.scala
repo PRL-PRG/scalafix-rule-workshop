@@ -13,15 +13,24 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
  
   override def fix(ctx: RuleCtx): Patch = {
-    ctx.debugIndex()
-    ctx.tree.collect {
-      case x: Term.Apply => {
-        println(s"Found Regular function call ${x.structure}")
+    //ctx.debugIndex()
+
+    val explicitSymbols = ctx.tree.collect {
+      case node: Defn.Object if node.hasMod(mod"implicit") => node
+    }
+    println(explicitSymbols)
+
+    var syntheticSymbols : List[Symbol] = List[Symbol]()
+    for {synth <- ctx.index.database.synthetics} {
+      synth.names(1).symbol.denotation match {
+        case Some(den) => if (den.isImplicit) {
+          syntheticSymbols = syntheticSymbols ++ List(synth.names(1).symbol)
+        }
+        case None => {}
       }
     }
-    for {synth <- ctx.index.database.synthetics} {
-      println(synth.names(1).symbol.denotation)
-    }
+    println(syntheticSymbols)
+
     Patch.empty
   }
 }
