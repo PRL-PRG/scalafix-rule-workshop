@@ -30,14 +30,16 @@ final case class ImplicitContext(index: SemanticdbIndex)
     Patch.empty
   }
 
+
   def processCalls(ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Term.Apply, List[SyntheticImplicitParameter]]) : Unit = {
     for {call <- callsWithImplicitParameters} {
+      val function = call._1
       println(s"Call with implicit parameters:")
-      println(s"  Called function: ${call._1.syntax}")
+      println(s"  Called function: ${Format.formatLocation(function)}: ${call._1.syntax}")
       println(s"  Declaration: ${}")
       println(s"  Implicit parameters:")
       for {param <- call._2} {
-        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => {s", declared in ${tree}"} case None => {""}}}")
+        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => s", declared in ${Format.formatLocation(tree)}: $tree" case None => ""}}")
       }
       println(s"")
     }
@@ -98,7 +100,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
               }
             }
           }(collection.breakOut)
-          println(s"Implicit parameters when calling ${node.fun.syntax}: ${implicitParams}")
+          println(s"Implicit parameters when calling ${node.fun.syntax}: $implicitParams")
 
           if (implicitParams.nonEmpty) {
             callsWithImplicitParameters = callsWithImplicitParameters ++ Map(node -> implicitParams)
@@ -111,4 +113,18 @@ final case class ImplicitContext(index: SemanticdbIndex)
   }
 
   case class SyntheticImplicitParameter(syntheticSymbol: Symbol, objectDeclaration: Option[Tree])
+}
+
+object Format {
+  def formatLocation(tree: Tree) : String = {
+    s"${getFileName(tree.input)}@[l:${tree.pos.startLine}, c:${tree.pos.endLine}]"
+  }
+
+  def getFileName(in: Input) : String = {
+    in match {
+      case virtualFile: Input.VirtualFile => virtualFile.path
+      case regularFile: Input.File => regularFile.path.toString()
+      case _ => s"Input type Unknown.\n Here is the full Input: \n $in"
+    }
+  }
 }
