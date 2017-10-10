@@ -7,7 +7,7 @@ import scalafix.syntax._
 import scalafix.rule.RuleCtx
 import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
-case class SyntheticImplicitParameter(syntheticSymbol: Symbol, objectDeclaration: Option[Tree])
+case class SyntheticImplicitParameters(syntheticSymbol: Synthetic, objectDeclaration: Option[Tree])
 
 final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
@@ -17,25 +17,29 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
     println(s"Symbol collection -------------------------")
 
-    val syntheticImplicits: List[(Int, Symbol)] = collectSyntheticImplicits(ctx)
+    val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
     println(s"Synthetic Implicits: ${syntheticImplicits}")
     val (treeImplicits, callsWithImplicitParameters) = processExplicitTree(ctx, syntheticImplicits)
     println(s"Explicit Symbols: ${treeImplicits}")
     println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
+    // TODO: Debug 0
+    for {x <- callsWithImplicitParameters} x._2.names(2).symbol.denotation.get
+
+
     println(s"Analysis -------------------------")
-    Format.reportCalls(ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    Format.reportCalls(index, ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
 
     Patch.empty
   }
 
   def collectSyntheticImplicits(ctx: RuleCtx) = {
-    var syntheticImplicits: List[(Int, Symbol)] = List[(Int, Symbol)]()
+    var syntheticImplicits: List[(Int, Synthetic)] = List[(Int, Synthetic)]()
     for {synth <- ctx.index.database.synthetics} {
       for {name <- synth.names} {
         name.symbol.denotation match {
           case Some(denotation) => if (denotation.isImplicit) {
-            syntheticImplicits = syntheticImplicits ++ List((synth.position.start, name.symbol))
+            syntheticImplicits = syntheticImplicits ++ List((synth.position.start, synth))
           }
           case None => {}
         }
@@ -44,9 +48,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
     syntheticImplicits
   }
 
-  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Symbol)]) : (List[Tree], Map[Term.Apply, List[SyntheticImplicitParameter]]) = {
+  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term.Apply, Synthetic]) = {
     var explicitSymbols : List[Tree] = List[Tree]()
-    var callsWithImplicitParameters : Map[Term.Apply, List[SyntheticImplicitParameter]] = Map[Term.Apply, List[SyntheticImplicitParameter]]()
+    var callsWithImplicitParameters : Map[Term.Apply, Synthetic] = Map[Term.Apply, Synthetic]()
     for {node <- ctx.tree} {
       node match {
         case node: Defn.Object => {
@@ -66,28 +70,17 @@ final case class ImplicitContext(index: SemanticdbIndex)
         }
         case node: Term.Apply => {
           val end = node.pos.end
-          val implicitParams : List[SyntheticImplicitParameter] = syntheticImplicits.collect{
-            case (pos, sym) if pos == end => {
-              val objectName = sym.denotation.get.name
-              val suitableDeclarations : List[Tree] = explicitSymbols.collect {
-                case x: Defn.Val if x.pats.exists {
-                  case pat: Pat.Var if pat.name.value == objectName => true
-                  case _ => false
-                } => x
-              }
-              if (suitableDeclarations.nonEmpty) {
-                val declaration = suitableDeclarations(0)
-                println(declaration)
-                SyntheticImplicitParameter(sym, Some(declaration))
-              } else {
-                SyntheticImplicitParameter(sym, None)
-              }
-            }
-          }(collection.breakOut)
-          println(s"Implicit parameters when calling ${node.fun.syntax}: $implicitParams")
+          syntheticImplicits.find { _._1 ==  end} match {
+            case Some(synthetic) => {
 
-          if (implicitParams.nonEmpty) {
-            callsWithImplicitParameters = callsWithImplicitParameters ++ Map(node -> implicitParams)
+              // TODO: Debug 1
+              for {x <- callsWithImplicitParameters} {
+                x._2.names(2).symbol.denotation.get
+              }
+
+              callsWithImplicitParameters = callsWithImplicitParameters ++ Map(node -> synthetic._2)
+            }
+            case None => None
           }
         }
         case _ => {}
@@ -97,17 +90,21 @@ final case class ImplicitContext(index: SemanticdbIndex)
   }
 }
 
+
 object Format {
 
-  def reportCalls(ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Term.Apply, List[SyntheticImplicitParameter]]) : Unit = {
+  def reportCalls(index: SemanticdbIndex, ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term.Apply, Synthetic]) : Unit = {
+    // TODO: Debug 2. Why can't I get the denotation here, but I can get it in the other two Debugs?
+    for {x <- callsWithImplicitParameters} x._2.names(2).symbol.denotation.get
     for {call <- callsWithImplicitParameters} {
       val function = call._1
       println(s"Call with implicit parameters:")
       println(s"  Called function: ${formatLocation(function)}: ${call._1.syntax}")
       println(s"  Declaration: ${}")
       println(s"  Implicit parameters:")
-      for {param <- call._2} {
-        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => s", declared in ${formatLocation(tree)}: $tree" case None => ""}}")
+      for {param <- call._2.names} {
+        println(s"    ${param.syntax}${param.symbol}")
+        //println(s"    ${param.syntax}${param.symbol.denotation match {case Some(denot) => s", declared in ${formatLocation(param)}: $denot" case None => ""}}")
       }
       println(s"")
     }
