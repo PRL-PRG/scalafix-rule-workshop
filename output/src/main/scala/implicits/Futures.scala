@@ -2,7 +2,7 @@ package implicits
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Futures_Test {
+class Futures {
 
   // import ExecutionContext.Implicits.global
   implicit val ec = ExecutionContext.global

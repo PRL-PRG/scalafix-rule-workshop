@@ -1,6 +1,3 @@
-/*
-rule = ""
-*/
 package aux
 
 object EmployeeDefinitions {
