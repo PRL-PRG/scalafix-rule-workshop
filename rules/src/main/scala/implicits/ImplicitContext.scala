@@ -7,11 +7,10 @@ import scalafix.syntax._
 import scalafix.rule.RuleCtx
 import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
+case class SyntheticImplicitParameter(syntheticSymbol: Symbol, objectDeclaration: Option[Tree])
 
 final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
-
-
 
   override def fix(ctx: RuleCtx): Patch = {
     //ctx.debugIndex()
@@ -25,24 +24,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
     println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
     println(s"Analysis -------------------------")
-    processCalls(ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    Format.reportCalls(ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
 
     Patch.empty
-  }
-
-
-  def processCalls(ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Term.Apply, List[SyntheticImplicitParameter]]) : Unit = {
-    for {call <- callsWithImplicitParameters} {
-      val function = call._1
-      println(s"Call with implicit parameters:")
-      println(s"  Called function: ${Format.formatLocation(function)}: ${call._1.syntax}")
-      println(s"  Declaration: ${}")
-      println(s"  Implicit parameters:")
-      for {param <- call._2} {
-        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => s", declared in ${Format.formatLocation(tree)}: $tree" case None => ""}}")
-      }
-      println(s"")
-    }
   }
 
   def collectSyntheticImplicits(ctx: RuleCtx) = {
@@ -111,11 +95,24 @@ final case class ImplicitContext(index: SemanticdbIndex)
     }
     (explicitSymbols, callsWithImplicitParameters)
   }
-
-  case class SyntheticImplicitParameter(syntheticSymbol: Symbol, objectDeclaration: Option[Tree])
 }
 
 object Format {
+
+  def reportCalls(ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Term.Apply, List[SyntheticImplicitParameter]]) : Unit = {
+    for {call <- callsWithImplicitParameters} {
+      val function = call._1
+      println(s"Call with implicit parameters:")
+      println(s"  Called function: ${formatLocation(function)}: ${call._1.syntax}")
+      println(s"  Declaration: ${}")
+      println(s"  Implicit parameters:")
+      for {param <- call._2} {
+        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => s", declared in ${formatLocation(tree)}: $tree" case None => ""}}")
+      }
+      println(s"")
+    }
+  }
+
   def formatLocation(tree: Tree) : String = {
     s"${getFileName(tree.input)}@[l:${tree.pos.startLine}, c:${tree.pos.endLine}]"
   }
