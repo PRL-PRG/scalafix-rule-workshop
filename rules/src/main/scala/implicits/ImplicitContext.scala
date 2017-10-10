@@ -25,18 +25,19 @@ final case class ImplicitContext(index: SemanticdbIndex)
     println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
     println(s"Analysis -------------------------")
-    processCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    processCalls(ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
 
     Patch.empty
   }
 
-  def processCalls(treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Tree, List[Symbol]]) : Unit = {
+  def processCalls(ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Symbol)], callsWithImplicitParameters: Map[Term.Apply, List[SyntheticImplicitParameter]]) : Unit = {
     for {call <- callsWithImplicitParameters} {
       println(s"Call with implicit parameters:")
       println(s"  Called function: ${call._1.syntax}")
+      println(s"  Declaration: ${}")
       println(s"  Implicit parameters:")
       for {param <- call._2} {
-        println(s"    ${param.syntax}")
+        println(s"    ${param.syntheticSymbol.syntax}${param.objectDeclaration match {case Some(tree) => {s", declared in ${tree}"} case None => {""}}}")
       }
       println(s"")
     }
@@ -57,9 +58,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
     syntheticImplicits
   }
 
-  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Symbol)]) : (List[Tree], Map[Tree, List[Symbol]]) = {
+  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Symbol)]) : (List[Tree], Map[Term.Apply, List[SyntheticImplicitParameter]]) = {
     var explicitSymbols : List[Tree] = List[Tree]()
-    var callsWithImplicitParameters : Map[Tree, List[Symbol]] = Map[Tree, List[Symbol]]()
+    var callsWithImplicitParameters : Map[Term.Apply, List[SyntheticImplicitParameter]] = Map[Term.Apply, List[SyntheticImplicitParameter]]()
     for {node <- ctx.tree} {
       node match {
         case node: Defn.Object => {
@@ -77,23 +78,25 @@ final case class ImplicitContext(index: SemanticdbIndex)
             explicitSymbols = explicitSymbols ++ List(node)
           }
         }
-        case node: Term.Param =>
-
-        /*{node.symbol match{
-          case Some(symbol) => symbol.denotation match {
-            case Some(denotation) => {
-              if (denotation.isImplicit) {
-                explicitSymbols = explicitSymbols ++ List(node)
-              }
-            }
-            case None => {}
-          }
-          case None => {}
-        }}*/
         case node: Term.Apply => {
           val end = node.pos.end
-          val implicitParams : List[Symbol] = syntheticImplicits.collect{
-            case (pos, sym) if pos == end => sym
+          val implicitParams : List[SyntheticImplicitParameter] = syntheticImplicits.collect{
+            case (pos, sym) if pos == end => {
+              val objectName = sym.denotation.get.name
+              val suitableDeclarations : List[Tree] = explicitSymbols.collect {
+                case x: Defn.Val if x.pats.exists {
+                  case pat: Pat.Var if pat.name.value == objectName => true
+                  case _ => false
+                } => x
+              }
+              if (suitableDeclarations.nonEmpty) {
+                val declaration = suitableDeclarations(0)
+                println(declaration)
+                SyntheticImplicitParameter(sym, Some(declaration))
+              } else {
+                SyntheticImplicitParameter(sym, None)
+              }
+            }
           }(collection.breakOut)
           println(s"Implicit parameters when calling ${node.fun.syntax}: ${implicitParams}")
 
@@ -106,4 +109,6 @@ final case class ImplicitContext(index: SemanticdbIndex)
     }
     (explicitSymbols, callsWithImplicitParameters)
   }
+
+  case class SyntheticImplicitParameter(syntheticSymbol: Symbol, objectDeclaration: Option[Tree])
 }
