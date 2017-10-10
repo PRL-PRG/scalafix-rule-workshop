@@ -28,7 +28,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
 
     println(s"Analysis -------------------------")
-    Format.reportCalls(index, ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    reportCalls(index, ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
 
     Patch.empty
   }
@@ -72,12 +72,6 @@ final case class ImplicitContext(index: SemanticdbIndex)
           val end = node.pos.end
           syntheticImplicits.find { _._1 ==  end} match {
             case Some(synthetic) => {
-
-              // TODO: Debug 1
-              for {x <- callsWithImplicitParameters} {
-                x._2.names(2).symbol.denotation.get
-              }
-
               callsWithImplicitParameters = callsWithImplicitParameters ++ Map(node -> synthetic._2)
             }
             case None => None
@@ -88,37 +82,46 @@ final case class ImplicitContext(index: SemanticdbIndex)
     }
     (explicitSymbols, callsWithImplicitParameters)
   }
-}
-
-
-object Format {
 
   def reportCalls(index: SemanticdbIndex, ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term.Apply, Synthetic]) : Unit = {
-    // TODO: Debug 2. Why can't I get the denotation here, but I can get it in the other two Debugs?
-    for {x <- callsWithImplicitParameters} x._2.names(2).symbol.denotation.get
+    for {x <- callsWithImplicitParameters} {
+      x._2.names(2).symbol.denotation.get
+    }
+
     for {call <- callsWithImplicitParameters} {
       val function = call._1
       println(s"Call with implicit parameters:")
-      println(s"  Called function: ${formatLocation(function)}: ${call._1.syntax}")
+      println(s"  Called function: ${Format.formatLocation(function)}: ${call._1.syntax}")
       println(s"  Declaration: ${}")
       println(s"  Implicit parameters:")
       for {param <- call._2.names} {
-        println(s"    ${param.syntax}${param.symbol}")
-        //println(s"    ${param.syntax}${param.symbol.denotation match {case Some(denot) => s", declared in ${formatLocation(param)}: $denot" case None => ""}}")
+        println(s"    ${param.syntax}${param.symbol.denotation match {case Some(denot) => s", declared in ${Format.formatLocation(param)}:${Format.readDenotation(denot)}" case None => ""}}")
       }
       println(s"")
     }
   }
+}
 
+
+object Format {
   def formatLocation(tree: Tree) : String = {
-    s"${getFileName(tree.input)}@[l:${tree.pos.startLine}, c:${tree.pos.endLine}]"
+    s"${getFileName(tree.input)}@[l:${tree.pos.startLine}, c:${tree.pos.startColumn}]"
+  }
+
+  def formatLocation(denot: ResolvedName) : String = {
+    s"${getFileName(denot.position.input)}@[l:${denot.position.startLine}, c:${denot.position.startColumn}]"
   }
 
   def getFileName(in: Input) : String = {
     in match {
       case virtualFile: Input.VirtualFile => virtualFile.path
       case regularFile: Input.File => regularFile.path.toString()
+      case synthetic: Input.Synthetic => "_Synthetic_"
       case _ => s"Input type Unknown.\n Here is the full Input: \n $in"
     }
+  }
+
+  def readDenotation(denot: Denotation) : String = {
+    denot.structure
   }
 }
