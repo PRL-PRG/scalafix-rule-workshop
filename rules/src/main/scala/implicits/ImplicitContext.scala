@@ -9,6 +9,65 @@ import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
 case class SyntheticImplicitParameters(syntheticSymbol: Synthetic, objectDeclaration: Option[Tree])
 
+case class Location(line: Int, col: Int, sourceFile: String)
+case class Declaration(name: String, location: Location)
+
+trait ReportFormatter {
+  def startReport(): String
+  def endReport(): String
+
+  def formatLocation(location: Location): String
+
+  def startCallReport(): String
+  def endCallReport(): String
+
+  def reportFunctionName(name: String, location: Location): String
+  def reportFunctionDeclaration(): String
+  def startImplicitParameterReport(): String
+  def endImplicitParamterReport(): String
+  def reportImplicitParameter(name: String, declaration: Option[Declaration]): String
+}
+
+class HumanReadableFormatter() extends ReportFormatter {
+
+  override def startReport(): String = "Analysis report--------------------\n"
+  override def endReport(): String = "-------------------------\n"
+
+  override def formatLocation(location: Location): String = s"[l:${location.line},c:${location.col}]@${location.sourceFile}"
+
+  override def startCallReport(): String = "Call with implicit parameters:\n"
+  override def endCallReport(): String = "\n"
+
+  override def reportFunctionName(name: String, location: Location): String = s"  Called Function Name: ${formatLocation(location)}: ${name}\n"
+  override def reportFunctionDeclaration(): String = s"  Declaration: \n"
+  override def startImplicitParameterReport(): String = s"  Implicit Parameters:\n"
+  override def endImplicitParamterReport(): String = s""
+
+  override def reportImplicitParameter(name: String, declaration: Option[Declaration]): String = {
+    s"    ${name}${declaration match {case Some(decl) => s", declared in ${formatLocation(decl.location)}:${decl.name}" case None => ""}}"
+  }
+}
+
+object Locations {
+  def getLocation(tree: Tree): Location = {
+    Location(tree.pos.startLine, tree.pos.startColumn, getFileName(tree.input))
+  }
+
+  def getLocation(denot: ResolvedName): Location = {
+    Location(denot.position.startLine, denot.position.startColumn, getFileName(denot.position.input))
+    //s"${getFileName(denot.position.input)}@[l:${denot.position.startLine}, c:${denot.position.startColumn}]"
+  }
+
+  def getFileName(in: Input): String = {
+    in match {
+      case virtualFile: Input.VirtualFile => virtualFile.path
+      case regularFile: Input.File => regularFile.path.toString()
+      case synthetic: Input.Synthetic => "_Synthetic_"
+      case _ => s"Input type Unknown.\n Here is the full Input: \n $in"
+    }
+  }
+}
+
 final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
 
@@ -23,12 +82,14 @@ final case class ImplicitContext(index: SemanticdbIndex)
     println(s"Explicit Symbols: ${treeImplicits}")
     println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
-    // TODO: Debug 0
-    for {x <- callsWithImplicitParameters} x._2.names(2).symbol.denotation.get
+    implicit val formatter : ReportFormatter = new HumanReadableFormatter()
+    var report = ""
 
+    report += formatter.startReport()
+    report += reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    report += formatter.endReport()
 
-    println(s"Analysis -------------------------")
-    reportCalls(index, ctx, treeImplicits, syntheticImplicits, callsWithImplicitParameters)
+    println(report)
 
     Patch.empty
   }
@@ -83,41 +144,32 @@ final case class ImplicitContext(index: SemanticdbIndex)
     (explicitSymbols, callsWithImplicitParameters)
   }
 
-  def reportCalls(index: SemanticdbIndex, ctx: RuleCtx, treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term.Apply, Synthetic]) : Unit = {
-    for {x <- callsWithImplicitParameters} {
-      x._2.names(2).symbol.denotation.get
-    }
+  def reportCalls(treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term.Apply, Synthetic])(implicit formatter: ReportFormatter) : String = {
+    var report = ""
 
+    report += formatter.startCallReport()
     for {call <- callsWithImplicitParameters} {
       val function = call._1
-      println(s"Call with implicit parameters:")
-      println(s"  Called function: ${Format.formatLocation(function)}: ${call._1.syntax}")
-      println(s"  Declaration: ${}")
-      println(s"  Implicit parameters:")
+      val functionName = function.syntax
+      val functionLocation = Locations.getLocation(function)
+      report += formatter.reportFunctionName(functionName, functionLocation)
+      report += formatter.reportFunctionDeclaration()
+      report += formatter.startImplicitParameterReport()
       for {param <- call._2.names} {
-        println(s"    ${param.syntax}${param.symbol.denotation match {case Some(denot) => s", declared in ${Format.formatLocation(param)}:${Format.readDenotation(denot)}" case None => ""}}")
+        val paramName = param.symbol
+        val paramDeclaration = getDeclaration(param)
+        report += formatter.reportImplicitParameter(param.symbol.toString, paramDeclaration)
       }
-      println(s"")
+      report += formatter.endImplicitParamterReport()
     }
-  }
-}
-
-
-object Format {
-  def formatLocation(tree: Tree) : String = {
-    s"${getFileName(tree.input)}@[l:${tree.pos.startLine}, c:${tree.pos.startColumn}]"
+    report += formatter.endCallReport()
+    report
   }
 
-  def formatLocation(denot: ResolvedName) : String = {
-    s"${getFileName(denot.position.input)}@[l:${denot.position.startLine}, c:${denot.position.startColumn}]"
-  }
-
-  def getFileName(in: Input) : String = {
-    in match {
-      case virtualFile: Input.VirtualFile => virtualFile.path
-      case regularFile: Input.File => regularFile.path.toString()
-      case synthetic: Input.Synthetic => "_Synthetic_"
-      case _ => s"Input type Unknown.\n Here is the full Input: \n $in"
+  def getDeclaration(param: ResolvedName) : Option[Declaration] = {
+    param.symbol.denotation match {
+      case Some(denot) => Some(Declaration(readDenotation(denot), Locations.getLocation(param)))
+      case None => None
     }
   }
 
@@ -125,3 +177,4 @@ object Format {
     denot.structure
   }
 }
+
