@@ -66,6 +66,7 @@ class JSONFormatter() extends ReportFormatter {
   override def reportCallsWithImplicits(report: CallsWithImplicitsReport): String = {
     var res = StringBuilder.newBuilder
     indentForward()
+    var callNum = 0
     for {call <- report.items} {
       res.append(s"""$indent\"call_with_implicit_params\": {\n""")
       indentForward()
@@ -73,8 +74,9 @@ class JSONFormatter() extends ReportFormatter {
       res.append(s"""$indent\"declaration\": \"None yet\",\n""")
       formatImplicitParameters(res, call.parameters)
       indentBack()
+      callNum += 1
+      res.append(s"$indent}${if (callNum != report.items.size) {","} else {""}}\n")
     }
-    res.append(s"$indent}\n")
     indentBack()
     res.toString
   }
@@ -170,29 +172,29 @@ final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
 
   override def fix(ctx: RuleCtx): Patch = {
-    println(s"Symbol collection -------------------------")
+    Timer.time {
+      val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
+      //println(s"Synthetic Implicits: ${syntheticImplicits}")
+      val (treeImplicits, callsWithImplicitParameters) = processExplicitTree(ctx, syntheticImplicits)
+      //println(s"Explicit Symbols: ${treeImplicits}")
+      //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
-    val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
-    //println(s"Synthetic Implicits: ${syntheticImplicits}")
-    val (treeImplicits, callsWithImplicitParameters) = processExplicitTree(ctx, syntheticImplicits)
-    //println(s"Explicit Symbols: ${treeImplicits}")
-    //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
+      val formatter: ReportFormatter = new JSONFormatter()
+      var report = ""
 
-    val formatter : ReportFormatter = new JSONFormatter()
-    var report = ""
+      report += formatter.startReport()
+      report += formatter.reportCallsWithImplicits(reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters))
+      report += formatter.endReport()
 
-    report += formatter.startReport()
-    report += formatter.reportCallsWithImplicits(reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters))
-    report += formatter.endReport()
-
-    println(report)
+      println(report)
+    }
 
     Patch.empty
   }
 
   def collectSyntheticImplicits(ctx: RuleCtx) = {
     var syntheticImplicits: List[(Int, Synthetic)] = List[(Int, Synthetic)]()
-    ProgressBar.setup("Collecting Synthetic Implicits", ctx.index.database.synthetics.length)
+    ProgressBar.setup("Collecting Synthetic Implicits", ctx.index.database.synthetics.size)
     for {synth <- ctx.index.database.synthetics} {
       for {name <- synth.names} {
         name.symbol.denotation match {
@@ -300,7 +302,7 @@ object ProgressBar {
   def step() = {
     currentValue += 1
     val accomplished = currentValue.toFloat / total.toFloat
-    val dots = Math.floor(accomplished * barLength).toInt
+    val dots = Math.min(Math.floor(accomplished * barLength).toInt, barLength)
     (1 to dots) foreach {_ => print("=")}
     (1 to (barLength - dots)).foreach(_ => print(" "))
     print("] " + s"${Math.round(accomplished * 100)}%")
@@ -323,15 +325,24 @@ object UnboundedProgressDisplay {
   }
 
   def step() = {
-    Thread.sleep(500)
     updateCounter += 1
     val newNumber = updateCounter.toString
-    (1 to numberLength) foreach { _ => print("\b")}
+    (1 to numberLength) foreach { _ => print("\b") }
     print(newNumber)
     numberLength = newNumber.length
   }
 
   def close() = {
     println(" Done!")
+  }
+}
+
+object Timer {
+  def time[R](block: => R): R = {
+    val t0 = System.nanoTime()
+    val result = block    // call-by-name
+    val t1 = System.nanoTime()
+    println("Elapsed time: " + (t1 - t0) + "ns")
+    result
   }
 }

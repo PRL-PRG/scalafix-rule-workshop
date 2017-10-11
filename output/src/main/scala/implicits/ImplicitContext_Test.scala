@@ -10,4 +10,5 @@ object ImplicitContext_Test {
     def getEmployee(id: Int)(implicit e: Employee, b: Boss) : String = {s"${id}: ${e.name}, ${b.name}"}
 
     getEmployee(12)
+    getEmployee(13)
 }
