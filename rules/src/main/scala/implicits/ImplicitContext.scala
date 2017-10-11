@@ -49,6 +49,81 @@ class HumanReadableFormatter() extends ReportFormatter {
   }
 }
 
+class JSONFormatter() extends ReportFormatter {
+  private var indentation = 0
+  private def indent(): String = " " * indentation
+  private def indentForward() = indentation += 2
+  private def indentBack() = indentation = Math.max(0, indentation - 2)
+
+  override def startReport(): String = {
+    indentation = 0
+    """JSON Report ==================
+      |{
+  |""".stripMargin
+  }
+  override def endReport(): String = "}\n============================"
+  override def formatLocation(location: Location): String = {
+    var res = ""
+    indentForward()
+    res += s"""$indent\"line\": ${location.line},\n"""
+    res += s"""$indent\"col\": ${location.col},\n"""
+    res += s"""$indent\"sourceFile\": \"${location.sourceFile}\"\n"""
+    indentBack()
+    res
+  }
+
+  override def reportCallsWithImplicits(report: CallsWithImplicitsReport): String = {
+    var res = StringBuilder.newBuilder
+    indentForward()
+    for {call <- report.items} {
+      res.append(s"""$indent\"call_with_implicit_params\": {\n""")
+      indentForward()
+      res.append(s"""$indent\"function\": {\n""")
+      indentForward()
+      res.append(s"""$indent\"name\": \"${call.function.name}\",\n""")
+      res.append(s"""$indent\"location\": {\n""")
+      res.append(formatLocation(call.function.location))
+      res.append(s"""$indent}\n""")
+      indentBack()
+      res.append(s"""$indent},\n""")
+      res.append(s"""$indent\"declaration\": \"None yet\",\n""")
+      res.append(s"""$indent\"implicit_parameters\": [\n""")
+      indentForward()
+      var curParam = 0
+      for {param <- call.parameters} {
+        curParam += 1
+        res.append(s"""$indent{ \n""")
+        indentForward()
+        res.append(s"""$indent\"name\": \"${param.name}\"""")
+        param.declaration match {
+          case Some(decl) => {
+            res.append(s"""$indent,\n""")
+            res.append(s"""$indent\"declaration\": {\n""")
+            indentForward()
+            res.append(s"""$indent\"name\": \"${decl.name}\",\n""")
+            res.append(s"""$indent\"location\": {\n""")
+            res.append(formatLocation(call.function.location))
+            res.append(s"""$indent}\n""")
+            indentBack()
+            res.append(s"""$indent}\n""")
+          }
+          case None => {
+            res.append(s"$indent\n")
+          }
+        }
+        indentBack()
+        res.append(s"""$indent}${if (curParam != call.parameters.length) {","} else {""}}\n""")
+      }
+      indentBack()
+      res.append(s"""${indent()}]\n""")
+      indentBack()
+    }
+    res.append(s"$indent}\n")
+    indentBack()
+    res.toString
+  }
+}
+
 object Locations {
   def getLocation(tree: Tree): Location = {
     Location(tree.pos.startLine, tree.pos.startColumn, getFileName(tree.input))
@@ -82,7 +157,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
     println(s"Explicit Symbols: ${treeImplicits}")
     println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
-    val formatter : ReportFormatter = new HumanReadableFormatter()
+    val formatter : ReportFormatter = new JSONFormatter()
     var report = ""
 
     report += formatter.startReport()
@@ -174,7 +249,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
   }
 
   def readDenotation(denot: Denotation) : String = {
-    denot.structure
+    denot.name
   }
 }
 
