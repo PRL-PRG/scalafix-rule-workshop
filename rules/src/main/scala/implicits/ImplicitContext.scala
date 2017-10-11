@@ -256,7 +256,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
     UnboundedProgressDisplay.setup("Analyzing Calls With Implicits")
     for {call <- callsWithImplicitParameters} {
       val function = call._1
-      val functionName = function.syntax
+      val functionName = function.syntax.replaceAll("\\s+","")
       val functionLocation = Locations.getLocation(function)
       val calledFunction = CalledFunction(functionName, functionLocation)
 
