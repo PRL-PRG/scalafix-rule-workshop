@@ -7,12 +7,10 @@ import scalafix.syntax._
 import scalafix.rule.RuleCtx
 import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
-case class SyntheticImplicitParameters(syntheticSymbol: Synthetic, objectDeclaration: Option[Tree])
+// ---------------------------------------
+// Representation of Analysis Results
+// ---------------------------------------
 
-
-/*
-Case class hierarchy for forming a report
-*/
 case class CallsWithImplicitsReport(items: List[CallWithImplicits])
 case class CallWithImplicits(function: CalledFunction, declaration: Option[FunctionDeclaration], parameters: List[ImplicitParameter])
 case class CalledFunction(name: String, location: Location)
@@ -21,6 +19,10 @@ case class ImplicitParameter(name: String, declaration: Option[ImplicitParameter
 case class ImplicitParameterDeclaration(name: String, location: Location)
 case class Location(line: Int, col: Int, sourceFile: String)
 
+// ---------------------------------------
+// Report Formatters
+// ---------------------------------------
+
 trait ReportFormatter {
   def startReport(): String
   def endReport(): String
@@ -28,6 +30,8 @@ trait ReportFormatter {
 
   def reportCallsWithImplicits(report: CallsWithImplicitsReport): String
 }
+
+
 
 class HumanReadableFormatter() extends ReportFormatter {
   override def startReport(): String = "Analysis report--------------------\n"
@@ -160,19 +164,21 @@ object Locations {
   }
 }
 
+// ---------------------------------------
+// Scalafix Rule
+// ---------------------------------------
+
 final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
 
   override def fix(ctx: RuleCtx): Patch = {
-    //ctx.debugIndex()
-
     println(s"Symbol collection -------------------------")
 
     val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
-    println(s"Synthetic Implicits: ${syntheticImplicits}")
+    //println(s"Synthetic Implicits: ${syntheticImplicits}")
     val (treeImplicits, callsWithImplicitParameters) = processExplicitTree(ctx, syntheticImplicits)
-    println(s"Explicit Symbols: ${treeImplicits}")
-    println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
+    //println(s"Explicit Symbols: ${treeImplicits}")
+    //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
 
     val formatter : ReportFormatter = new JSONFormatter()
     var report = ""
@@ -188,6 +194,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
   def collectSyntheticImplicits(ctx: RuleCtx) = {
     var syntheticImplicits: List[(Int, Synthetic)] = List[(Int, Synthetic)]()
+    ProgressBar.setup("Collecting Synthetic Implicits", ctx.index.database.synthetics.length)
     for {synth <- ctx.index.database.synthetics} {
       for {name <- synth.names} {
         name.symbol.denotation match {
@@ -197,6 +204,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
           case None => {}
         }
       }
+      ProgressBar.step()
     }
     syntheticImplicits
   }
@@ -204,6 +212,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
   def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term.Apply, Synthetic]) = {
     var explicitSymbols : List[Tree] = List[Tree]()
     var callsWithImplicitParameters : Map[Term.Apply, Synthetic] = Map[Term.Apply, Synthetic]()
+    UnboundedProgressDisplay.setup("Parsing Syntax Tree", 10)
     for {node <- ctx.tree} {
       node match {
         case node: Defn.Object => {
@@ -232,7 +241,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
         }
         case _ => {}
       }
+      UnboundedProgressDisplay.step()
     }
+    UnboundedProgressDisplay.close()
     (explicitSymbols, callsWithImplicitParameters)
   }
 
@@ -241,6 +252,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
     var calls = List[CallWithImplicits]()
 
+    ProgressBar.setup("Analyzing Calls With Implicits", callsWithImplicitParameters.size)
     for {call <- callsWithImplicitParameters} {
       val function = call._1
       val functionName = function.syntax
@@ -254,6 +266,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
         parameterList = parameterList ++ List(ImplicitParameter(paramName.toString, paramDeclaration))
       }
       calls = calls ++ List(CallWithImplicits(calledFunction, None, parameterList))
+      ProgressBar.step()
     }
     CallsWithImplicitsReport(calls)
   }
@@ -270,3 +283,57 @@ final case class ImplicitContext(index: SemanticdbIndex)
   }
 }
 
+// ---------------------------------------
+// Utilities
+// ---------------------------------------
+
+object ProgressBar {
+  var total = 0
+  val barLength = 31
+  var currentValue = 0
+
+  def setup(prompt: String, totalValue: Int) = {
+    print(s"${prompt}: [${" " * barLength}]")
+    total = totalValue
+    currentValue = 0
+    (0 to barLength).foreach(_ => print("\b"))
+  }
+
+  def step() = {
+    currentValue += 1
+    val accomplished = currentValue.toFloat / total.toFloat
+    val dots = Math.floor(accomplished * barLength).toInt
+    (1 to dots) foreach {_ => print("=")}
+    (1 to (barLength - dots)).foreach(_ => print(" "))
+    print("] " + s"${Math.round(accomplished * 100)}%")
+    if (currentValue == total) {
+      println(" Done!")
+    } else {
+      (1 to barLength + 5).foreach(_ => print("\b"))
+    }
+  }
+}
+
+object UnboundedProgressDisplay {
+  var updateCounter = 0
+  var updateInterval = 0
+  var symbol = ""
+
+  def setup(prompt: String, interval: Int, progressSymbol: String = ".") = {
+    print(s"${prompt}: ")
+    updateInterval = interval
+    symbol = progressSymbol
+  }
+
+  def step() = {
+    updateCounter += 1
+    if (updateCounter == updateInterval) {
+      print(symbol)
+      updateCounter = 0
+    }
+  }
+
+  def close() = {
+    println(" Done!")
+  }
+}
