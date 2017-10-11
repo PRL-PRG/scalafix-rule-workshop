@@ -9,7 +9,6 @@ import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
 case class SyntheticImplicitParameters(syntheticSymbol: Synthetic, objectDeclaration: Option[Tree])
 
-case class Location(line: Int, col: Int, sourceFile: String)
 
 /*
 Case class hierarchy for forming a report
@@ -20,6 +19,7 @@ case class CalledFunction(name: String, location: Location)
 case class FunctionDeclaration(name: String, location: Location)
 case class ImplicitParameter(name: String, declaration: Option[ImplicitParameterDeclaration])
 case class ImplicitParameterDeclaration(name: String, location: Location)
+case class Location(line: Int, col: Int, sourceFile: String)
 
 trait ReportFormatter {
   def startReport(): String
@@ -50,11 +50,6 @@ class HumanReadableFormatter() extends ReportFormatter {
 }
 
 class JSONFormatter() extends ReportFormatter {
-  private var indentation = 0
-  private def indent(): String = " " * indentation
-  private def indentForward() = indentation += 2
-  private def indentBack() = indentation = Math.max(0, indentation - 2)
-
   override def startReport(): String = {
     indentation = 0
     """JSON Report ==================
@@ -63,13 +58,7 @@ class JSONFormatter() extends ReportFormatter {
   }
   override def endReport(): String = "}\n============================"
   override def formatLocation(location: Location): String = {
-    var res = ""
-    indentForward()
-    res += s"""$indent\"line\": ${location.line},\n"""
-    res += s"""$indent\"col\": ${location.col},\n"""
-    res += s"""$indent\"sourceFile\": \"${location.sourceFile}\"\n"""
-    indentBack()
-    res
+    formatLocation(location, false)
   }
 
   override def reportCallsWithImplicits(report: CallsWithImplicitsReport): String = {
@@ -78,49 +67,77 @@ class JSONFormatter() extends ReportFormatter {
     for {call <- report.items} {
       res.append(s"""$indent\"call_with_implicit_params\": {\n""")
       indentForward()
-      res.append(s"""$indent\"function\": {\n""")
-      indentForward()
-      res.append(s"""$indent\"name\": \"${call.function.name}\",\n""")
-      res.append(s"""$indent\"location\": {\n""")
-      res.append(formatLocation(call.function.location))
-      res.append(s"""$indent}\n""")
-      indentBack()
-      res.append(s"""$indent},\n""")
+      formatCalledFunction(res, call.function)
       res.append(s"""$indent\"declaration\": \"None yet\",\n""")
-      res.append(s"""$indent\"implicit_parameters\": [\n""")
-      indentForward()
-      var curParam = 0
-      for {param <- call.parameters} {
-        curParam += 1
-        res.append(s"""$indent{ \n""")
-        indentForward()
-        res.append(s"""$indent\"name\": \"${param.name}\"""")
-        param.declaration match {
-          case Some(decl) => {
-            res.append(s"""$indent,\n""")
-            res.append(s"""$indent\"declaration\": {\n""")
-            indentForward()
-            res.append(s"""$indent\"name\": \"${decl.name}\",\n""")
-            res.append(s"""$indent\"location\": {\n""")
-            res.append(formatLocation(call.function.location))
-            res.append(s"""$indent}\n""")
-            indentBack()
-            res.append(s"""$indent}\n""")
-          }
-          case None => {
-            res.append(s"$indent\n")
-          }
-        }
-        indentBack()
-        res.append(s"""$indent}${if (curParam != call.parameters.length) {","} else {""}}\n""")
-      }
-      indentBack()
-      res.append(s"""${indent()}]\n""")
+      formatImplicitParameters(res, call.parameters)
       indentBack()
     }
     res.append(s"$indent}\n")
     indentBack()
     res.toString
+  }
+
+  private var indentation = 0
+  private def indent(): String = " " * indentation
+  private def indentForward() = indentation += 2
+  private def indentBack() = indentation = Math.max(0, indentation - 2)
+
+  private def formatLocation(location: Location, commaAtTheEnd: Boolean) : String = {
+    var res = ""
+    res += s"""$indent\"location\": {\n"""
+    indentForward()
+    res += s"""$indent\"line\": ${location.line},\n"""
+    res += s"""$indent\"col\": ${location.col},\n"""
+    res += s"""$indent\"sourceFile\": \"${location.sourceFile}\"\n"""
+    indentBack()
+    res += s"""$indent}${if (commaAtTheEnd) {","} else {""}}\n"""
+    res
+  }
+  private def formatCalledFunction(res: StringBuilder, function: CalledFunction) = {
+    res.append(s"""$indent\"function\": {\n""")
+    indentForward()
+    res.append(s"""$indent\"name\": \"${function.name}\",\n""")
+    res.append(formatLocation(function.location, false))
+    indentBack()
+    res.append(s"""$indent},\n""")
+  }
+
+  private def formatImplicitParameters(res: StringBuilder, parameters: List[ImplicitParameter]) = {
+    res.append(s"""$indent\"implicit_parameters\": [\n""")
+    indentForward()
+    var curParam = 0
+    for {param <- parameters} {
+      curParam += 1
+      formatImplicitParameter(res, param, curParam != parameters.length)
+    }
+    indentBack()
+    res.append(s"""${indent()}]\n""")
+  }
+
+  private def formatImplicitParameter(res: StringBuilder, param: ImplicitParameter, needsComma: Boolean) = {
+    res.append(s"""$indent{ \n""")
+    indentForward()
+    res.append(s"""$indent\"name\": \"${param.name}\"""")
+    param.declaration match {
+      case Some(decl) => {
+        res.append(s""",\n""")
+        formatParameterDeclaration(res, decl)
+      }
+      case None => {
+        res.append(s"$indent\n")
+      }
+    }
+    indentBack()
+    res.append(s"""$indent}${if (needsComma) {","} else {""}}\n""")
+  }
+
+  private def formatParameterDeclaration(res: StringBuilder, decl: ImplicitParameterDeclaration) = {
+    res.append(s"""$indent\"declaration\": {\n""")
+    indentForward()
+    res.append(s"""$indent\"name\": \"${decl.name}\",\n""")
+    res.append(formatLocation(decl.location, false))
+    indentBack()
+    res.append(s"""$indent}\n""")
   }
 }
 
