@@ -31,8 +31,6 @@ trait ReportFormatter {
   def reportCallsWithImplicits(report: CallsWithImplicitsReport): String
 }
 
-
-
 class HumanReadableFormatter() extends ReportFormatter {
   override def startReport(): String = "Analysis report--------------------\n"
   override def endReport(): String = "------------------------------------\n"
@@ -212,7 +210,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
   def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term.Apply, Synthetic]) = {
     var explicitSymbols : List[Tree] = List[Tree]()
     var callsWithImplicitParameters : Map[Term.Apply, Synthetic] = Map[Term.Apply, Synthetic]()
-    UnboundedProgressDisplay.setup("Parsing Syntax Tree", 10)
+    UnboundedProgressDisplay.setup("Parsing Syntax Tree Nodes")
     for {node <- ctx.tree} {
       node match {
         case node: Defn.Object => {
@@ -316,21 +314,21 @@ object ProgressBar {
 
 object UnboundedProgressDisplay {
   var updateCounter = 0
-  var updateInterval = 0
-  var symbol = ""
+  var numberLength = 0
 
-  def setup(prompt: String, interval: Int, progressSymbol: String = ".") = {
+  def setup(prompt: String) = {
     print(s"${prompt}: ")
-    updateInterval = interval
-    symbol = progressSymbol
+    numberLength = 0
+    updateCounter = 0
   }
 
   def step() = {
+    Thread.sleep(500)
     updateCounter += 1
-    if (updateCounter == updateInterval) {
-      print(symbol)
-      updateCounter = 0
-    }
+    val newNumber = updateCounter.toString
+    (1 to numberLength) foreach { _ => print("\b")}
+    print(newNumber)
+    numberLength = newNumber.length
   }
 
   def close() = {
