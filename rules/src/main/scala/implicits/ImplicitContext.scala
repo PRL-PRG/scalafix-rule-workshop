@@ -194,7 +194,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
   def collectSyntheticImplicits(ctx: RuleCtx) = {
     var syntheticImplicits: List[(Int, Synthetic)] = List[(Int, Synthetic)]()
-    ProgressBar.setup("Collecting Synthetic Implicits", ctx.index.database.synthetics.size)
+    UnboundedProgressDisplay.setup("Collecting Synthetic Implicits")
     for {synth <- ctx.index.database.synthetics} {
       for {name <- synth.names} {
         name.symbol.denotation match {
@@ -204,8 +204,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
           case None => {}
         }
       }
-      ProgressBar.step()
+      UnboundedProgressDisplay.step()
     }
+    UnboundedProgressDisplay.close()
     syntheticImplicits
   }
 
@@ -252,7 +253,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
     var calls = List[CallWithImplicits]()
 
-    ProgressBar.setup("Analyzing Calls With Implicits", callsWithImplicitParameters.size)
+    UnboundedProgressDisplay.setup("Analyzing Calls With Implicits")
     for {call <- callsWithImplicitParameters} {
       val function = call._1
       val functionName = function.syntax
@@ -266,8 +267,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
         parameterList = parameterList ++ List(ImplicitParameter(paramName.toString, paramDeclaration))
       }
       calls = calls ++ List(CallWithImplicits(calledFunction, None, parameterList))
-      ProgressBar.step()
+      UnboundedProgressDisplay.step()
     }
+    UnboundedProgressDisplay.close()
     CallsWithImplicitsReport(calls)
   }
 
@@ -286,33 +288,6 @@ final case class ImplicitContext(index: SemanticdbIndex)
 // ---------------------------------------
 // Utilities
 // ---------------------------------------
-
-object ProgressBar {
-  var total = 0
-  val barLength = 31
-  var currentValue = 0
-
-  def setup(prompt: String, totalValue: Int) = {
-    print(s"${prompt}: [${" " * barLength}]")
-    total = totalValue
-    currentValue = 0
-    (0 to barLength).foreach(_ => print("\b"))
-  }
-
-  def step() = {
-    currentValue += 1
-    val accomplished = currentValue.toFloat / total.toFloat
-    val dots = Math.min(Math.floor(accomplished * barLength).toInt, barLength)
-    (1 to dots) foreach {_ => print("=")}
-    (1 to (barLength - dots)).foreach(_ => print(" "))
-    print("] " + s"${Math.round(accomplished * 100)}%")
-    if (currentValue == total) {
-      println(" Done!")
-    } else {
-      (1 to barLength + 5).foreach(_ => print("\b"))
-    }
-  }
-}
 
 object UnboundedProgressDisplay {
   var updateCounter = 0
