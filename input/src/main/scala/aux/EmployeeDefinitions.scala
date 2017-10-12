@@ -1,5 +1,5 @@
 /*
-rule = ""
+rule = "class:implicits.ImplicitContext"
 */
 package aux
 

@@ -17,7 +17,7 @@ case class CalledFunction(name: String, location: Location, declaration: Option[
 case class FunctionDeclaration(name: String, location: Location)
 case class ImplicitParameter(name: String, declaration: Option[ImplicitParameterDeclaration])
 case class ImplicitParameterDeclaration(name: String, location: Location)
-case class Location(line: Int, col: Int, sourceFile: String)
+case class Location(line: Int, col: Int, sourceFile: String, imported: Boolean)
 
 // ---------------------------------------
 // Report Formatters
@@ -55,10 +55,10 @@ class JSONFormatter() extends ReportFormatter {
   override def startReport(): String = {
     indentation = 0
     """JSON Report ==================
-      |{
+      |"calls": [
   |""".stripMargin
   }
-  override def endReport(): String = "}\n============================"
+  override def endReport(): String = "]\n============================"
   override def formatLocation(location: Location): String = {
     formatLocation(location, false)
   }
@@ -91,7 +91,8 @@ class JSONFormatter() extends ReportFormatter {
     indentForward()
     res += s"""$indent\"line\": ${location.line},\n"""
     res += s"""$indent\"col\": ${location.col},\n"""
-    res += s"""$indent\"sourceFile\": \"${location.sourceFile}\"\n"""
+    res += s"""$indent\"sourceFile\": \"${location.sourceFile}\",\n"""
+    res += s"""$indent\"imported\": \"${location.imported}\"\n"""
     indentBack()
     res += s"""$indent}${if (commaAtTheEnd) {","} else {""}}\n"""
     res
@@ -147,20 +148,24 @@ class JSONFormatter() extends ReportFormatter {
 
 object Locations {
   def getLocation(tree: Tree): Location = {
-    Location(tree.pos.startLine, tree.pos.startColumn, getFileName(tree.input))
+    Location(tree.pos.startLine, tree.pos.startColumn, getFileName(tree.input), false)
   }
 
   def getLocation(denot: ResolvedName): Location = {
-    Location(denot.position.startLine, denot.position.startColumn, getFileName(denot.position.input))
+    Location(denot.position.startLine, denot.position.startColumn, getFileName(denot.position.input), false)
   }
 
   def getFileName(in: Input): String = {
     in match {
       case virtualFile: Input.VirtualFile => virtualFile.path
       case regularFile: Input.File => regularFile.path.toString()
-      case synthetic: Input.Synthetic => "_Synthetic_"
+      case synthetic: Input.Synthetic => s"(_Synthetic_)${getFileName(synthetic.input)}"
       case _ => s"Input type Unknown.\n Here is the full Input: \n $in"
     }
+  }
+
+  def getFunctionName(syntax: String) : String = {
+    syntax.replaceAll("\\s+","").replaceAll("\"", "'").replaceAll("\\(.*?\\)", "()")
   }
 }
 
@@ -256,7 +261,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
     UnboundedProgressDisplay.setup("Analyzing Calls With Implicits")
     for {call <- callsWithImplicitParameters} {
       val function = call._1
-      val functionName = function.syntax.replaceAll("\\s+","").replaceAll("\"", "'").replaceAll("\\(.*\\)", "")
+      val functionName = Locations.getFunctionName(function.syntax)
       val functionLocation = Locations.getLocation(function)
       val calledFunction = CalledFunction(functionName, functionLocation, None)
 

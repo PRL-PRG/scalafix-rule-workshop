@@ -7,8 +7,10 @@ object ImplicitContext_Test {
     // Define a single context
     implicit val barbara = Boss("Barbara")
     // Usage
-    def getEmployee(id: Int)(implicit e: Employee, b: Boss) : String = {s"${id}: ${e.name}, ${b.name}"}
+    class EmployeeGetter {
+        def getEmployee(id: Int)(implicit e: Employee, b: Boss) : String = {s"${id}: ${e.name}, ${b.name}"}
+    }
+    def employeeGetter()(implicit e: Employee, b: Boss) : EmployeeGetter = new EmployeeGetter()
 
-    getEmployee(12)
-    getEmployee(13)
+    employeeGetter().getEmployee(12)
 }
