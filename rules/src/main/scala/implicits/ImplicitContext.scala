@@ -13,7 +13,7 @@ import scalafix.{LintMessage, Patch, SemanticRule, SemanticdbIndex}
 
 case class CallsWithImplicitsReport(items: List[CallWithImplicits])
 case class CallWithImplicits(function: CalledFunction, declaration: Option[FunctionDeclaration], parameters: List[ImplicitParameter])
-case class CalledFunction(name: String, location: Location)
+case class CalledFunction(name: String, location: Location, declaration: Option[FunctionDeclaration])
 case class FunctionDeclaration(name: String, location: Location)
 case class ImplicitParameter(name: String, declaration: Option[ImplicitParameterDeclaration])
 case class ImplicitParameterDeclaration(name: String, location: Location)
@@ -71,7 +71,6 @@ class JSONFormatter() extends ReportFormatter {
       res.append(s"""$indent\"call_with_implicit_params\": {\n""")
       indentForward()
       formatCalledFunction(res, call.function)
-      res.append(s"""$indent\"declaration\": \"None yet\",\n""")
       formatImplicitParameters(res, call.parameters)
       indentBack()
       callNum += 1
@@ -101,6 +100,7 @@ class JSONFormatter() extends ReportFormatter {
     res.append(s"""$indent\"function\": {\n""")
     indentForward()
     res.append(s"""$indent\"name\": \"${function.name}\",\n""")
+    res.append(s"""$indent\"declaration\": \"None yet\",\n""")
     res.append(formatLocation(function.location, false))
     indentBack()
     res.append(s"""$indent},\n""")
@@ -256,9 +256,9 @@ final case class ImplicitContext(index: SemanticdbIndex)
     UnboundedProgressDisplay.setup("Analyzing Calls With Implicits")
     for {call <- callsWithImplicitParameters} {
       val function = call._1
-      val functionName = function.syntax.replaceAll("\\s+","")
+      val functionName = function.syntax.replaceAll("\\s+","").replaceAll("\"", "'")
       val functionLocation = Locations.getLocation(function)
-      val calledFunction = CalledFunction(functionName, functionLocation)
+      val calledFunction = CalledFunction(functionName, functionLocation, None)
 
       var parameterList = List[ImplicitParameter]()
       for {param <- call._2.names} {
