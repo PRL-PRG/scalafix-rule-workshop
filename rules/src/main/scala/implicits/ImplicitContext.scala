@@ -263,8 +263,10 @@ final case class ImplicitContext(index: SemanticdbIndex)
       var parameterList = List[ImplicitParameter]()
       for {param <- call._2.names} {
         val paramName = param.symbol
-        val paramDeclaration = getDeclaration(param)
-        parameterList = parameterList ++ List(ImplicitParameter(paramName.toString, paramDeclaration))
+        if (paramName.syntax != "_star_.") {
+          val paramDeclaration = getDeclaration(param)
+          parameterList = parameterList ++ List(ImplicitParameter(paramName.toString, paramDeclaration))
+        }
       }
       calls = calls ++ List(CallWithImplicits(calledFunction, None, parameterList))
       UnboundedProgressDisplay.step()
