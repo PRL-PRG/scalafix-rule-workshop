@@ -20,16 +20,22 @@ case class ImplicitParameterDeclaration(name: String, location: Location)
 case class Location(line: Int, col: Int, sourceFile: String, imported: Boolean)
 
 class CallChains {
-  var chains = List[List[Term]]()
-  var curChain = List[Term]()
-  def startChain() = {
-    if (curChain.nonEmpty && curChain.size > 1) {
-      chains = chains ++ List(curChain)
+  var chains = collection.mutable.Map[Term, List[Term]]()
+  var curTerm: Term = Term.fresh()
+  var inAChain: Boolean = false
+  def openIfNecessary(first: Term) = {
+    if (!inAChain) {
+      curTerm = first
+      chains = chains ++ Map(first -> List[Term]())
+      inAChain = true
     }
-    curChain = List[Term]()
+  }
+
+  def close(): Unit = {
+    inAChain = false
   }
   def insert(term: Term) = {
-    curChain = curChain ++ List(term)
+    chains(curTerm) = chains(curTerm) ++ List(term)
   }
   override def toString = s"CallChains($chains)"
 }
@@ -237,7 +243,6 @@ final case class ImplicitContext(index: SemanticdbIndex)
     var callsWithImplicitParameters : Map[Term, Synthetic] = Map[Term, Synthetic]()
 
     var callChains = new CallChains()
-    callChains.startChain()
 
     UnboundedProgressDisplay.setup("Parsing Syntax Tree Nodes")
      for {node <- ctx.tree} {
@@ -263,15 +268,17 @@ final case class ImplicitContext(index: SemanticdbIndex)
           node.fun match {
             case fun: Term.Select => {
               insertable = fun.name
+              callChains.openIfNecessary(node)
               callChains.insert(insertable)
             }
             case fun: Term.Name => {
               insertable = fun
               // Goes into all the selects first, then to the names
               callChains.insert(insertable)
-              callChains.startChain()
+              callChains.close()
             }
             case fun: Term.Apply => {
+              callChains.openIfNecessary(node)
               callChains.insert(fun)
             }
             case _ => {
