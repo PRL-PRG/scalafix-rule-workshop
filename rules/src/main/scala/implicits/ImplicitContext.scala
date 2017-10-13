@@ -1,5 +1,6 @@
 package implicits
 
+import scala.collection.mutable
 import scala.meta._
 import scala.meta.contrib._
 import scalafix.lint.{LintCategory, LintSeverity}
@@ -19,7 +20,7 @@ case class ImplicitParameter(name: String, declaration: Option[ImplicitParameter
 case class ImplicitParameterDeclaration(name: String, location: Location)
 case class Location(line: Int, col: Int, sourceFile: String, imported: Boolean)
 
-class CallChains {
+class RawCallChains {
   var chains = collection.mutable.Map[Term, List[Term]]()
   var curTerm: Term = Term.fresh()
   var inAChain: Boolean = false
@@ -39,6 +40,29 @@ class CallChains {
   }
   override def toString = s"CallChains($chains)"
 }
+case class CallChainGraph()
+case class CallChain(calls: List[String])
+case class CallChainNode(param: String, calls: List[CallChain])
+class CallChainRepository() {
+  var data = mutable.Map[String, mutable.MutableList[(mutable.MutableList[String], String)]]()
+  private var currentChains = mutable.Map[String, Int]()
+  def insertIntoLatestChainFor(implObject: String, call: String): Unit = {
+    data(implObject)(currentChains(implObject))._1 += call
+  }
+  def openNewChainFor(implObject: String, file: String): Unit = {
+    currentChains(implObject) += 1
+    data(implObject).+=((mutable.MutableList[String](), file))
+  }
+  def insertNewImplicitObjectMaybe(implObject: String): Unit = {
+    if (!currentChains.contains(implObject)) {
+      currentChains(implObject) = -1
+      data(implObject) = mutable.MutableList[(mutable.MutableList[String], String)]()
+    }
+  }
+
+  override def toString = s"CallChainRepository($data)"
+}
+
 
 
 // ---------------------------------------
@@ -51,6 +75,7 @@ trait ReportFormatter {
   def formatLocation(location: Location): String
 
   def reportCallsWithImplicits(report: CallsWithImplicitsReport): String
+  def reportCallChains(chainRepo: CallChainRepository): String
 }
 
 class HumanReadableFormatter() extends ReportFormatter {
@@ -71,22 +96,39 @@ class HumanReadableFormatter() extends ReportFormatter {
     }
     res
   }
+
+  override def reportCallChains(chainRepo: CallChainRepository) = {
+    var res = ""
+    for {synthetic <- chainRepo.data} {
+      res += s"Call chains where ${synthetic._1} is passed as a parameter:\n"
+      var chainNum = 0
+      for {chain <- synthetic._2} {
+        res += s"  [${chainNum}]: "
+        for {func <- chain._1} {
+          res += s"${func}."
+        }
+        res += s"@${chain._2}\n"
+        chainNum += 1
+      }
+    }
+    res
+  }
 }
 
 class JSONFormatter() extends ReportFormatter {
   override def startReport(): String = {
     indentation = 0
     """JSON Report ==================
-      |"calls": [
   |""".stripMargin
   }
-  override def endReport(): String = "]\n============================"
+  override def endReport(): String = "============================"
   override def formatLocation(location: Location): String = {
     formatLocation(location, false)
   }
 
   override def reportCallsWithImplicits(report: CallsWithImplicitsReport): String = {
     var res = StringBuilder.newBuilder
+    res.append(s"""$indent\"calls\": [\n""")
     indentForward()
     var callNum = 0
     for {call <- report.items} {
@@ -99,6 +141,7 @@ class JSONFormatter() extends ReportFormatter {
       res.append(s"$indent}${if (callNum != report.items.size) {","} else {""}}\n")
     }
     indentBack()
+    res.append(s"$indent]\n")
     res.toString
   }
 
@@ -166,6 +209,41 @@ class JSONFormatter() extends ReportFormatter {
     indentBack()
     res.append(s"""$indent}\n""")
   }
+
+  override def reportCallChains(chainRepo: CallChainRepository) = {
+    var res = StringBuilder.newBuilder
+    res.append(s"""$indent\"call_chains\": [\n""")
+    var synthNum = 0
+    indentForward()
+    var callNum = 0
+    for {synthetic <- chainRepo.data} {
+      res.append(s"""$indent\"call_chain\": {\n""")
+      indentForward()
+      res.append(s"""$indent\"synthetic_object\": \"${synthetic._1}\",\n""")
+      res.append(s"""$indent\"calls: \"[\n""")
+      indentForward()
+      var chainNum = 0
+      for {chain <- synthetic._2} {
+
+        var chainString = ""
+        for {func <- chain._1} {
+          chainString += s"${func}."
+        }
+        chainString += s"@${chain._2}"
+        res.append(s"""$indent\"chain\": \"${chainString}\"${if (chainNum != synthetic._2.size) {","} else {""}}\n""")
+        chainNum += 1
+      }
+      indentBack()
+      res.append(s"$indent]\n")
+
+      indentBack()
+      synthNum += 1
+      res.append(s"$indent}${if (synthNum != chainRepo.data.size) {","} else {""}}\n")
+    }
+    indentBack()
+    res.append(s"$indent]\n")
+    res.toString
+  }
 }
 
 object Locations {
@@ -207,11 +285,15 @@ final case class ImplicitContext(index: SemanticdbIndex)
       //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
       println(s"Call chains: ${callChains}")
 
-      val formatter: ReportFormatter = new JSONFormatter()
+      val chainRepo = reportCallChains(callsWithImplicitParameters, callChains)
+
+
+      val formatter: ReportFormatter = new HumanReadableFormatter()
       var report = ""
 
       report += formatter.startReport()
       report += formatter.reportCallsWithImplicits(reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters))
+      report += formatter.reportCallChains(chainRepo)
       report += formatter.endReport()
 
       println(report)
@@ -238,11 +320,11 @@ final case class ImplicitContext(index: SemanticdbIndex)
     syntheticImplicits
   }
 
-  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term, Synthetic], CallChains) = {
+  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term, Synthetic], RawCallChains) = {
     var explicitSymbols : List[Tree] = List[Tree]()
     var callsWithImplicitParameters : Map[Term, Synthetic] = Map[Term, Synthetic]()
 
-    var callChains = new CallChains()
+    var callChains = new RawCallChains()
 
     UnboundedProgressDisplay.setup("Parsing Syntax Tree Nodes")
      for {node <- ctx.tree} {
@@ -336,6 +418,24 @@ final case class ImplicitContext(index: SemanticdbIndex)
   def readDenotation(denot: Denotation) : String = {
     denot.name
   }
+
+  def reportCallChains(callsWithImplicitParameters: Map[Term, Synthetic], chains: RawCallChains) : CallChainRepository = {
+    val repo = new CallChainRepository()
+    for {chain <- chains.chains} {
+      val firstCall = chain._2.head
+      val firstCallSynthetic = callsWithImplicitParameters(chain._2.head)
+      for {implObj <- firstCallSynthetic.names} {
+        repo.insertNewImplicitObjectMaybe(implObj.symbol.syntax)
+        repo.openNewChainFor(implObj.symbol.syntax, Locations.getFileName(firstCall.input))
+      }
+      for {call <- chain._2} {
+        for {implParam <- callsWithImplicitParameters(call).names} {
+          repo.insertIntoLatestChainFor(implParam.symbol.toString, s"${call.syntax}()")
+        }
+      }
+    }
+    repo
+   }
 }
 
 // ---------------------------------------
