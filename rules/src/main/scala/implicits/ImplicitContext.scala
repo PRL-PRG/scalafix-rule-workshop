@@ -19,6 +19,22 @@ case class ImplicitParameter(name: String, declaration: Option[ImplicitParameter
 case class ImplicitParameterDeclaration(name: String, location: Location)
 case class Location(line: Int, col: Int, sourceFile: String, imported: Boolean)
 
+class CallChains {
+  var chains = List[List[Term]]()
+  var curChain = List[Term]()
+  def startChain() = {
+    if (curChain.nonEmpty && curChain.size > 1) {
+      chains = chains ++ List(curChain)
+    }
+    curChain = List[Term]()
+  }
+  def insert(term: Term) = {
+    curChain = curChain ++ List(term)
+  }
+  override def toString = s"CallChains($chains)"
+}
+
+
 // ---------------------------------------
 // Report Formatters
 // ---------------------------------------
@@ -180,9 +196,10 @@ final case class ImplicitContext(index: SemanticdbIndex)
     Timer.time {
       val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
       //println(s"Synthetic Implicits: ${syntheticImplicits}")
-      val (treeImplicits, callsWithImplicitParameters) = processExplicitTree(ctx, syntheticImplicits)
+      val (treeImplicits, callsWithImplicitParameters, callChains) = processExplicitTree(ctx, syntheticImplicits)
       //println(s"Explicit Symbols: ${treeImplicits}")
       //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
+      println(s"Call chains: ${callChains}")
 
       val formatter: ReportFormatter = new JSONFormatter()
       var report = ""
@@ -215,11 +232,15 @@ final case class ImplicitContext(index: SemanticdbIndex)
     syntheticImplicits
   }
 
-  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term.Apply, Synthetic]) = {
+  def processExplicitTree(ctx: RuleCtx, syntheticImplicits:  List[(Int, Synthetic)]) : (List[Tree], Map[Term, Synthetic], CallChains) = {
     var explicitSymbols : List[Tree] = List[Tree]()
-    var callsWithImplicitParameters : Map[Term.Apply, Synthetic] = Map[Term.Apply, Synthetic]()
+    var callsWithImplicitParameters : Map[Term, Synthetic] = Map[Term, Synthetic]()
+
+    var callChains = new CallChains()
+    callChains.startChain()
+
     UnboundedProgressDisplay.setup("Parsing Syntax Tree Nodes")
-    for {node <- ctx.tree} {
+     for {node <- ctx.tree} {
       node match {
         case node: Defn.Object => {
           if (node.hasMod(mod"implicit")) {
@@ -238,9 +259,27 @@ final case class ImplicitContext(index: SemanticdbIndex)
         }
         case node: Term.Apply => {
           val end = node.pos.end
+          var insertable: Term = node
+          node.fun match {
+            case fun: Term.Select => {
+              insertable = fun.name
+              callChains.insert(insertable)
+            }
+            case fun: Term.Name => {
+              insertable = fun
+              // Goes into all the selects first, then to the names
+              callChains.insert(insertable)
+              callChains.startChain()
+            }
+            case fun: Term.Apply => {
+              callChains.insert(fun)
+            }
+            case _ => {
+            }
+          }
           syntheticImplicits.find { _._1 ==  end} match {
             case Some(synthetic) => {
-              callsWithImplicitParameters = callsWithImplicitParameters ++ Map(node -> synthetic._2)
+              callsWithImplicitParameters = callsWithImplicitParameters ++ Map(insertable -> synthetic._2)
             }
             case None => None
           }
@@ -250,10 +289,10 @@ final case class ImplicitContext(index: SemanticdbIndex)
       UnboundedProgressDisplay.step()
     }
     UnboundedProgressDisplay.close()
-    (explicitSymbols, callsWithImplicitParameters)
+    (explicitSymbols, callsWithImplicitParameters, callChains)
   }
 
-  def reportCalls(treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term.Apply, Synthetic]) : CallsWithImplicitsReport = {
+  def reportCalls(treeImplicits: List[Tree], syntheticImplicits: List[(Int, Synthetic)], callsWithImplicitParameters: Map[Term, Synthetic]) : CallsWithImplicitsReport = {
     var report = ""
 
     var calls = List[CallWithImplicits]()
