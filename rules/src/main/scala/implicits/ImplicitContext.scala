@@ -127,20 +127,20 @@ class JSONFormatter() extends ReportFormatter {
 
   override def reportCallsWithImplicits(report: CallsWithImplicitsReport): String = {
     var res = StringBuilder.newBuilder
-    res.append(s"""$indent\"calls\": [\n""")
+    res.append(s"""{$indent\"calls\": [\n""")
     indentForward()
     var callNum = 0
     for {call <- report.items} {
-      res.append(s"""$indent\"call_with_implicit_params\": {\n""")
+      res.append(s"""$indent{\"call_with_implicit_params\": {\n""")
       indentForward()
       formatCalledFunction(res, call.function)
       formatImplicitParameters(res, call.parameters)
       indentBack()
       callNum += 1
-      res.append(s"$indent}${if (callNum != report.items.size) {","} else {""}}\n")
+      res.append(s"$indent}}${if (callNum != report.items.size) {","} else {""}}\n")
     }
     indentBack()
-    res.append(s"$indent]\n")
+    res.append(s"$indent]}\n")
     res.toString
   }
 
