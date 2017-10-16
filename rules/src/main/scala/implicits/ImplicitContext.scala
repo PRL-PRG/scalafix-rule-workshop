@@ -17,8 +17,9 @@ case class CallWithImplicits(function: CalledFunction, declaration: Option[Funct
 case class CalledFunction(name: String, location: Location, declaration: Option[FunctionDeclaration])
 case class FunctionDeclaration(name: String, location: Location)
 case class ImplicitParameter(name: String, declaration: Option[ImplicitParameterDeclaration])
-case class ImplicitParameterDeclaration(name: String, location: Location)
+case class ImplicitParameterDeclaration(name: String, location: Location, t: String)
 case class Location(line: Int, col: Int, sourceFile: String, imported: Boolean)
+case class SyntheticParameter(name: String, t: String)
 
 class RawCallChains {
   var chains = collection.mutable.Map[Term, List[Term]]()
@@ -31,7 +32,6 @@ class RawCallChains {
       inAChain = true
     }
   }
-
   def close(): Unit = {
     inAChain = false
   }
@@ -44,22 +44,21 @@ case class CallChainGraph()
 case class CallChain(calls: List[String])
 case class CallChainNode(param: String, calls: List[CallChain])
 class CallChainRepository() {
-  var data = mutable.Map[String, mutable.MutableList[(mutable.MutableList[String], String)]]()
+  var data = mutable.Map[SyntheticParameter, mutable.MutableList[(mutable.MutableList[String], String)]]()
   private var currentChains = mutable.Map[String, Int]()
   def insertIntoLatestChainFor(implObject: String, call: String): Unit = {
-    data(implObject)(currentChains(implObject))._1 += call
+    data.find(_._1.name == implObject).get._2(currentChains(implObject))._1 += call
   }
   def openNewChainFor(implObject: String, file: String): Unit = {
     currentChains(implObject) += 1
-    data(implObject).+=((mutable.MutableList[String](), file))
+    data.find(_._1.name == implObject).get._2.+=((mutable.MutableList[String](), file))
   }
-  def insertNewImplicitObjectMaybe(implObject: String): Unit = {
+  def insertNewImplicitObjectMaybe(implObject: String, t: String): Unit = {
     if (!currentChains.contains(implObject)) {
       currentChains(implObject) = -1
-      data(implObject) = mutable.MutableList[(mutable.MutableList[String], String)]()
+      data(SyntheticParameter(implObject, t)) = mutable.MutableList[(mutable.MutableList[String], String)]()
     }
   }
-
   override def toString = s"CallChainRepository($data)"
 }
 
@@ -91,7 +90,7 @@ class HumanReadableFormatter() extends ReportFormatter {
                 |  Declaration:
                 |  Implicit Parameters:\n""".stripMargin
       for {param <- call.parameters} {
-        res += s"    ${param.name}${param.declaration match {case Some(decl) => s", declared in ${formatLocation(decl.location)}:${decl.name}" case None => ""}}\n"
+        res += s"    ${param.name}${param.declaration match {case Some(decl) => s", declared in ${formatLocation(decl.location)}:${decl.name}\n      of type: ${decl.t}" case None => ""}}\n"
       }
     }
     res
@@ -100,7 +99,7 @@ class HumanReadableFormatter() extends ReportFormatter {
   override def reportCallChains(chainRepo: CallChainRepository) = {
     var res = ""
     for {synthetic <- chainRepo.data} {
-      res += s"Call chains where ${synthetic._1} is passed as a parameter:\n"
+      res += s"Call chains where ${synthetic._1.name} (of type ${synthetic._1.t}) is passed as a parameter:\n"
       var chainNum = 0
       for {chain <- synthetic._2} {
         res += s"  [${chainNum}]: "
@@ -205,6 +204,7 @@ class JSONFormatter() extends ReportFormatter {
     res.append(s"""$indent\"declaration\": {\n""")
     indentForward()
     res.append(s"""$indent\"name\": \"${decl.name}\",\n""")
+    res.append(s"""$indent\"type\": \"${decl.t}\",\n""")
     res.append(formatLocation(decl.location, false))
     indentBack()
     res.append(s"""$indent}\n""")
@@ -219,7 +219,8 @@ class JSONFormatter() extends ReportFormatter {
     for {synthetic <- chainRepo.data} {
       res.append(s"""$indent\"call_chain\": {\n""")
       indentForward()
-      res.append(s"""$indent\"synthetic_object\": \"${synthetic._1}\",\n""")
+      res.append(s"""$indent\"synthetic_object\": \"${synthetic._1.name}\",\n""")
+      res.append(s"""$indent\"type\": \"${synthetic._1.t}\",\n""")
       res.append(s"""$indent\"calls: \"[\n""")
       indentForward()
       var chainNum = 0
@@ -288,7 +289,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
       val chainRepo = reportCallChains(callsWithImplicitParameters, callChains)
 
 
-      val formatter: ReportFormatter = new HumanReadableFormatter()
+      val formatter: ReportFormatter = new JSONFormatter()
       var report = ""
 
       report += formatter.startReport()
@@ -356,8 +357,10 @@ final case class ImplicitContext(index: SemanticdbIndex)
             case fun: Term.Name => {
               insertable = fun
               // Goes into all the selects first, then to the names
-              callChains.insert(insertable)
-              callChains.close()
+              if (callChains.inAChain) {
+                callChains.insert(insertable)
+                callChains.close()
+              }
             }
             case fun: Term.Apply => {
               callChains.openIfNecessary(node)
@@ -410,7 +413,7 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
   def getDeclaration(param: ResolvedName) : Option[ImplicitParameterDeclaration] = {
     param.symbol.denotation match {
-      case Some(denot) => Some(ImplicitParameterDeclaration(readDenotation(denot), Locations.getLocation(param)))
+      case Some(denot) => Some(ImplicitParameterDeclaration(readDenotation(denot), Locations.getLocation(param), getType(denot)))
       case None => None
     }
   }
@@ -419,13 +422,23 @@ final case class ImplicitContext(index: SemanticdbIndex)
     denot.name
   }
 
+  def getType(denot: Denotation): String = {
+    denot.signature
+  }
+
   def reportCallChains(callsWithImplicitParameters: Map[Term, Synthetic], chains: RawCallChains) : CallChainRepository = {
     val repo = new CallChainRepository()
     for {chain <- chains.chains} {
       val firstCall = chain._2.head
       val firstCallSynthetic = callsWithImplicitParameters(chain._2.head)
       for {implObj <- firstCallSynthetic.names} {
-        repo.insertNewImplicitObjectMaybe(implObj.symbol.syntax)
+        val implObjName = implObj.symbol.syntax
+        var implObjType: String = "N/A"
+        implObj.symbol.denotation match {
+          case Some(denot) => implObjType = denot.signature
+          case None => implObjType = "N/A"
+        }
+        repo.insertNewImplicitObjectMaybe(implObjName, implObjType)
         repo.openNewChainFor(implObj.symbol.syntax, Locations.getFileName(firstCall.input))
       }
       for {call <- chain._2} {
