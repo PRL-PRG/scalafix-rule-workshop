@@ -429,21 +429,24 @@ final case class ImplicitContext(index: SemanticdbIndex)
   def reportCallChains(callsWithImplicitParameters: Map[Term, Synthetic], chains: RawCallChains) : CallChainRepository = {
     val repo = new CallChainRepository()
     for {chain <- chains.chains} {
-      val firstCall = chain._2.head
-      val firstCallSynthetic = callsWithImplicitParameters(chain._2.head)
-      for {implObj <- firstCallSynthetic.names} {
-        val implObjName = implObj.symbol.syntax
-        var implObjType: String = "N/A"
-        implObj.symbol.denotation match {
-          case Some(denot) => implObjType = denot.signature
-          case None => implObjType = "N/A"
+      if (callsWithImplicitParameters.contains(chain._2.head)) {
+        val firstCall = chain._2.head
+        val firstCallSynthetic = callsWithImplicitParameters(chain._2.head)
+        for {implObj <- firstCallSynthetic.names} {
+          val implObjName = implObj.symbol.syntax
+          var implObjType: String = "N/A"
+          implObj.symbol.denotation match {
+            case Some(denot) => implObjType = denot.signature
+            case None => implObjType = "N/A"
+          }
+          repo.insertNewImplicitObjectMaybe(implObjName, implObjType)
+          repo.openNewChainFor(implObj.symbol.syntax, Locations.getFileName(firstCall.input))
         }
-        repo.insertNewImplicitObjectMaybe(implObjName, implObjType)
-        repo.openNewChainFor(implObj.symbol.syntax, Locations.getFileName(firstCall.input))
-      }
-      for {call <- chain._2} {
-        for {implParam <- callsWithImplicitParameters(call).names} {
-          repo.insertIntoLatestChainFor(implParam.symbol.toString, s"${call.syntax}()")
+
+        for {call <- chain._2} {
+          for {implParam <- callsWithImplicitParameters(call).names} {
+            repo.insertIntoLatestChainFor(implParam.symbol.toString, s"${call.syntax}()")
+          }
         }
       }
     }
