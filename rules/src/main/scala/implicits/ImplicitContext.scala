@@ -279,27 +279,25 @@ final case class ImplicitContext(index: SemanticdbIndex)
 
   override def fix(ctx: RuleCtx): Patch = {
     println(s"Processing file: ${Locations.getFileName(ctx.input)}")
-    Timer.time {
-      val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
-      //println(s"Synthetic Implicits: ${syntheticImplicits}")
-      val (treeImplicits, callsWithImplicitParameters, callChains) = processExplicitTree(ctx, syntheticImplicits)
-      //println(s"Explicit Symbols: ${treeImplicits}")
-      //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
-      //println(s"Call chains: ${callChains}")
+    val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
+    //println(s"Synthetic Implicits: ${syntheticImplicits}")
+    val (treeImplicits, callsWithImplicitParameters, callChains) = processExplicitTree(ctx, syntheticImplicits)
+    //println(s"Explicit Symbols: ${treeImplicits}")
+    //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
+    //println(s"Call chains: ${callChains}")
 
-      val chainRepo = reportCallChains(callsWithImplicitParameters, callChains)
+    val chainRepo = reportCallChains(callsWithImplicitParameters, callChains)
 
 
-      val formatter: ReportFormatter = new JSONFormatter()
-      var report = ""
+    val formatter: ReportFormatter = new JSONFormatter()
+    var report = ""
 
-      report += formatter.startReport()
-      report += formatter.reportCallsWithImplicits(reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters))
-      report += formatter.reportCallChains(chainRepo)
-      report += formatter.endReport()
+    report += formatter.startReport()
+    report += formatter.reportCallsWithImplicits(reportCalls(treeImplicits, syntheticImplicits, callsWithImplicitParameters))
+    report += formatter.reportCallChains(chainRepo)
+    report += formatter.endReport()
 
-      println(report)
-    }
+    println(report)
 
     Patch.empty
   }
