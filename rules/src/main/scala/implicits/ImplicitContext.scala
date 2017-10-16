@@ -278,13 +278,14 @@ final case class ImplicitContext(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext")  {
 
   override def fix(ctx: RuleCtx): Patch = {
+    println(s"Processing file: ${Locations.getFileName(ctx.input)}")
     Timer.time {
       val syntheticImplicits: List[(Int, Synthetic)] = collectSyntheticImplicits(ctx)
       //println(s"Synthetic Implicits: ${syntheticImplicits}")
       val (treeImplicits, callsWithImplicitParameters, callChains) = processExplicitTree(ctx, syntheticImplicits)
       //println(s"Explicit Symbols: ${treeImplicits}")
       //println(s"Calls With Implicit Parameters: ${callsWithImplicitParameters}")
-      println(s"Call chains: ${callChains}")
+      //println(s"Call chains: ${callChains}")
 
       val chainRepo = reportCallChains(callsWithImplicitParameters, callChains)
 
