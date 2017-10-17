@@ -42,9 +42,10 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
   final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
     val id: String = symbol.syntax
     val clazz: String = denot.names.head.symbol.toString
+    val tipe: String = denot.signature
 
-    override val csvHeader: Seq[String] = Seq("id", "clazz")
-    override val csvValues: Seq[String] = Seq(id, clazz)
+    override val csvHeader: Seq[String] = Seq("id", "clazz", "type")
+    override val csvValues: Seq[String] = Seq(id, clazz, tipe)
   }
 
   final case class FunApply(app: Term.Apply) extends CSV.Serializable[FunApply] {
@@ -54,8 +55,9 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
       case Input.File(path, _) => path.toString
       case _ => ""
     }
-    val line: String = app.pos.startLine.toString
-    val col: String = app.pos.startColumn.toString
+    // Take end line and cols because function call chains have the same start
+    val line: String = app.pos.endLine.toString
+    val col: String = app.pos.endColumn.toString
     // TODO: resolve fqn
     val symbol: String = app.fun.symbol.map(_.toString).getOrElse("<unknown>")
     val code: String = app.toString
