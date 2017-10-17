@@ -39,8 +39,9 @@ object CSV {
 final case class ImplicitContextCSV(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext") {
 
-  final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
-    val id: String = symbol.syntax
+  final case class ImplicitParam(symbol: Symbol, denot: Denotation, line: Int, col: Int) extends CSV.Serializable[ImplicitParam] {
+    lazy val id: String = s"${symbol.syntax}:$line:$col"
+    // Take end line and cols because function call chains have the same start
     val clazz: String = denot.names.head.symbol.toString
     val typee: String = denot.signature
 
@@ -102,9 +103,11 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn <- ctx.index.synthetics
         name <- syn.names
         symbol = name.symbol
+        line = name.position.endLine
+        col = name.position.endColumn
         den <- symbol.denotation if den.isImplicit && den.names.nonEmpty
       } yield {
-        syn -> ImplicitParam(symbol, den)
+        syn -> ImplicitParam(symbol, den, line, col)
       }
 
     val paramsFuns =
