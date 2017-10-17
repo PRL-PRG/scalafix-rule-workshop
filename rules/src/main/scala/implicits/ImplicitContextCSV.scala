@@ -1,6 +1,6 @@
 package implicits
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Paths, StandardOpenOption}
 
 import scalafix.syntax._
 import scala.meta._
@@ -27,7 +27,11 @@ object CSV {
           .mkString("\n") +
           "\n"
 
-      Files.write(Paths.get(path), s"$header\n$values".getBytes)
+      if (Files.exists(Paths.get(path))) {
+        Files.write(Paths.get(path), s"$values".getBytes, StandardOpenOption.APPEND)
+      } else {
+        Files.write(Paths.get(path), s"$header\n$values".getBytes)
+      }
     }
   }
 }

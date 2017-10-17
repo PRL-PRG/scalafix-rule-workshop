@@ -1,5 +1,5 @@
 /*
-rule = "class:implicits.ImplicitContext"
+rule = "class:implicits.ImplicitContextCSV"
 */
 package implicits
 
