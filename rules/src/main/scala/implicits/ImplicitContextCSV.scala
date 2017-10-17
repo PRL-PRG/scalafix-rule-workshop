@@ -17,7 +17,7 @@ object CSV {
   def writeCSV[A](xs: Iterable[_ <: Serializable[A]], path: String): Unit = {
     def prepareValue(x: String) = {
       // FIXME: properly escape " in x
-      '"' + x.replaceAll("\n", "\\\\n") + '"'
+      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\\s+","").replaceAll("\"", "'") + '"'
     }
 
     if (xs.nonEmpty) {
@@ -58,22 +58,32 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     // Take end line and cols because function call chains have the same start
     val line: String = app.pos.endLine.toString
     val col: String = app.pos.endColumn.toString
-    val symbol: String = app.fun match {
-      case fun: Term.Name => {
-        s"${fun.symbol.getOrElse("name: <unknown symbol>")}"
-      }
-      case fun: Term.Select => {
-        s"${fun.name.symbol.getOrElse("select: <unknown symbol>")}"
-      }
-      case other => {
-        Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.syntax}") }
-        throw new RuntimeException()
-      }
-    }
+    val symbol: String = qualifiedName(app.fun)
     val code: String = app.toString
 
     override val csvHeader: Seq[String] = Seq("id", "symbol", "code")
     override val csvValues: Seq[String] = Seq(id, symbol, code)
+
+    def qualifiedName(symbol: Term): String = {
+      symbol match {
+        case fun: Term.Name => {
+          s"${fun.symbol.getOrElse(s"<name without symbol: $fun>")}"
+        }
+        case fun: Term.Select => {
+          s"${fun.name.symbol.getOrElse(qualifiedName(fun.name))}"
+        }
+        case fun: Term.ApplyType => {
+          qualifiedName(fun.fun)
+        }
+        case fun: Term.Apply => {
+          fun.symbol.getOrElse(qualifiedName(fun.fun)).toString
+        }
+        case other => {
+          Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.structure}") }
+          throw new RuntimeException()
+        }
+      }
+    }
   }
 
   final case class FunApplyWithImplicitParam(fun: FunApply, param: ImplicitParam)
