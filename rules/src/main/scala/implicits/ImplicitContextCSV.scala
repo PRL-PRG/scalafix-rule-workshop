@@ -58,7 +58,6 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     // Take end line and cols because function call chains have the same start
     val line: String = app.pos.endLine.toString
     val col: String = app.pos.endColumn.toString
-    // TODO: resolve fqn
     val symbol: String = app.fun match {
       case fun: Term.Name => {
         s"${fun.symbol.getOrElse("name: <unknown symbol>")}"
@@ -66,8 +65,9 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
       case fun: Term.Select => {
         s"${fun.name.symbol.getOrElse("select: <unknown symbol>")}"
       }
-      case _ => {
-        "<unknown>"
+      case other => {
+        Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.syntax}") }
+        throw new RuntimeException()
       }
     }
     val code: String = app.toString
