@@ -68,7 +68,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     def qualifiedName(symbol: Term): String = {
       symbol match {
         case fun: Term.Name => {
-          s"${fun.symbol.getOrElse(s"<name without symbol: $fun>")}"
+          s"${fun.symbol.getOrElse(s"<unknown fun: ${fun}>")}"
         }
         case fun: Term.Select => {
           s"${fun.name.symbol.getOrElse(qualifiedName(fun.name))}"
