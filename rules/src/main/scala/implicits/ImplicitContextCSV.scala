@@ -59,7 +59,17 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val line: String = app.pos.endLine.toString
     val col: String = app.pos.endColumn.toString
     // TODO: resolve fqn
-    val symbol: String = app.fun.symbol.map(_.toString).getOrElse("<unknown>")
+    val symbol: String = app.fun match {
+      case fun: Term.Name => {
+        s"${fun.symbol.getOrElse("name: <unknown symbol>")}"
+      }
+      case fun: Term.Select => {
+        s"${fun.name.symbol.getOrElse("select: <unknown symbol>")}"
+      }
+      case _ => {
+        "<unknown>"
+      }
+    }
     val code: String = app.toString
 
     override val csvHeader: Seq[String] = Seq("id", "symbol", "code")
