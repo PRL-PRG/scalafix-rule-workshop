@@ -21,9 +21,9 @@ object CSV {
     }
 
     if (xs.nonEmpty) {
-      val header = xs.head.csvHeader.mkString(", ")
+      val header = xs.head.csvHeader.mkString(",")
       val values =
-        xs.map(_.csvValues.map(prepareValue).mkString(", "))
+        xs.map(_.csvValues.map(prepareValue).mkString(","))
           .mkString("\n") +
           "\n"
 
@@ -42,10 +42,10 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
   final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
     val id: String = symbol.syntax
     val clazz: String = denot.names.head.symbol.toString
-    val tipe: String = denot.signature
+    val typee: String = denot.signature
 
     override val csvHeader: Seq[String] = Seq("id", "clazz", "type")
-    override val csvValues: Seq[String] = Seq(id, clazz, tipe)
+    override val csvValues: Seq[String] = Seq(id, clazz, typee)
   }
 
   final case class FunApply(app: Term.Apply) extends CSV.Serializable[FunApply] {
@@ -92,7 +92,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn <- ctx.index.synthetics
         name <- syn.names
         symbol = name.symbol
-        den <- symbol.denotation if den.isImplicit
+        den <- symbol.denotation if den.isImplicit && den.names.nonEmpty
       } yield {
         syn -> ImplicitParam(symbol, den)
       }
