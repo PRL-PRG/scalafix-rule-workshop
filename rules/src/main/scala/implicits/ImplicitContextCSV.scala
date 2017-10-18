@@ -55,18 +55,15 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         case x: Denotation if x.isVar => "var"
         case x: Denotation if x.isDef => "def"
         case x: Denotation if x.isObject => "object"
+        case x: Denotation => s"<unknown: ${x.structure}>"
       }
     }
 
   }
 
-  final case class FunApply(app: Term.Apply) extends CSV.Serializable[FunApply] {
+  final case class FunApply(app: Term.Apply, file: String) extends CSV.Serializable[FunApply] {
     lazy val id: String = s"$file:$line:$col"
-    val file: String = app.pos.input match {
-      case Input.VirtualFile(path, _) => path
-      case Input.File(path, _) => path.toString
-      case _ => ""
-    }
+
     // Take end line and cols because function call chains have the same start
     val line: String = app.pos.endLine.toString
     val col: String = app.pos.endColumn.toString
@@ -109,6 +106,11 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
   }
 
   override def fix(ctx: RuleCtx): Patch = {
+    val file: String = ctx.input match {
+      case Input.VirtualFile(path, _) => path
+      case Input.File(path, _) => path.toString
+      case _ => ""
+    }
     val syntheticImplicits =
       for {
         syn <- ctx.index.synthetics
@@ -128,7 +130,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
           case (syn, den) if syn.position.end == app.pos.end => den
         }
       } yield {
-        FunApplyWithImplicitParam(FunApply(app), param)
+        FunApplyWithImplicitParam(FunApply(app, file), param)
       }
 
     val params = paramsFuns.groupBy(_.param).keys.toSet
