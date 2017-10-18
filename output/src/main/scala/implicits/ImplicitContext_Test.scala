@@ -13,9 +13,13 @@ object ImplicitContext_Test {
         def getEmployee(id: Int)(implicit e: Employee, b: Boss) : String = {s"${id}: ${e.name}, ${b.name}"}
         def getEmployeePlain(id: Int) : String = {s"${id}: Lara"}
     }
-    def employeeGetter()(implicit e: Employee, b: Boss) : EmployeeGetter = new EmployeeGetter()
-    def employeeGetterPlain() : EmployeeGetter = new EmployeeGetter()
+    class Test {
+        def employeeGetter()(implicit e: Employee, b: Boss): EmployeeGetter = new EmployeeGetter()
 
-    employeeGetter().getGetter().getEmployee(12)
-    employeeGetterPlain().getGetterPlain().getEmployeePlain(13)
+        def employeeGetterPlain(): EmployeeGetter = new EmployeeGetter()
+    }
+    val t = new Test()
+
+    t.employeeGetter().getGetter.getEmployee(12)
+    t.employeeGetterPlain().getGetterPlain().getEmployeePlain(13)
 }
