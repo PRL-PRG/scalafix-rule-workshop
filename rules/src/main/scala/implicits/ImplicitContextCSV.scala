@@ -44,9 +44,20 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     // Take end line and cols because function call chains have the same start
     val clazz: String = denot.names.head.symbol.toString
     val typee: String = denot.signature
+    val kind: String = getKind(denot)
 
-    override val csvHeader: Seq[String] = Seq("id", "clazz", "type")
-    override val csvValues: Seq[String] = Seq(id, clazz, typee)
+    override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind")
+    override val csvValues: Seq[String] = Seq(id, clazz, typee, kind)
+
+    def getKind(denot: Denotation): String = {
+      denot match {
+        case x: Denotation if x.isVal => "val"
+        case x: Denotation if x.isVar => "var"
+        case x: Denotation if x.isDef => "def"
+        case x: Denotation if x.isObject => "object"
+      }
+    }
+
   }
 
   final case class FunApply(app: Term.Apply) extends CSV.Serializable[FunApply] {
