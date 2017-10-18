@@ -15,5 +15,5 @@ object SyntheticCallChains {
   c(1) // implicits.SyntheticCallChains.C.apply
   c.m1(1) // implicits.SyntheticCallChains.C.m1
   c.m1(1).m2 // implicits.SyntheticCallChains.C.m1; implicits.SyntheticCallChains.C.m2
-  c.m3.m2.m1(1) // implicits.SyntheticCallChains.C.m3; implicits.SyntheticCallChains.C.m2; implicits.SyntheticCallChains.C.m1
+  c.m3.m2().m1(1) // implicits.SyntheticCallChains.C.m3; implicits.SyntheticCallChains.C.m2; implicits.SyntheticCallChains.C.m1
 }

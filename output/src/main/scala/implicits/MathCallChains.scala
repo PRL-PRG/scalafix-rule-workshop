@@ -1,9 +1,6 @@
-/*
-rule = "class:implicits.ImplicitContextCSV"
-*/
 package implicits
 
-object EmployeeCallChains {
+object MathCallChains {
 
   implicit val msg: String = "Message in a bottle"
 
