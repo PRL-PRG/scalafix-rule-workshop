@@ -51,6 +51,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
     def getKind(denot: Denotation): String = {
       denot match {
+        case x: Denotation if x.isVal && x.isLazy => "lazy val"
         case x: Denotation if x.isVal => "val"
         case x: Denotation if x.isVar => "var"
         case x: Denotation if x.isDef => "def"
@@ -61,36 +62,38 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
   }
 
-  final case class FunApply(app: Term.Apply, file: String) extends CSV.Serializable[FunApply] {
+  final case class AppTerm(term: Term, params: Int)
+  final case class FunApply(app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
     lazy val id: String = s"$file:$line:$col"
 
     // Take end line and cols because function call chains have the same start
-    val line: String = app.pos.endLine.toString
-    val col: String = app.pos.endColumn.toString
-    val symbol: String = qualifiedName(app.fun)
-    val code: String = app.toString
+    val line: String = app.term.pos.endLine.toString
+    val col: String = app.term.pos.endColumn.toString
+    val symbol: String = qualifiedName(app.term)
+    val code: String = app.term.toString
+    val params = app.params.toString
 
-    override val csvHeader: Seq[String] = Seq("id", "symbol", "code")
-    override val csvValues: Seq[String] = Seq(id, symbol, code)
+    override val csvHeader: Seq[String] = Seq("id", "symbol", "code", "explicitParams")
+    override val csvValues: Seq[String] = Seq(id, symbol, code, params)
+  }
 
-    def qualifiedName(symbol: Term): String = {
-      symbol match {
-        case fun: Term.Name => {
-          s"${fun.symbol.getOrElse(s"<unknown fun: ${fun}>")}"
-        }
-        case fun: Term.Select => {
-          s"${fun.name.symbol.getOrElse(qualifiedName(fun.name))}"
-        }
-        case fun: Term.ApplyType => {
-          qualifiedName(fun.fun)
-        }
-        case fun: Term.Apply => {
-          fun.symbol.getOrElse(qualifiedName(fun.fun)).toString
-        }
-        case other => {
-          Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.structure}") }
-          throw new RuntimeException()
-        }
+  def qualifiedName(symbol: Term): String = {
+    symbol match {
+      case fun: Term.Name => {
+        s"${fun.symbol.getOrElse(s"<unknown fun: ${fun}>")}"
+      }
+      case fun: Term.Select => {
+        s"${fun.name.symbol.getOrElse(qualifiedName(fun.name))}"
+      }
+      case fun: Term.ApplyType => {
+        qualifiedName(fun.fun)
+      }
+      case fun: Term.Apply => {
+        fun.symbol.getOrElse(qualifiedName(fun.fun)).toString
+      }
+      case other => {
+        Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.structure}") }
+        throw new RuntimeException()
       }
     }
   }
@@ -124,10 +127,11 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val paramsFuns =
       for {
         app <- ctx.tree collect {
-          case x: Term.Apply => x
+          case x: Term.Apply => AppTerm(x, x.args.size)
+          case x: Term.Name => AppTerm(x, 0)
         }
         param <- syntheticImplicits collect {
-          case (syn, den) if syn.position.end == app.pos.end => den
+          case (syn, den) if syn.position.end == app.term.pos.end => den
         }
       } yield {
         FunApplyWithImplicitParam(FunApply(app, file), param)
