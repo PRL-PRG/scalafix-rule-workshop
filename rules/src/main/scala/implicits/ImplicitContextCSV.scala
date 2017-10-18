@@ -17,7 +17,7 @@ object CSV {
   def writeCSV[A](xs: Iterable[_ <: Serializable[A]], path: String): Unit = {
     def prepareValue(x: String) = {
       // FIXME: properly escape " in x
-      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\\s+","").replaceAll("\"", "'") + '"'
+      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
     }
 
     if (xs.nonEmpty) {
@@ -60,6 +60,13 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
       }
     }
 
+  }
+
+  final case class SyntheticApply(symbol: Synthetic) extends CSV.Serializable[ImplicitParam] {
+    lazy val id: String = s"${symbol.toString()}"
+
+    override val csvHeader: Seq[String] = Seq("id")
+    override val csvValues: Seq[String] = Seq(id)
   }
 
   final case class AppTerm(term: Term, params: Int)
@@ -122,6 +129,14 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         den <- symbol.denotation if den.isImplicit && den.names.nonEmpty
       } yield {
         syn -> ImplicitParam(symbol, den)
+      }
+
+    // TODO: Finish matching with the things
+    val syntheticApplies =
+      for {
+        syn <- ctx.index.synthetics.filter(_.text.toString.equals("*.apply"))
+      } yield {
+        syn -> SyntheticApply(syn)
       }
 
     val paramsFuns =
