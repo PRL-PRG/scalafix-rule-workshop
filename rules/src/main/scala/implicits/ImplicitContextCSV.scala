@@ -72,10 +72,10 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val col: String = app.term.pos.endColumn.toString
     val symbol: String = qualifiedName(app.term)
     val code: String = app.term.toString
-    val params = app.params.toString
+    val nargs = app.params.toString
 
-    override val csvHeader: Seq[String] = Seq("id", "symbol", "code", "explicitParams")
-    override val csvValues: Seq[String] = Seq(id, symbol, code, params)
+    override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "nargs")
+    override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, nargs)
   }
 
   final case class SyntheticApply(synth: Synthetic, file: String, params: Int) extends CSV.Serializable[FunApply] {
@@ -87,8 +87,8 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val symbol: String = synth.names(1).symbol.toString
     val code: String = s"apply(${if (params > 0) {"_"+",_"*(params - 1)}})"
 
-    override val csvHeader: Seq[String] = Seq("id", "symbol", "code", "explicitParams")
-    override val csvValues: Seq[String] = Seq(id, symbol, code, params.toString)
+    override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "nargs")
+    override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, params.toString)
   }
 
   def qualifiedName(symbol: Term): String = {

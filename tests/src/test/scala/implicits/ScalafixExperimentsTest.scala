@@ -1,6 +1,7 @@
 package implicits
 
 import fix.BuildInfo
+import org.scalatest._
 
 import scala.meta._
 import scalafix._
@@ -14,4 +15,6 @@ class ScalafixExperimentsTest
   ) {
   runAllTests()
 }
+
+
 
