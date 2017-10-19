@@ -12,6 +12,7 @@ object CSV {
   trait Serializable[A] {
     def csvHeader: Seq[String]
     def csvValues: Seq[String]
+    def id : String
   }
 
   def writeCSV[A](xs: Iterable[_ <: Serializable[A]], path: String): Unit = {
@@ -39,7 +40,7 @@ object CSV {
 final case class ImplicitContextCSV(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext") {
 
-  final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
+  final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam]  {
     lazy val id: String = s"${symbol.syntax}"
     // Take end line and cols because function call chains have the same start
     val clazz: String = denot.names.head.symbol.toString
@@ -62,13 +63,6 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
   }
 
-  final case class SyntheticApply(symbol: Synthetic) extends CSV.Serializable[ImplicitParam] {
-    lazy val id: String = s"${symbol.toString()}"
-
-    override val csvHeader: Seq[String] = Seq("id")
-    override val csvValues: Seq[String] = Seq(id)
-  }
-
   final case class AppTerm(term: Term, params: Int)
   final case class FunApply(app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
     lazy val id: String = s"$file:$line:$col"
@@ -82,6 +76,19 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
     override val csvHeader: Seq[String] = Seq("id", "symbol", "code", "explicitParams")
     override val csvValues: Seq[String] = Seq(id, symbol, code, params)
+  }
+
+  final case class SyntheticApply(synth: Synthetic, file: String, params: Int) extends CSV.Serializable[FunApply] {
+    lazy val id: String = s"$file:$line:$col"
+
+    // Take end line and cols because function call chains have the same start
+    val line: String = synth.position.endLine.toString
+    val col: String = synth.position.endColumn.toString
+    val symbol: String = synth.names(1).symbol.toString
+    val code: String = s"apply(${if (params > 0) {"_"+",_"*(params - 1)}})"
+
+    override val csvHeader: Seq[String] = Seq("id", "symbol", "code", "explicitParams")
+    override val csvValues: Seq[String] = Seq(id, symbol, code, params.toString)
   }
 
   def qualifiedName(symbol: Term): String = {
@@ -105,14 +112,16 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     }
   }
 
-  final case class FunApplyWithImplicitParam(fun: FunApply, param: ImplicitParam)
-    extends CSV.Serializable[FunApplyWithImplicitParam] {
+  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B])
+    extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
 
     val from: String = param.id
     val to: String = fun.id
 
     override val csvHeader: Seq[String] = Seq("from", "to")
     override val csvValues: Seq[String] = Seq(from, to)
+
+    override def id: String = "None"
   }
 
   override def fix(ctx: RuleCtx): Patch = {
@@ -131,14 +140,6 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn -> ImplicitParam(symbol, den)
       }
 
-    // TODO: Finish matching with the things
-    val syntheticApplies =
-      for {
-        syn <- ctx.index.synthetics.filter(_.text.toString.equals("*.apply"))
-      } yield {
-        syn -> SyntheticApply(syn)
-      }
-
     val paramsFuns =
       for {
         app <- ctx.tree collect {
@@ -148,8 +149,14 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         param <- syntheticImplicits collect {
           case (syn, den) if syn.position.end == app.term.pos.end => den
         }
+        syntheticApply = ctx.index.synthetics find {
+          x => x.text.toString.equals("*.apply") && x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
+        }
       } yield {
-        FunApplyWithImplicitParam(FunApply(app, file), param)
+        syntheticApply match {
+          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param)
+          case None => FunApplyWithImplicitParam(FunApply(app, file), param)
+        }
       }
 
     val params = paramsFuns.groupBy(_.param).keys.toSet
