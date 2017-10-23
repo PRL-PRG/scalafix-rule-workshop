@@ -5,7 +5,8 @@ package implicits
 
 object SyntheticCallChains {
 
-  implicit val msg: String = "Message in a bottle"
+  //implicit val msg: String = "Message in a bottle"
+  implicit def message: String = "Message in a bottle"
 
   class C {
     def m1(y: Int)(implicit message: String) = this
