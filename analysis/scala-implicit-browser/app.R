@@ -4,12 +4,14 @@ library(tidyverse)
 library(visNetwork)
 library(igraph)
 library(stringr)
+library(janitor)
 
 NODE_PARAM <- 1L
 NODE_FUN <- 2L
 
-path <- "~/scala-projects/top-120/ensime-server"
-project_name <- basename(path)
+#path <- "~/scala-projects/top-120/ensime-server"
+path <- "."
+project_name <- "ensime"
 
 load_data <- function() {
   params <- read_csv(file.path(path, "params.csv")) %>% distinct(id, .keep_all=TRUE)
@@ -19,7 +21,8 @@ load_data <- function() {
   # convert the ids to simple indexes
   edges <- data_frame(
     from=match(params_funs$from, params$id),
-    to=match(params_funs$to, funs$id) + nrow(params)
+    to=match(params_funs$to, funs$id) + nrow(params),
+    id=1:nrow(params_funs)
   )
 
   # extract fqn and name
@@ -67,6 +70,8 @@ load_data <- function() {
     file=locations[, 3],
     line=locations[, 4],
     col=locations[, 5],
+    project=str_replace(location, "(.*)/src/.*", "\\1"),
+    src=str_replace(location, ".*/src/([^/]+)/.*", "\\1"),
     code=str_replace_all(code, "\\\\n", "\n"),
     # TODO: process symbol name
     name=str_replace(symbol, fixed("_root_."), "")
@@ -78,7 +83,7 @@ load_data <- function() {
 
     group="functions",
     shape="dot",
-    title=str_c("<pre><code>", location, "\n\n", code, "</code></pre>"),
+    title=str_c("<pre><code>", location, "\n", name, "</code></pre>"),
     color="lightblue"
   )
   
@@ -96,51 +101,132 @@ ui <- fluidPage(
         h4("Filter"),
         checkboxGroupInput(
           inputId="filter_kind",
-          label=h5("by kind"),
-          choices=list("lazy val", "val", "var", "def"),
-          selected=list("lazy val", "val", "var", "def")
+          label=h5("by kind")
+        ),
+        checkboxGroupInput(
+          inputId="filter_src",
+          label=h5("by src")
+        ),
+        checkboxGroupInput(
+          inputId="filter_project",
+          label=h5("by project")
         ),
         hr()
       ),
 
       mainPanel(
+        h3("Graph"),
         visNetworkOutput("graph", height = "600px"),
-        verbatimTextOutput("node_details")
+        h3("Selected Node"),
+        dataTableOutput("node_details"),
+        h3("Neighbors"),
+        dataTableOutput("node_neighbors")
       )
    )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   data <- reactive(load_data())
   model <- reactive(data()$model)
+  # an igraph model of full graph
   g <- reactive(data()$graph)
   
   graph <- reactive({
-    param_nodes <- model()$nodes %>% filter(node_type == NODE_PARAM & kind %in% input$filter_kind) %>% .$id
-    fun_nodes <- model()$edges %>% filter(from %in% param_nodes) %>% .$to
-    nodes <- c(param_nodes, fun_nodes)
-
-    induced_subgraph(g(), nodes)
+    # filter params
+    param_nodes <- 
+      model()$nodes %>% 
+      filter(node_type == NODE_PARAM & kind %in% input$filter_kind)
+    
+    # filter funs
+    fun_nodes <- 
+      model()$nodes %>% 
+      filter(
+        project %in% input$filter_project,
+        src %in% input$filter_src
+      )
+    
+    eids <- 
+      model()$edges %>% 
+      filter(from %in% param_nodes$id & to %in% fun_nodes$id) %>% 
+      .$id
+    
+    subgraph.edges(g(), eids)
   })
   
   output$graph <- renderVisNetwork({
-    visIgraph(graph(), idToLabel=FALSE, physics=FALSE, smooth=FALSE) %>%
-      visOptions(nodesIdSelection=TRUE)
+    visIgraph(graph(), idToLabel=FALSE, physics=FALSE, smooth=FALSE, randomSeed=1) %>%
+      visOptions(nodesIdSelection=TRUE, highlightNearest=TRUE)
+  })
+
+  observe({
+    kind <- model()$nodes %>% 
+      filter(node_type == NODE_PARAM) %>% 
+      select(kind) %>%
+      distinct() %>%
+      .$kind
+    
+    updateCheckboxGroupInput(
+      session, 
+      "filter_kind",
+      choices=kind,
+      selected=kind
+    )
+
+    df <- model()$nodes %>% 
+      filter(node_type == NODE_FUN) %>% 
+      select(project, src)
+    
+    projects <- df %>% select(project) %>% distinct() %>% .$project
+    src <- df %>% select(src) %>% distinct() %>% .$src
+    
+    updateCheckboxGroupInput(
+      session, 
+      "filter_project",
+      choices=projects,
+      selected=projects
+    )
+    
+    updateCheckboxGroupInput(
+      session, 
+      "filter_src",
+      choices=src,
+      selected=src
+    )
   })
   
-  # TODO: render as table
-  # TODO: include the links
-  output$node_details <- renderPrint({
+  selected_node <- reactive({
     s_id = as.integer(input$graph_selected)
     if (!is.na(s_id) && is.integer(s_id) && length(s_id) == 1) {
-      print(s_id)
-      node <- model()$nodes %>% filter(id == s_id)
-      capture.output(str(node))
-      
+      s_id
     } else {
-      "No selection"
+      NULL
     }
   })
+    
+  # TODO: include the links
+  output$node_details <- renderDataTable({
+    s_id <- selected_node()
+    if (is.null(s_id)) {
+      data_frame()
+    } else {
+      node <- model()$nodes %>% filter(id == s_id)
+      node %>% gather(na.rm=TRUE)
+    }
+  }, options=list("paging"=FALSE, "searching"=FALSE))
+  
+  output$node_neighbors <- renderDataTable({
+    s_id <- selected_node()
+    if (is.null(s_id)) {
+      data_frame()
+    } else {
+      # need to convert between graph and subgraph
+      sub_s_id <- which(V(graph())$name == s_id)
+      vs <- neighbors(graph(), sub_s_id, mode="all")
+      model()$nodes %>% 
+        filter(id %in% vs$name) %>%
+        remove_empty_cols()
+    }
+  }, options=list("paging"=FALSE, "searching"=FALSE))
 }
 
 shinyApp(ui = ui, server = server)
