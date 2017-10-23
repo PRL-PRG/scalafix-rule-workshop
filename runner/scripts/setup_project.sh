@@ -6,8 +6,9 @@ if [ "$1" == "-h" ]; then
   exit 0
 fi
 
-cp -r "$1" codebases/$2
+BASENAME=$( basename $1 )
+cp -r "$1" codebases/$BASENAME
 
-echo "" >> codebases/$2/project/plugins.sbt
-echo "//Scalafix plugin" >> codebases/$2/project/plugins.sbt
-echo "addSbtPlugin(\"ch.epfl.scala\" % \"sbt-scalafix\" % \"0.5.2\")" >> codebases/$2/project/plugins.sbt
+echo "" >> codebases/$BASENAME/project/plugins.sbt
+echo "//Scalafix plugin" >> codebases/$BASENAME/project/plugins.sbt
+echo "addSbtPlugin(\"ch.epfl.scala\" % \"sbt-scalafix\" % \"0.5.3\")" >> codebases/$BASENAME/project/plugins.sbt

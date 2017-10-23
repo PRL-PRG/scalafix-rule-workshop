@@ -1,4 +1,4 @@
-RULE="https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/rules/src/main/scala/implicits/ImplicitContext.scala"
+RULE="https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/rules/src/main/scala/implicits/ImplicitContextCSV.scala"
 RULE_NAME=${RULE##*/}; RULE_NAME=${RULE_NAME%%.*}
 COMMAND="time sbt -mem 2048 \"scalafix $RULE\""
 
