@@ -12,3 +12,4 @@ cp -r "$1" codebases/$BASENAME
 echo "" >> codebases/$BASENAME/project/plugins.sbt
 echo "//Scalafix plugin" >> codebases/$BASENAME/project/plugins.sbt
 echo "addSbtPlugin(\"ch.epfl.scala\" % \"sbt-scalafix\" % \"0.5.3\")" >> codebases/$BASENAME/project/plugins.sbt
+

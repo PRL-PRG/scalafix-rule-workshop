@@ -1,18 +1,18 @@
 package implicits
 
-import java.nio.file.{Files, Paths, StandardOpenOption}
+import java.nio.file.{ Files, Paths, StandardOpenOption }
 
 import scalafix.syntax._
 import scala.meta._
 import scala.meta.contrib._
-import scalafix.{Patch, RuleCtx, SemanticRule, SemanticdbIndex}
+import scalafix.{ Patch, RuleCtx, SemanticRule, SemanticdbIndex }
 
 object CSV {
 
   trait Serializable[A] {
     def csvHeader: Seq[String]
     def csvValues: Seq[String]
-    def id : String
+    def id: String
   }
 
   def writeCSV[A](xs: Iterable[_ <: Serializable[A]], path: String): Unit = {
@@ -40,7 +40,7 @@ object CSV {
 final case class ImplicitContextCSV(index: SemanticdbIndex)
   extends SemanticRule(index, "ImplicitContext") {
 
-  final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam]  {
+  final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
     lazy val id: String = s"${symbol.syntax}"
     // Take end line and cols because function call chains have the same start
     val clazz: String = denot.names.head.symbol.toString
@@ -85,7 +85,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val line: String = synth.position.endLine.toString
     val col: String = synth.position.endColumn.toString
     val symbol: String = synth.names(1).symbol.toString
-    val code: String = s"apply(${if (params > 0) {"_"+",_"*(params - 1)}})"
+    val code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
 
     override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "nargs")
     override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, params.toString)
