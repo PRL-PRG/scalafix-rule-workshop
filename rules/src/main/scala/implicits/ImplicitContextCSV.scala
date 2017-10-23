@@ -46,7 +46,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     val clazz: String = denot.names.head.symbol.toString
     val typee: String = denot.signature
     val kind: String = getKind(denot)
-    val name: String = denot.name
+    val name: String = denot.name.toString
 
     override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name")
     override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name)
