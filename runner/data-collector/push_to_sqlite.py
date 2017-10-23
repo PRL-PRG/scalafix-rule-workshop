@@ -32,12 +32,12 @@ def dump_params(full_path, project_id):
     reader = csv.reader(csv_file)
     ids = {}
     for param in reader: 
-        print "Insert (%s, %s, %s, %s, %s, %s) into params" % (project_id, param[0], param[0], param[2], param[1], param[3])
+        print "Insert (%s, %s, %s, %s, %s, %s, %s) into params" % (project_id, param[0], param[0], param[2], param[1], param[3], param[4])
         kind = translate_kind(param[3])
 
         cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
                         "VALUES (?, ?, ?, ?, ?, ?)", 
-                        (project_id, param[0][-100:], param[0], param[2], param[1], kind))
+                        (project_id, param[4], param[0], param[2], param[1], kind))
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
