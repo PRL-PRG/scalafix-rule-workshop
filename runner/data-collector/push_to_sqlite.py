@@ -31,13 +31,12 @@ def dump_params(full_path, project_id):
     csv_file.readline() # Skip headers
     reader = csv.reader(csv_file)
     ids = {}
-    for param in reader:
-        
+    for param in reader: 
+        print "Insert (%s, %s, %s, %s, %s, %s) into params" % (project_id, param[0], param[0], param[2], param[1], param[3])
         kind = translate_kind(param[3])
 
-        print "Insert (%s, %s, %s, %s, %s, %s) into params" % (project_id, param[0], param[0], param[2], param[1], param[3])
         cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
-                        "VALUES (%s, %s, %s, %s, %s, %s)", 
+                        "VALUES (?, ?, ?, ?, ?, ?)", 
                         (project_id, param[0][-100:], param[0], param[2], param[1], kind))
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
@@ -52,7 +51,7 @@ def dump_funs(full_path, project_id):
     for fun in reader:
         print "Insert (%s, %s, %s, %s, %s, %s, %s) into funapps" % (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6])
         cursor.execute("INSERT INTO funapps (project, path, line, col, name, fqfn, nargs)"
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)", 
                         (project_id, fun[1], fun[2], fun[3], fun[4][:100], fun[5], fun[6]))
         rowid = cursor.lastrowid
         ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
@@ -75,7 +74,7 @@ def insert_project_data(dir, project_id):
             print "Insert (%s, %s) into params_funs" % (param_ids[link[0]], funs_ids[link[1]])
             try:
                 cursor.execute("INSERT INTO param_funs (param, funapp)"
-                                "VALUES (%s, %s)", 
+                                "VALUES (?, ?)", 
                                 (param_ids[link[0]], funs_ids[link[1]]))
             except sql.Error as error:
                 continue
@@ -92,9 +91,8 @@ def insert_project_into_db(dir):
         print("Inserting %s into db" % info["name"])
         try:
             cursor.execute("INSERT INTO projects (name, version, path)"
-                            "VALUES (%s, %s, %s)"
-                            "ON DUPLICATE KEY UPDATE name=%s, version=%s, path=%s", 
-                            (info["name"], info["version"], info["path"], info["name"], info["version"], info["path"]))
+                            "VALUES (?, ?, ?)", 
+                            (info["name"], info["version"], info["path"]))
             project_id = cursor.lastrowid
             print("Project ID is %s" % project_id)
             insert_project_data(dir, project_id)
@@ -105,10 +103,7 @@ def insert_project_into_db(dir):
         print("Oki-doke")
 
 
-db = sql.connect(host="127.0.0.1",
-            user="scala",
-            passwd="scala",
-            database="scala")
+db = sql.connect("/home/blorente/scala.db")
 cursor = db.cursor()
 
 # Assume CWD is the codebases/ folder
