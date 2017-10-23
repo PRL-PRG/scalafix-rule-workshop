@@ -5,48 +5,48 @@ library(visNetwork)
 library(igraph)
 library(stringr)
 library(janitor)
+library(RSQLite)
+library(dbplyr)
 
 NODE_PARAM <- 1L
 NODE_FUN <- 2L
 
-#path <- "~/scala-projects/top-120/ensime-server"
-path <- "."
-project_name <- "ensime"
+db_path <- "scala.sqlite3"
 
 load_data <- function() {
-  params <- read_csv(file.path(path, "params.csv")) %>% distinct(id, .keep_all=TRUE)
-  funs <- read_csv(file.path(path, "funs.csv"))
-  params_funs <- read_csv(file.path(path, "params-funs.csv"))
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  projects <- tbl(con, "projects") %>% collect(n=Inf)
+  funs <- tbl(con, "funs")
+  params <- tbl(con, "params")
+  params_funs <- tbl(con, "params_funs")
   
+  list(
+    projects=projects, 
+    funs=funs, 
+    params=params, 
+    params_funs=params_funs,
+    con=con
+  )
+}
+
+create_model <- function(funs, params, params_funs) {
   # convert the ids to simple indexes
+  
   edges <- data_frame(
-    from=match(params_funs$from, params$id),
-    to=match(params_funs$to, funs$id) + nrow(params),
+    from=match(params_funs$param, params$id),
+    # TODO: rename funapp -> fun
+    to=match(params_funs$funapp, funs$id) + nrow(params),
     id=1:nrow(params_funs)
   )
 
-  # extract fqn and name
-  locations <- params$id %>% 
-    str_replace(fixed("_root_."), "") %>%
-    # it can be val / var / object in which canse there will be `.` at the end
-    str_replace("\\.$", "") %>%
-    # it can be a def in which case there will be `;.` at the end
-    str_replace("\\;$", "") %>%
-    # the `#` separates class members from their type
-    # the `.` separates object memebers from their type
-    # here we unify it
-    str_replace("#", ".") %>%
-    str_split("\\.") %>%
-    lapply(function(x) c(x[length(x)], str_c(x[-length(x)], collapse=".")))
-  
   m_param_nodes <- params %>% transmute(
     id=1:nrow(params),
     node_type=NODE_PARAM,
     
-    name=sapply(locations, `[[`, 1),
-    fqn=sapply(locations, `[[`, 2),
+    name=name,
+    fqn=fqn,
     type=type,
-    fqt=str_replace(clazz, "_root_.(.*)#", "\\1"),
+    fqtn=str_replace(fqtn, "_root_.(.*)#", "\\1"),
     kind=kind
   )
 
@@ -56,41 +56,44 @@ load_data <- function() {
     
     group="parameters",
     shape="dot",
-    title=str_c("<pre><code>implicit ", kind, " ", fqn, ".", name, ": ", fqt, "</code></pre>", sep=""),
+    title=str_c("<pre><code>implicit ", kind, " ", fqn, ".", name, ": ", fqtn, "</code></pre>", sep=""),
     color="red"
   )
-    
-  locations <- str_match(funs$id, "(.*)/(.*):(\\d+):(\\d+)")
+
   m_fun_nodes <- funs %>% transmute(
     id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
     
-    location=locations[, 1],
-    dir=locations[, 2],
-    file=locations[, 3],
-    line=locations[, 4],
-    col=locations[, 5],
-    project=str_replace(location, "(.*)/src/.*", "\\1"),
-    src=str_replace(location, ".*/src/([^/]+)/.*", "\\1"),
-    code=str_replace_all(code, "\\\\n", "\n"),
+    path=path,
+    line=line,
+    col=col,
+    module=str_replace(path, "(.*)/src/.*", "\\1"),
+    srcset=str_replace(path, ".*/src/([^/]+)/.*", "\\1"),
+    # TODO add code
+    code="", #str_replace_all(code, "\\\\n", "\n"),
     # TODO: process symbol name
-    name=str_replace(symbol, fixed("_root_."), "")
+    name=str_replace(name, fixed("_root_."), ""),
+    nargs=nargs
   )
-  
+
   v_fun_nodes <- m_fun_nodes %>% transmute(
     id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
 
     group="functions",
     shape="dot",
-    title=str_c("<pre><code>", location, "\n", name, "</code></pre>"),
+    title=str_c("<pre><code>", path, "\n", name, "</code></pre>"),
     color="lightblue"
   )
   
   m_nodes <- bind_rows(m_param_nodes, m_fun_nodes)
   v_nodes <- bind_rows(v_param_nodes, v_fun_nodes)
   
-  list(model=list(nodes=m_nodes, edges=edges), graph=igraph::graph_from_data_frame(edges, vertices=v_nodes, directed=T))
+  list(
+    nodes=m_nodes, 
+    edges=edges, 
+    graph=igraph::graph_from_data_frame(edges, vertices=v_nodes, directed=T)
+  )
 }
 
 ui <- fluidPage(
@@ -98,18 +101,23 @@ ui <- fluidPage(
    
    sidebarLayout(
       sidebarPanel(
+        selectInput(
+          inputId="project",
+          label=h4("Project"),
+          choices=NULL
+        ),
         h4("Filter"),
         checkboxGroupInput(
           inputId="filter_kind",
           label=h5("by kind")
         ),
         checkboxGroupInput(
-          inputId="filter_src",
-          label=h5("by src")
+          inputId="filter_srcset",
+          label=h5("by srcset")
         ),
         checkboxGroupInput(
-          inputId="filter_project",
-          label=h5("by project")
+          inputId="filter_module",
+          label=h5("by module")
         ),
         hr()
       ),
@@ -127,71 +135,149 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   data <- reactive(load_data())
-  model <- reactive(data()$model)
-  # an igraph model of full graph
-  g <- reactive(data()$graph)
-  
-  graph <- reactive({
-    # filter params
-    param_nodes <- 
-      model()$nodes %>% 
-      filter(node_type == NODE_PARAM & kind %in% input$filter_kind)
-    
-    # filter funs
-    fun_nodes <- 
-      model()$nodes %>% 
-      filter(
-        project %in% input$filter_project,
-        src %in% input$filter_src
-      )
-    
-    eids <- 
-      model()$edges %>% 
-      filter(from %in% param_nodes$id & to %in% fun_nodes$id) %>% 
-      .$id
-    
-    subgraph.edges(g(), eids)
-  })
-  
-  output$graph <- renderVisNetwork({
-    visIgraph(graph(), idToLabel=FALSE, physics=FALSE, smooth=FALSE, randomSeed=1) %>%
-      visOptions(nodesIdSelection=TRUE, highlightNearest=TRUE)
-  })
 
   observe({
-    kind <- model()$nodes %>% 
-      filter(node_type == NODE_PARAM) %>% 
-      select(kind) %>%
-      distinct() %>%
-      .$kind
+    data <- data()
+    df <- data$projects %>%
+      mutate(name=str_c(name, version, sep=":")) %>%
+      select(name, id)
+    
+    projects <- df$id
+    names(projects) <- df$name
+    
+    updateSelectInput(
+      session, 
+      "project",
+      choices=projects,
+      selected=projects[1]
+    )
+  })
+
+  model <- reactive({
+    data <- data()
+    p_id <- as.integer(input$project)
+    
+    if (is.na(p_id)) {
+      NULL
+    } else {
+      funs <- 
+        data$funs %>% 
+        filter(project == p_id) %>% 
+        collect(n=Inf)
+    
+      params <- 
+        data$params %>% 
+        filter(project == p_id) %>% 
+        collect(n=Inf) %>%
+        distinct(id, .keep_all=TRUE)
+      
+      # there is a bug in DPLYR which generates wring query
+      params_funs <- 
+        tbl(
+          data$con, 
+          sql(str_c("select pf.* from params p inner join params_funs pf on p.id=pf.param where p.project=", p_id))
+        ) %>% 
+        collect(n=Inf)
+
+      create_model(funs, params, params_funs)
+    }
+  })
+  
+  observe({
+    model <- model()
+    kind <- if (is.null(model)) {
+      NULL
+    } else {
+      model$nodes %>%
+        filter(node_type == NODE_PARAM) %>%
+        select(kind) %>%
+        distinct() %>%
+        .$kind
+    }
     
     updateCheckboxGroupInput(
-      session, 
+      session,
       "filter_kind",
       choices=kind,
       selected=kind
     )
+  })
+  
+  observe({
+    model <- model()
+    modules <- if (is.null(model)) {
+      NULL
+    } else {
+      model$nodes %>%
+        filter(node_type == NODE_FUN) %>%
+        select(module) %>% 
+        distinct() %>% 
+        .$module
+    }
 
-    df <- model()$nodes %>% 
-      filter(node_type == NODE_FUN) %>% 
-      select(project, src)
-    
-    projects <- df %>% select(project) %>% distinct() %>% .$project
-    src <- df %>% select(src) %>% distinct() %>% .$src
+    updateCheckboxGroupInput(
+      session,
+      "filter_module",
+      choices=modules,
+      selected=modules
+    )
+  })
+  
+  observe({
+    model <- model()
+    srcset <- if (is.null(model)) {
+      NULL
+    } else {
+      model$nodes %>%
+        filter(node_type == NODE_FUN) %>%
+        select(srcset) %>% 
+        distinct() %>% 
+        .$srcset
+    }
     
     updateCheckboxGroupInput(
-      session, 
-      "filter_project",
-      choices=projects,
-      selected=projects
+      session,
+      "filter_srcset",
+      choices=srcset,
+      selected=srcset
     )
-    
-    updateCheckboxGroupInput(
-      session, 
-      "filter_src",
-      choices=src,
-      selected=src
-    )
+  })
+  
+  graph <- reactive({
+    model <- model()
+    if (is.null(model)) {
+      NULL
+    } else {
+      # filter params
+      param_nodes <-
+        model$nodes %>%
+        filter(node_type == NODE_PARAM & kind %in% input$filter_kind)
+  
+      # filter funs
+      fun_nodes <-
+        model$nodes %>%
+        filter(
+          module %in% input$filter_module,
+          srcset %in% input$filter_srcset
+        )
+  
+      eids <-
+        model$edges %>%
+        filter(from %in% param_nodes$id & to %in% fun_nodes$id) %>%
+        .$id
+  
+      subgraph.edges(model$graph, eids)
+    }
+  })
+   
+  output$graph <- renderVisNetwork({
+    graph <- graph()
+    if (is.null(graph)) {
+      NULL
+    } else {
+      visIgraph(graph, idToLabel=FALSE, physics=FALSE, smooth=FALSE) %>%
+      visOptions(nodesIdSelection=TRUE, highlightNearest=TRUE)
+    }
   })
   
   selected_node <- reactive({
@@ -202,8 +288,7 @@ server <- function(input, output, session) {
       NULL
     }
   })
-    
-  # TODO: include the links
+     
   output$node_details <- renderDataTable({
     s_id <- selected_node()
     if (is.null(s_id)) {
@@ -213,7 +298,7 @@ server <- function(input, output, session) {
       node %>% gather(na.rm=TRUE)
     }
   }, options=list("paging"=FALSE, "searching"=FALSE))
-  
+   
   output$node_neighbors <- renderDataTable({
     s_id <- selected_node()
     if (is.null(s_id)) {
@@ -222,7 +307,7 @@ server <- function(input, output, session) {
       # need to convert between graph and subgraph
       sub_s_id <- which(V(graph())$name == s_id)
       vs <- neighbors(graph(), sub_s_id, mode="all")
-      model()$nodes %>% 
+      model()$nodes %>%
         filter(id %in% vs$name) %>%
         remove_empty_cols()
     }
