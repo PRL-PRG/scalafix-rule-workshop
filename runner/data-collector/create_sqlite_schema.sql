@@ -14,7 +14,7 @@ create table params(
   kind INTEGER not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
-create table funapps(
+create table funs(
   id INTEGER PRIMARY KEY,
   project INTEGER not null,
   path text not null,
@@ -25,9 +25,9 @@ create table funapps(
   nargs integer not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
-create table param_funs(
+create table params_funs(
   param INTEGER not null,
-  funapp INTEGER not null,
+  fun INTEGER not null,
   FOREIGN KEY(param) REFERENCES params(id),
-  FOREIGN KEY(funapp) REFERENCES funapps(id)
+  FOREIGN KEY(fun) REFERENCES funs(id)
 );
