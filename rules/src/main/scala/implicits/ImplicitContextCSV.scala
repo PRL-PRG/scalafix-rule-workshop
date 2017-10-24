@@ -78,11 +78,12 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     def getTypeKind(symbol: Symbol): String = {
       symbol.denotation match {
         case Some(den) => {
-          var kind = den match {
+          var kind: String = den match {
             case x if x.isClass && x.isCase => "case class"
             case x if x.isClass && !x.isCase => "class"
             case x if x.isObject => "object"
             case x if x.isTrait => "trait"
+            case _ => ""
           }
           if (den.isImplicit) kind = s"implicit $kind"
           if (den.isFinal) kind = s"final $kind"
