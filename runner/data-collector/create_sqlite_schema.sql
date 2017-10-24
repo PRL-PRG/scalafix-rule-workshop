@@ -24,7 +24,6 @@ create table funs(
   name text not null,
   fqfn text not null,
   nargs integer not null,
-  code text not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
 create table params_funs(
