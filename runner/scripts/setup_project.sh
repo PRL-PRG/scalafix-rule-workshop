@@ -6,11 +6,13 @@ if [ "$1" == "-h" ]; then
   exit 0
 fi
 
+CWD=$( pwd )
+
 BASENAME=$( basename $1 )
 cp -r "$1" codebases/$BASENAME
 
 cd codebases/$BASENAME
-../../checkout_tag.sh
+$( find $CWD/* -name "checkout_tag.sh" )
 cd ../..
 
 echo "" >> codebases/$BASENAME/project/plugins.sbt
