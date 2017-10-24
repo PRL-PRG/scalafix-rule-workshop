@@ -11,7 +11,7 @@ create table params(
   fqn text not null,
   type text not null,
   fqtn text not null,
-  kind INTEGER not null,
+  kind text not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
 create table funs(
@@ -23,6 +23,7 @@ create table funs(
   name text not null,
   fqfn text not null,
   nargs integer not null,
+  code text not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
 create table params_funs(

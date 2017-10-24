@@ -13,31 +13,17 @@ def get_project_info(cwd):
     os.chdir("..")
     return {"path": path, "name": name, "version": version}
 
-def translate_kind(kind):
-    kinds = {
-        "val": 0,
-        "var": 1,
-        "def": 2,
-        "lazyval": 3,
-        "object": 4
-    }
-    if kinds.has_key(kind):
-        return kinds[kind]
-    else:
-        return -1
-
 def dump_params(full_path, project_id):
     csv_file = open(full_path, 'rb')
     csv_file.readline() # Skip headers
     reader = csv.reader(csv_file)
     ids = {}
     for param in reader: 
-        print "Insert (%s, %s, %s, %s, %s, %s, %s) into params" % (project_id, param[0], param[0], param[2], param[1], param[3], param[4])
-        kind = translate_kind(param[3])
-
+        print "Insert [%s, %s] into params" % (project_id, param)
+        
         cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
                         "VALUES (?, ?, ?, ?, ?, ?)", 
-                        (project_id, param[4], param[0], param[2], param[1], kind))
+                        (project_id, param[4], param[0], param[2], param[1], param[3]))
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
@@ -49,10 +35,10 @@ def dump_funs(full_path, project_id):
     reader = csv.reader(csv_file)
     ids = {}
     for fun in reader:
-        print "Insert (%s, %s, %s, %s, %s, %s, %s) into funapps" % (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6])
-        cursor.execute("INSERT INTO funapps (project, path, line, col, name, fqfn, nargs)"
+        print "Insert [%s, %s] into funapps" % (project_id, fun)
+        cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
                         "VALUES (?, ?, ?, ?, ?, ?, ?)", 
-                        (project_id, fun[1], fun[2], fun[3], fun[4][:100], fun[5], fun[6]))
+                        (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
         rowid = cursor.lastrowid
         ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
