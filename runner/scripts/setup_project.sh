@@ -9,6 +9,10 @@ fi
 BASENAME=$( basename $1 )
 cp -r "$1" codebases/$BASENAME
 
+cd codebases/$BASENAME
+../../checkout_tag.sh
+cd ../..
+
 echo "" >> codebases/$BASENAME/project/plugins.sbt
 echo "//Scalafix plugin" >> codebases/$BASENAME/project/plugins.sbt
 echo "addSbtPlugin(\"ch.epfl.scala\" % \"sbt-scalafix\" % \"0.5.3\")" >> codebases/$BASENAME/project/plugins.sbt
