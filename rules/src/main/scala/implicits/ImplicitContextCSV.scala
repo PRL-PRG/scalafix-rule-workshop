@@ -42,14 +42,26 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
   final case class ImplicitParam(symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
     lazy val id: String = s"${symbol.syntax}"
-    // Take end line and cols because function call chains have the same start
-    val clazz: String = denot.names.head.symbol.toString
-    val typee: String = denot.signature
-    val kind: String = getKind(denot)
+    // If there are no names on the denotation, we have an implicit which defines
+    // its own type - Most likely an object
     val name: String = denot.name.toString
+    val clazz: String = denot.names.headOption match {
+                          case Some(n) => n.symbol.toString
+                          case None => symbol.toString
+                        }
+    val typee: String = denot.names.headOption match {
+                          case Some(n) => denot.signature.toString
+                          case None => name
+                        }
+    val kind: String = getKind(denot)
 
-    override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name")
-    override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name)
+    val typeKind: String = denot.names.headOption match {
+                            case Some(n) => getTypeKind(n.symbol)
+                            case None => getTypeKind(symbol)
+                          }
+
+    override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name", "type-description")
+    override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name, typeKind)
 
     def getKind(denot: Denotation): String = {
       denot match {
@@ -60,6 +72,24 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         case x: Denotation if x.isObject => "object"
         case x: Denotation if x.isParam => "param"
         case x: Denotation => s"<unknown: ${x.structure}>"
+      }
+    }
+
+    def getTypeKind(symbol: Symbol): String = {
+      symbol.denotation match {
+        case Some(den) => {
+          var kind = den match {
+            case x if x.isClass && x.isCase => "case class"
+            case x if x.isClass && !x.isCase => "class"
+            case x if x.isObject => "object"
+            case x if x.isTrait => "trait"
+          }
+          if (den.isImplicit) kind = s"implicit $kind"
+          if (den.isFinal) kind = s"final $kind"
+          if (den.isLazy) kind = s"lazy $kind"
+          kind
+        }
+        case None => "<no denotation>"
       }
     }
 
@@ -137,7 +167,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn <- ctx.index.synthetics
         name <- syn.names
         symbol = name.symbol
-        den <- symbol.denotation if den.isImplicit && den.names.nonEmpty
+        den <- symbol.denotation if den.isImplicit
       } yield {
         syn -> ImplicitParam(symbol, den)
       }
