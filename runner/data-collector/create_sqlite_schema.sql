@@ -12,6 +12,7 @@ create table params(
   type text not null,
   fqtn text not null,
   kind text not null,
+  typeinfo text not null,
   FOREIGN KEY(project) REFERENCES projects(id)
 );
 create table funs(
