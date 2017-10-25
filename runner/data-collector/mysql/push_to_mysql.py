@@ -60,11 +60,11 @@ def insert_project_data(dir, project_id):
         for link in link_reader:
             print "Insert (%s, %s) into params_funs" % (param_ids[link[0]], funs_ids[link[1]])
             try:
-                cursor.execute("INSERT INTO param_funs (param, fun)"
+                cursor.execute("INSERT INTO params_funs (param, fun)"
                                 "VALUES (%s, %s)", 
                                 (param_ids[link[0]], funs_ids[link[1]]))
             except sql.Error as error:
-                continue
+                print error
         link_file.close()
 
     else: 

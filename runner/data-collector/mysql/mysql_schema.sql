@@ -48,9 +48,9 @@ CREATE TABLE `param_funs` (
   `param` int(11) NOT NULL,
   `fun` int(11) NOT NULL,
   PRIMARY KEY (`param`,`fun`),
-  KEY `param_funs_funs_id_fk` (`fun`),
-  CONSTRAINT `param_funs_funapps_id_fk` FOREIGN KEY (`fun`) REFERENCES `funs` (`id`),
-  CONSTRAINT `param_funs_params_id_fk` FOREIGN KEY (`param`) REFERENCES `params` (`id`)
+  KEY `params_funs_funs_id_fk` (`fun`),
+  CONSTRAINT `params_funs_funs_id_fk` FOREIGN KEY (`fun`) REFERENCES `funs` (`id`),
+  CONSTRAINT `params_funs_params_id_fk` FOREIGN KEY (`param`) REFERENCES `params` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
