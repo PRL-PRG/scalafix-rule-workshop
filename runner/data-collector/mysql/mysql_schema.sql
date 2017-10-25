@@ -41,7 +41,7 @@ CREATE TABLE `funs` (
 -- Table structure for table `param_funs`
 --
 
-DROP TABLE IF EXISTS `param_funs`;
+DROP TABLE IF EXISTS `params_funs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `param_funs` (
@@ -87,6 +87,7 @@ CREATE TABLE `projects` (
   `name` tinytext NOT NULL,
   `version` tinytext NOT NULL,
   `path` text NOT NULL,
+  `url` text NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;

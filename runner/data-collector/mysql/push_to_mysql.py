@@ -10,8 +10,9 @@ def get_project_info(cwd):
     name = os.path.relpath(cwd, cwd + "/..")
     os.chdir(name)
     version = subprocess.check_output(["git", "describe", "--always"]).strip()
+    url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"]).strip()
     os.chdir("..")
-    return {"path": path, "name": name, "version": version}
+    return {"path": path, "name": name, "version": version, "url": url}
 
 def dump_params(full_path, project_id):
     csv_file = open(full_path, 'rb')
@@ -76,9 +77,9 @@ def insert_project_into_db(dir):
         # Push into database
         print("Inserting %s into db" % info["name"])
         try:
-            cursor.execute("INSERT INTO projects (name, version, path)"
-                            "VALUES (%s, %s, %s)", 
-                            (info["name"], info["version"], info["path"]))
+            cursor.execute("INSERT INTO projects (name, version, path, url)"
+                            "VALUES (%s, %s, %s, %s)", 
+                            (info["name"], info["version"], info["path"], info["url"]))
             project_id = cursor.lastrowid
             print("Project ID is %s" % project_id)
             insert_project_data(dir, project_id)
