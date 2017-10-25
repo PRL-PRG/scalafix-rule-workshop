@@ -68,17 +68,23 @@ def insert_project_data(dir, project_id):
         link_file = open(params_funs_path, 'rb')
         link_file.readline() # Skip headers
         link_reader = csv.reader(link_file)
+
+        links = []
         for link in link_reader:
-            print "Insert (%s, %s) into params_funs" % (param_ids[link[0]], funs_ids[link[1]])
+            links.append((param_ids[link[0]], funs_ids[link[1]]))
+
+        link_file.close()
+
+        link_set = set(links)
+        for link in link_set:
+            print "Insert (%s, %s) into params_funs" % (link[0], link[1])
             try:
                 cursor.execute("INSERT INTO params_funs (param, fun)"
                                 "VALUES (%s, %s)", 
-                                (param_ids[link[0]], funs_ids[link[1]]))
+                                (link[0], link[1]))
             except sql.Error as error:
                 print error
                 sys.exit()
-
-        link_file.close()
 
     else: 
         print "csv files not found not found"
