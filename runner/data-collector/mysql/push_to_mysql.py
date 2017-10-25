@@ -21,9 +21,9 @@ def dump_params(full_path, project_id):
     for param in reader: 
         print "Insert [%s, %s] into params" % (project_id, param)
         
-        cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind, typeinfo)"
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (project_id, param[4], param[0], param[2], param[1], param[3], param[5]))
+        cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
+                        "VALUES (%s, %s, %s, %s, %s, %s)",
+                        (project_id, param[4], param[0], param[2], param[1], param[3]))
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
@@ -90,6 +90,7 @@ def insert_project_into_db(dir):
 
 
 db = sql.connect(host="127.0.0.1",
+                port="6612",
                 user="scala",
                 passwd="scala",
                 database="scala")
