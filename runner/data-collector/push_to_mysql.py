@@ -2,7 +2,7 @@ import os
 import sys
 import csv
 import subprocess
-import sqlite3 as sql
+import mysql.connector as sql
 
 def get_project_info(cwd):
     # Assuming cwd is the project
@@ -22,7 +22,7 @@ def dump_params(full_path, project_id):
         print "Insert [%s, %s] into params" % (project_id, param)
         
         cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind, typeinfo)"
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
                         (project_id, param[4], param[0], param[2], param[1], param[3], param[5]))
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
@@ -37,7 +37,7 @@ def dump_funs(full_path, project_id):
     for fun in reader:
         print "Insert [%s, %s] into funapps" % (project_id, fun)
         cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
                         (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
         rowid = cursor.lastrowid
         ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
@@ -60,7 +60,7 @@ def insert_project_data(dir, project_id):
             print "Insert (%s, %s) into params_funs" % (param_ids[link[0]], funs_ids[link[1]])
             try:
                 cursor.execute("INSERT INTO param_funs (param, fun)"
-                                "VALUES (?, ?)", 
+                                "VALUES (%s, %s)", 
                                 (param_ids[link[0]], funs_ids[link[1]]))
             except sql.Error as error:
                 continue
@@ -77,7 +77,7 @@ def insert_project_into_db(dir):
         print("Inserting %s into db" % info["name"])
         try:
             cursor.execute("INSERT INTO projects (name, version, path)"
-                            "VALUES (?, ?, ?)", 
+                            "VALUES (%s, %s, %s)", 
                             (info["name"], info["version"], info["path"]))
             project_id = cursor.lastrowid
             print("Project ID is %s" % project_id)
@@ -89,7 +89,10 @@ def insert_project_into_db(dir):
         print("Oki-doke")
 
 
-db = sql.connect("/home/blorente/scala.db")
+db = sql.connect(host="127.0.0.1",
+                user="scala",
+                passwd="scala",
+                database="scala")
 cursor = db.cursor()
 
 # Assume CWD is the codebases/ folder
