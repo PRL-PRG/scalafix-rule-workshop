@@ -46,55 +46,81 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     // its own type - Most likely an object
     val name: String = denot.name.toString
     val clazz: String = denot.names.headOption match {
-                          case Some(n) => n.symbol.toString
-                          case None => symbol.toString
-                        }
+      case Some(n) => n.symbol.toString
+      case None => symbol.toString
+    }
     val typee: String = denot.names.headOption match {
-                          case Some(n) => denot.signature.toString
-                          case None => name
-                        }
+      case Some(n) => denot.signature.toString
+      case None => name
+    }
     val kind: String = getKind(denot)
 
     val typeKind: String = denot.names.headOption match {
-                            case Some(n) => getTypeKind(n.symbol)
-                            case None => getTypeKind(symbol)
-                          }
+      case Some(n) => getTypeKind(n.symbol)
+      case None => getTypeKind(symbol)
+    }
 
     override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name", "type-description")
     override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name, typeKind)
 
-    def getKind(denot: Denotation): String = {
-      denot match {
-        case x: Denotation if x.isVal && x.isLazy => "lazy val"
-        case x: Denotation if x.isVal => "val"
-        case x: Denotation if x.isVar => "var"
-        case x: Denotation if x.isDef => "def"
-        case x: Denotation if x.isObject => "object"
-        case x: Denotation if x.isParam => "param"
-        case x: Denotation => s"<unknown: ${x.structure}>"
-      }
+  }
+
+  final case class TypeParam(symbol: Symbol, denot: Denotation, pos: Int) extends CSV.Serializable[TypeParam] {
+    lazy val id: String = s"${symbol.syntax}"
+    // If there are no names on the denotation, we have an implicit which defines
+    // its own type - Most likely an object
+    val name: String = denot.name.toString
+    val clazz: String = denot.names.headOption match {
+      case Some(n) => n.symbol.toString
+      case None => symbol.toString
+    }
+    val typee: String = denot.names.headOption match {
+      case Some(n) => denot.signature.toString
+      case None => name
+    }
+    val kind: String = getKind(denot)
+
+    val typeKind: String = denot.names.headOption match {
+      case Some(n) => getTypeKind(n.symbol)
+      case None => getTypeKind(symbol)
     }
 
-    def getTypeKind(symbol: Symbol): String = {
-      symbol.denotation match {
-        case Some(den) => {
-          var kind: String = den match {
-            case x if x.isClass && x.isCase => "case class"
-            case x if x.isClass && !x.isCase => "class"
-            case x if x.isObject => "object"
-            case x if x.isTrait => "trait"
-            case _ => ""
-          }
-          if (den.isImplicit) kind = s"implicit $kind"
-          if (den.isFinal) kind = s"final $kind"
-          if (den.isLazy) kind = s"lazy $kind"
-          kind
-        }
-        case None => "<no denotation>"
-      }
-    }
+    override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name", "type-description")
+    override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name, typeKind)
 
   }
+
+  def getKind(denot: Denotation): String = {
+    denot match {
+      case x: Denotation if x.isVal && x.isLazy => "lazy val"
+      case x: Denotation if x.isVal => "val"
+      case x: Denotation if x.isVar => "var"
+      case x: Denotation if x.isDef => "def"
+      case x: Denotation if x.isObject => "object"
+      case x: Denotation if x.isParam => "param"
+      case x: Denotation => s"<unknown: ${x.structure}>"
+    }
+  }
+
+  def getTypeKind(symbol: Symbol): String = {
+    symbol.denotation match {
+      case Some(den) => {
+        var kind: String = den match {
+          case x if x.isClass && x.isCase => "case class"
+          case x if x.isClass && !x.isCase => "class"
+          case x if x.isObject => "object"
+          case x if x.isTrait => "trait"
+          case _ => ""
+        }
+        if (den.isImplicit) kind = s"implicit $kind"
+        if (den.isFinal) kind = s"final $kind"
+        if (den.isLazy) kind = s"lazy $kind"
+        kind
+      }
+      case None => "<no denotation>"
+    }
+  }
+
 
   final case class AppTerm(term: Term, params: Int, nameEnd: Int)
   final case class FunApply(app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
@@ -145,7 +171,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     }
   }
 
-  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B], typeParams: Seq[Synthetic])
+  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B], typeParams: Seq[TypeParam])
     extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
 
     val from: String = param.id
@@ -155,16 +181,6 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     override val csvValues: Seq[String] = Seq(from, to)
 
     override def id: String = "None"
-  }
-
-  final case class TypeParam(typeParam: Signature) extends CSV.Serializable[TypeParam] {
-    lazy val id: String = ""
-
-    // Take end line and cols because function call chains have the same start
-    val things = typeParam
-
-    override val csvHeader: Seq[String] = Seq("id")
-    override val csvValues: Seq[String] = Seq(id)
   }
 
   override def fix(ctx: RuleCtx): Patch = {
@@ -183,9 +199,16 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn -> ImplicitParam(symbol, den)
       }
 
-    val syntheticTypeParams = ctx.index.synthetics.collect {
-      case x: Synthetic if x.text.toString.matches("\\*\\[.*\\]") => x
-    }
+    val syntheticTypeParams =
+      for {
+        syn <- ctx.index.synthetics
+        name <- syn.names
+        symbol = name.symbol
+        den <- symbol.denotation if (den.isType || den.isClass || den.isObject || den.isTrait) && !den.isImplicit
+      } yield {
+        TypeParam(symbol, den, syn.position.end)
+      }
+
 
     val paramsFuns =
       for {
@@ -199,14 +222,14 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syntheticApply = ctx.index.synthetics find {
           x => x.text.toString.equals("*.apply") && x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
         }
-        typeParams = syntheticTypeParams.filter(_.position.end == app.nameEnd)
+        typeParams = syntheticTypeParams filter(_.pos == app.nameEnd)
       } yield {
         syntheticApply match {
           case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param, typeParams)
           case None => FunApplyWithImplicitParam(FunApply(app, file), param, typeParams)
         }
       }
-    
+
     val params = paramsFuns.groupBy(_.param).keys.toSet
     val funs = paramsFuns.groupBy(_.fun).keys
 
