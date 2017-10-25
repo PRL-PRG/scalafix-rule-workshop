@@ -21,11 +21,14 @@ def dump_params(full_path, project_id):
     ids = {}
     for param in reader: 
         print "Insert [%s, %s] into params" % (project_id, param)
-        
-        cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
-                        "VALUES (%s, %s, %s, %s, %s, %s)",
-                        (project_id, param[4], param[0], param[2], param[1], param[3]))
+        try:                
+            cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
+                            "VALUES (%s, %s, %s, %s, %s, %s)",
+                            (project_id, param[4], param[0], param[2], param[1], param[3]))
         except sql.Error as error:
+            print error
+            sys.exit()
+
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
@@ -38,16 +41,18 @@ def dump_funs(full_path, project_id):
     ids = {}
     for fun in reader:
         print "Insert [%s, %s] into funs" % (project_id, fun)
-	try:
-        	cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
-                	        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-                        	(project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
+        try:
+            cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                            (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
 
         except sql.Error as error:
-		print error
-		sys.exit()
-	rowid = cursor.lastrowid
-        ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
+            print error
+            sys.exit()
+
+        rowid = cursor.lastrowid
+        ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
+             
     csv_file.close()
     return ids
 
@@ -71,7 +76,8 @@ def insert_project_data(dir, project_id):
                                 (param_ids[link[0]], funs_ids[link[1]]))
             except sql.Error as error:
                 print error
-		sys.exit()
+                sys.exit()
+
         link_file.close()
 
     else: 
