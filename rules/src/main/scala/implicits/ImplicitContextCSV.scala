@@ -96,7 +96,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
 
   }
 
-  final case class AppTerm(term: Term, params: Int)
+  final case class AppTerm(term: Term, params: Int, nameEnd: Int)
   final case class FunApply(app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
     lazy val id: String = s"$file:$line:$col"
 
@@ -145,7 +145,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     }
   }
 
-  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B])
+  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B], typeParams: Seq[Synthetic])
     extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
 
     val from: String = param.id
@@ -155,6 +155,16 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     override val csvValues: Seq[String] = Seq(from, to)
 
     override def id: String = "None"
+  }
+
+  final case class TypeParam(typeParam: Signature) extends CSV.Serializable[TypeParam] {
+    lazy val id: String = ""
+
+    // Take end line and cols because function call chains have the same start
+    val things = typeParam
+
+    override val csvHeader: Seq[String] = Seq("id")
+    override val csvValues: Seq[String] = Seq(id)
   }
 
   override def fix(ctx: RuleCtx): Patch = {
@@ -173,11 +183,15 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syn -> ImplicitParam(symbol, den)
       }
 
+    val syntheticTypeParams = ctx.index.synthetics.collect {
+      case x: Synthetic if x.text.toString.matches("\\*\\[.*\\]") => x
+    }
+
     val paramsFuns =
       for {
         app <- ctx.tree collect {
-          case x: Term.Apply => AppTerm(x, x.args.size)
-          case x: Term.Name => AppTerm(x, 0)
+          case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
+          case x: Term.Name => AppTerm(x, 0, x.pos.end)
         }
         param <- syntheticImplicits collect {
           case (syn, den) if syn.position.end == app.term.pos.end => den
@@ -185,13 +199,14 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         syntheticApply = ctx.index.synthetics find {
           x => x.text.toString.equals("*.apply") && x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
         }
+        typeParams = syntheticTypeParams.filter(_.position.end == app.nameEnd)
       } yield {
         syntheticApply match {
-          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param)
-          case None => FunApplyWithImplicitParam(FunApply(app, file), param)
+          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param, typeParams)
+          case None => FunApplyWithImplicitParam(FunApply(app, file), param, typeParams)
         }
       }
-
+    
     val params = paramsFuns.groupBy(_.param).keys.toSet
     val funs = paramsFuns.groupBy(_.fun).keys
 

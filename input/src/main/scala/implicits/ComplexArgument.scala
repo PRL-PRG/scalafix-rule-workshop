@@ -4,6 +4,7 @@ rule = "class:implicits.ImplicitContextCSV"
 package implicits
 
 class ComplexArgument {
+/*
 
   // Regular class and case classes
   case class CaseWriter(name: String, surname: String)
@@ -14,6 +15,7 @@ class ComplexArgument {
   implicit val arg: NormalWriter = new NormalWriter("Oscar", "Wilde")
   def normalWriter()(implicit writer: NormalWriter): String = writer.name
   normalWriter()
+*/
 
 
   // Using typeclasses
