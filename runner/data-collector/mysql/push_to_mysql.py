@@ -25,6 +25,7 @@ def dump_params(full_path, project_id):
         cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
                         "VALUES (%s, %s, %s, %s, %s, %s)",
                         (project_id, param[4], param[0], param[2], param[1], param[3]))
+        except sql.Error as error:
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
@@ -36,11 +37,16 @@ def dump_funs(full_path, project_id):
     reader = csv.reader(csv_file)
     ids = {}
     for fun in reader:
-        print "Insert [%s, %s] into funapps" % (project_id, fun)
-        cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-                        (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
-        rowid = cursor.lastrowid
+        print "Insert [%s, %s] into funs" % (project_id, fun)
+	try:
+        	cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
+                	        "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                        	(project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
+
+        except sql.Error as error:
+		print error
+		sys.exit()
+	rowid = cursor.lastrowid
         ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
     csv_file.close()
     return ids
@@ -65,6 +71,7 @@ def insert_project_data(dir, project_id):
                                 (param_ids[link[0]], funs_ids[link[1]]))
             except sql.Error as error:
                 print error
+		sys.exit()
         link_file.close()
 
     else: 
@@ -86,6 +93,7 @@ def insert_project_into_db(dir):
 
         except sql.Error as error:
             print("Error: {}".format(error))
+    	    sys.exit()
     else:
         print("Oki-doke")
 
@@ -100,13 +108,14 @@ cursor = db.cursor()
 # Assume CWD is the codebases/ folder
 root = os.getcwd()
 
-if len(sys.argv) == 2:
+if len(sys.argv) >= 2:
     if sys.argv[1] == "--all":
          for subdir in os.listdir(root):  
             if os.path.isdir(os.path.join(root, subdir)):  
                 insert_project_into_db(subdir)
     else:
-        insert_project_into_db(sys.argv[1])
+	for arg in range(1, len(sys.argv)):
+	     insert_project_into_db(sys.argv[arg])
     
     proceed = raw_input("Commit changes to the database? (y/n) ")
     if proceed == "y":
