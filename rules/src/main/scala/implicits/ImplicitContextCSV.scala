@@ -171,7 +171,19 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     }
   }
 
-  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B], typeParams: Seq[TypeParam])
+  final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B])
+    extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
+
+    val from: String = param.id
+    val to: String = fun.id
+
+    override val csvHeader: Seq[String] = Seq("from", "to")
+    override val csvValues: Seq[String] = Seq(from, to)
+
+    override def id: String = "None"
+  }
+
+  final case class FunApplyWithTypeParam[A, B](fun: CSV.Serializable[A], param: TypeParam)
     extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
 
     val from: String = param.id
@@ -209,24 +221,26 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
         TypeParam(symbol, den, syn.position.end)
       }
 
+    val syntheticApplies = ctx.index.synthetics.filter(_.names.exists(_.toString() == "apply"))
+
+    val allApps = ctx.tree collect {
+      case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
+      case x: Term.Name => AppTerm(x, 0, x.pos.end)
+    }
 
     val paramsFuns =
       for {
-        app <- ctx.tree collect {
-          case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
-          case x: Term.Name => AppTerm(x, 0, x.pos.end)
-        }
+        app <- allApps
         param <- syntheticImplicits collect {
           case (syn, den) if syn.position.end == app.term.pos.end => den
         }
-        syntheticApply = ctx.index.synthetics find {
-          x => x.text.toString.equals("*.apply") && x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
+        syntheticApply = syntheticApplies find {
+          x => x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
         }
-        typeParams = syntheticTypeParams filter(_.pos == app.nameEnd)
       } yield {
         syntheticApply match {
-          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param, typeParams)
-          case None => FunApplyWithImplicitParam(FunApply(app, file), param, typeParams)
+          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(synth, file, app.params), param)
+          case None => FunApplyWithImplicitParam(FunApply(app, file), param)
         }
       }
 
@@ -236,6 +250,28 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
     CSV.writeCSV(params, "params.csv")
     CSV.writeCSV(funs, "funs.csv")
     CSV.writeCSV(paramsFuns, "params-funs.csv")
+
+
+    val funsWithTypeParamRelations =
+      for {
+        app <- allApps
+        typeParam <- syntheticTypeParams filter(_.pos == app.nameEnd)
+        syntheticApply = syntheticApplies find {
+          x => x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
+        }
+      } yield {
+        syntheticApply match {
+          case Some(synth) => FunApplyWithTypeParam(SyntheticApply(synth, file, app.params), typeParam)
+          case None => FunApplyWithTypeParam(FunApply(app, file), typeParam)
+        }
+      }
+
+    val typeParams = funsWithTypeParamRelations.groupBy(_.param).keys.toSet
+    val funsWithTypeParams = funsWithTypeParamRelations.groupBy(_.fun).keys
+
+    CSV.writeCSV(typeParams, "typeparams-params.csv")
+    CSV.writeCSV(funsWithTypeParams, "typeparams-funs.csv")
+    CSV.writeCSV(funsWithTypeParamRelations, "typeparams-relations.csv")
 
     Patch.empty
   }

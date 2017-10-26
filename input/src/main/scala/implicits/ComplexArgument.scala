@@ -32,7 +32,7 @@ class ComplexArgument {
   }
 
   class C {
-    def m1[T, S](implicit writer: WriterLike[T, S]) = this
+    def m1[T, S] = this
     def m2[T, S](implicit writer: WriterLike[T, S]) = this
     def m3[T, S](implicit writer: WriterLike[T, S]) = this
     def apply[T, S](implicit writer: WriterLike[T, S]) = this
