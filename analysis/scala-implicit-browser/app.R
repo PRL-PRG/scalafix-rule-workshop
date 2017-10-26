@@ -119,6 +119,10 @@ ui <- fluidPage(
           inputId="filter_module",
           label=h5("by module")
         ),
+        checkboxGroupInput(
+            inputId="filter_param_type",
+          label=h5("by param type")
+        ),
         hr()
       ),
 
@@ -245,6 +249,27 @@ server <- function(input, output, session) {
     )
   })
 
+  observe({
+    model <- model()
+    types <- if (is.null(model)) {
+      NULL
+    } else {
+      model$nodes %>%
+        filter(node_type == NODE_PARAM) %>%
+        select(fqtn) %>%
+        distinct() %>%
+        .$fqtn
+    }
+
+    updateCheckboxGroupInput(
+      session,
+      "filter_param_type",
+      choices=types,
+      selected=types
+    )
+  })
+
+
   graph <- reactive({
     model <- model()
     if (is.null(model)) {
@@ -253,7 +278,11 @@ server <- function(input, output, session) {
       # filter params
       param_nodes <-
         model$nodes %>%
-        filter(node_type == NODE_PARAM & kind %in% input$filter_kind)
+        filter(
+          node_type == NODE_PARAM,
+          kind %in% input$filter_kind,
+          fqtn %in% input$filter_param_type
+        )
 
       # filter funs
       fun_nodes <-
