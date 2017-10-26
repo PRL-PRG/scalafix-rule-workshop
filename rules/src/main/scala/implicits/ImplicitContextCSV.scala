@@ -98,6 +98,7 @@ final case class ImplicitContextCSV(index: SemanticdbIndex)
       case x: Denotation if x.isDef => "def"
       case x: Denotation if x.isObject => "object"
       case x: Denotation if x.isParam => "param"
+      case x: Denotation if x.isMacro => "macro"
       case x: Denotation => s"<unknown: ${x.structure}>"
     }
   }
