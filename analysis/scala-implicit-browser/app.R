@@ -27,7 +27,7 @@ load_data <- function() {
   )
 }
 
-create_model <- function(funs, params, params_funs) {
+create_model <- function(proj, funs, params, params_funs) {
   # convert the ids to simple indexes
 
   edges <- data_frame(
@@ -61,6 +61,8 @@ create_model <- function(funs, params, params_funs) {
     id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
 
+    # FIXME: this is only good for github
+    url=str_c(str_c(proj$url, "blob", proj$version, path, sep="/"), "#L", line),
     path=path,
     line=line,
     col=col,
@@ -73,13 +75,14 @@ create_model <- function(funs, params, params_funs) {
     nargs=nargs
   )
 
+
   v_fun_nodes <- m_fun_nodes %>% transmute(
     id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
 
     group="functions",
     shape="dot",
-    title=str_c("<pre><code>", path, "\n", name, "</code></pre>"),
+    title=str_c('<pre><a target="_blank" href="', url ,'">', path, "</a><br/><br/><code>", name, "</code></pre>"),
     color="lightblue"
   )
 
@@ -157,6 +160,8 @@ server <- function(input, output, session) {
     if (is.na(p_id)) {
       NULL
     } else {
+      project <- data$project %>% filter(id == p_id)
+
       funs <-
         data$funs %>%
         filter(project == p_id) %>%
@@ -176,7 +181,7 @@ server <- function(input, output, session) {
         ) %>%
         collect(n=Inf)
 
-      create_model(funs, params, params_funs)
+      create_model(project, funs, params, params_funs)
     }
   })
 
@@ -306,9 +311,11 @@ server <- function(input, output, session) {
       vs <- neighbors(graph(), sub_s_id, mode="all")
       model()$nodes %>%
         filter(id %in% vs$name) %>%
+        mutate(path=str_c('<pre><a target="_blank" href="', url ,'">', path, "</a></pre>")) %>%
+        select(-url) %>%
         remove_empty_cols()
     }
-  }, options=list("paging"=FALSE, "searching"=FALSE))
+  }, options=list("paging"=FALSE, "searching"=FALSE), escape=FALSE)
 }
 
 shinyApp(ui = ui, server = server)
