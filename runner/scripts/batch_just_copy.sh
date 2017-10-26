@@ -3,7 +3,7 @@
 CURDIR=$( pwd )
 
 
-for project in $( find $1 -maxdepth 2 -name "build.sbt" )
+for project in $( find $1 -maxdepth 2 -name "*.sbt" )
 do
 	DIR=$( dirname $project )
 	echo "Setting up project $DIR"
