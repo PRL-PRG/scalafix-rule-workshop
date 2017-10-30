@@ -1,0 +1,23 @@
+version: '3'
+services:
+  shiny:
+    image: fikovnik/shiny-server
+    ports:
+      - 7123:3838
+    volumes:
+      - "./logs:/var/log/shiny-server"
+      - "./scala-implicit-browser:/srv/shiny-server"
+    links:
+      - mysql
+
+  mysql:
+    image: mysql
+    ports:
+      - 6612:3306
+    volumes:
+      - "./data:/var/lib/mysql"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_DATABASE: scala
+      MYSQL_USER: scala
+      MYSQL_PASSWORD: scala
