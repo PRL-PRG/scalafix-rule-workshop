@@ -66,7 +66,7 @@ create_model <- function(proj, funs, params, params_funs) {
   }
 
   m_fun_nodes <- funs %>% transmute(
-    id=nrow(params)+(1:nrow(funs)),
+    id=nrow(params)+(1:nrow(funs)),g
     node_type=NODE_FUN,
 
     # FIXME: this is only good for github
@@ -121,7 +121,7 @@ ui <- fluidPage(
         ),
         checkboxGroupInput(
           inputId="filter_srcset",
-          label=h5("by srcset")
+          label=h5("by source group")
         ),
         checkboxGroupInput(
           inputId="filter_module",
@@ -356,3 +356,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
+q
