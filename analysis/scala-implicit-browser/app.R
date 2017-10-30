@@ -66,7 +66,7 @@ create_model <- function(proj, funs, params, params_funs) {
   }
 
   m_fun_nodes <- funs %>% transmute(
-    id=nrow(params)+(1:nrow(funs)),g
+    id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
 
     # FIXME: this is only good for github
@@ -356,4 +356,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
-q
