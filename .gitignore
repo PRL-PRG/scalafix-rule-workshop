@@ -4,3 +4,5 @@ target/
 .idea
 temp
 *.csv
+__pycache__
+.vscode
