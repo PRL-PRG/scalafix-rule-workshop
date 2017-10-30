@@ -57,6 +57,14 @@ create_model <- function(proj, funs, params, params_funs) {
     color="red"
   )
 
+  if (all(grepl("src", funs$path))) {
+    funs_module <- str_replace(funs$path, "(.*)/src/.*", "\\1")
+    funs_srcset <- str_replace(funs$path, ".*/src/([^/]+)/.*", "\\1")
+  } else {
+    funs_module <- "all"
+    funs_srcset <- "all"
+  }
+
   m_fun_nodes <- funs %>% transmute(
     id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
@@ -66,8 +74,8 @@ create_model <- function(proj, funs, params, params_funs) {
     path=path,
     line=line,
     col=col,
-    module=str_replace(path, "(.*)/src/.*", "\\1"),
-    srcset=str_replace(path, ".*/src/([^/]+)/.*", "\\1"),
+    module=funs_module,
+    srcset=funs_srcset,
     # TODO add code
     code="", #str_replace_all(code, "\\\\n", "\n"),
     # TODO: process symbol name
