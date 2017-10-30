@@ -37,7 +37,8 @@ class Fixer:
             "remove_L_notation": remove_L_notation,
             "remove_leading_root": remove_leading_root,
             "remove_trailing_dot": remove_trailing_dot,
-            "replace_unknown_kinds": replace_unknown_kinds
+            "replace_unknown_kinds": replace_unknown_kinds,
+            "remove_hashtags": remove_hashtags
         }
 
     

@@ -4,6 +4,8 @@ import csv
 import sys
 from Fixer import Fixer
 
+fully_qualified_name_fixes = ["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"]
+
 
 def get_project_info(cwd):
     # Assuming cwd is the project
@@ -16,13 +18,18 @@ def get_project_info(cwd):
     os.chdir("..")
     return {"path": path, "name": name, "version": version, "last_commit": commit, "url": url}
 
-def clean_param_row(row, fixer):  
+def clean_param_row(row, fixer):
+    row["id"] = fixer.fix(fully_qualified_name_fixes, row["id"])
+    row["clazz"] = fixer.fix(fully_qualified_name_fixes, row["clazz"])
+    row["kind"] = fixer.fix(["replace_unknown_kinds"], row["kind"])
     return row
 
 def clean_funs_row(row, fixer):
+    row["symbol"] = fixer.fix(fully_qualified_name_fixes, row["symbol"])
     return row
 
 def clean_links_row(row, fixer):
+    row["from"] = fixer.fix(fully_qualified_name_fixes, row["from"])
     return row
 
 def clean_file(basepath, fixer, clean_function):
