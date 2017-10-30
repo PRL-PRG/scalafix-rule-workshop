@@ -57,9 +57,9 @@ def dump_funs(full_path, project_id):
     return ids
 
 def insert_project_data(dir, project_id):
-    params_path = dir+"/params.csv"
-    funs_path = dir+"/funs.csv"
-    params_funs_path = dir+"/params-funs.csv"
+    params_path = dir+"/params.clean.csv"
+    funs_path = dir+"/funs.clean.csv"
+    params_funs_path = dir+"/params-funs.clean.csv"
     if os.path.exists(params_path) and os.path.exists(funs_path) and os.path.exists(params_funs_path):
 
         param_ids = dump_params(params_path, project_id)
@@ -90,7 +90,11 @@ def insert_project_data(dir, project_id):
         print "csv files not found not found"
 
 def insert_project_into_db(dir):
-    info = get_project_info(dir)
+    projectfile = dir+"/project.csv"
+    if not os.path.exists(projectfile):
+        raise RuntimeError("No project info found")
+
+    info = get_project_info(projectfile)
     proceed = raw_input("Wish to insert %s in the database? (y/n) " % info)
     if proceed == "y":
         # Push into database
@@ -123,14 +127,20 @@ root = os.getcwd()
 if len(sys.argv) >= 2:
     if sys.argv[1] == "--all":
          for subdir in os.listdir(root):  
-            if os.path.isdir(os.path.join(root, subdir)):  
-                insert_project_into_db(subdir)
+            if os.path.isdir(os.path.join(root, subdir)):
+                try:
+                    insert_project_into_db(subdir)
+                except RuntimeError as error:
+                    print error
     else:
-	for arg in range(1, len(sys.argv)):
-	     insert_project_into_db(sys.argv[arg])
+        for arg in range(1, len(sys.argv)):
+            try:
+                insert_project_into_db(sys.argv[arg])
+            except RuntimeError as error:
+                    print error
     
-    proceed = raw_input("Commit changes to the database? (y/n) ")
-    if proceed == "y":
+    commit = raw_input("Commit changes to the database? (y/n) ")
+    if commit == "y":
         db.commit()
     else:
         print "Oki-doke"
