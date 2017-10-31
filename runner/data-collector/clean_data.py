@@ -57,6 +57,8 @@ def clean_project(dir):
     params_funs_path = dir+"/params-funs"
 
     if os.path.exists(params_path+".csv") and os.path.exists(funs_path+".csv") and os.path.exists(params_funs_path+".csv"):
+        print("Cleaning %s" % info["name"])
+
         save_project_data(dir, info)
         clean_file(params_path, fixer, clean_param_row)
         clean_file(funs_path, fixer, clean_funs_row)
@@ -72,7 +74,10 @@ def main():
         if sys.argv[1] == "--all":
             for subdir in os.listdir(root):  
                 if os.path.isdir(os.path.join(root, subdir)):  
-                    clean_project(subdir)
+                    try:
+                      clean_project(subdir)
+                    except (ValueError, TypeError):
+                      print("Error cleaning %s" % subdir)
         else:
             for arg in range(1, len(sys.argv)):
                 clean_project(sys.argv[arg])        

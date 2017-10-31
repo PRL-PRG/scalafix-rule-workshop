@@ -94,7 +94,7 @@ def insert_project_into_db(dir):
     if not os.path.exists(projectfile):
         raise RuntimeError("No project info found")
 
-    info = get_project_info(projectfile)
+    info = get_project_info(dir)
     proceed = raw_input("Wish to insert %s in the database? (y/n) " % info)
     if proceed == "y":
         # Push into database
