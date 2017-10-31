@@ -152,7 +152,8 @@ server <- function(input, output, session) {
     data <- data()
     df <- data$projects %>%
       mutate(name=str_c(name, version, sep=":")) %>%
-      select(name, id)
+      select(name, id) %>%
+      arrange(name)
 
     projects <- df$id
     names(projects) <- df$name
