@@ -120,15 +120,10 @@ case class SemanticCtx(database: Database, projectPath: AbsolutePath) {
   }
 }
 
-object SemanticdbFileWalker {
-  val rootPath = "target/projects"
-  val root = AbsolutePath(rootPath)
-
-  def run[T](f: SemanticCtx => T): Unit = {
-    var projectPath: AbsolutePath = root
-    def visit(path: Path): Unit =
+object SemanticDBFileVisitor {
+  def apply[T](filePath: Path, projectPath: AbsolutePath, f: SemanticCtx => T) = {
       try {
-        val sdb = s.Database.parseFrom(Files.readAllBytes(path))
+        val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
         val mdb = sdb.toDb(None)
         val ctx = SemanticCtx(mdb, projectPath)
         f(ctx)
@@ -139,11 +134,41 @@ object SemanticdbFileWalker {
           e.setStackTrace(st.take(10))
           e.printStackTrace()
       }
+  }
+}
+
+trait SemanticDBWalker {
+  def run[T](f: SemanticCtx => T): Unit
+}
+
+class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
+  val root = AbsolutePath(rootPath)
+  println(s"Analyzing: ${rootPath}")
+  def run[T](f: SemanticCtx => T): Unit = {
+    import scala.collection.JavaConverters._
+    val files = Files
+        .walk(root.toNIO)
+        .iterator()
+        .asScala
+        .filter { file =>
+          Files.isRegularFile(file) &&
+            PathIO.extension(file) == "semanticdb"
+        }
+        .toVector
+        .par
+      files.foreach(x => SemanticDBFileVisitor(x, root, f))
+  }
+}
+
+class MultipleProjectWalker(rootPath: String) extends SemanticDBWalker {
+  val root = AbsolutePath(rootPath)
+
+  def run[T](f: SemanticCtx => T): Unit = {    
     import scala.collection.JavaConverters._
     val dirs = Files.list(root.toNIO)
     dirs.forEach { project =>
-      projectPath = AbsolutePath(s"$rootPath/${project.getFileName}")
-      println(s"Analyzing: ${projectPath}")
+      val projectPath = AbsolutePath(s"$rootPath/${project.getFileName}")
+      println(s"Analyzing: ${project}")
       val files = Files
         .walk(project.toAbsolutePath)
         .iterator()
@@ -154,7 +179,7 @@ object SemanticdbFileWalker {
         }
         .toVector
         .par
-      files.foreach(visit)
+      files.foreach(x => SemanticDBFileVisitor(x, projectPath, f))
     }
   }
 }

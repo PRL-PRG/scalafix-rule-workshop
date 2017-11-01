@@ -5,8 +5,8 @@ import scala.meta._
 
 object ImplicitParamsToCSV {
 
-  def apply(): Unit = {
-    SemanticdbFileWalker.run { ctx =>
+  def apply(walker: SemanticDBWalker): Unit = {
+    walker.run { ctx =>
       val file: String = ctx.input match {
         case Input.VirtualFile(path, _) => path
         case Input.File(path, _) => path.toString

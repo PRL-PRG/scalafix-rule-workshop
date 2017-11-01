@@ -18,7 +18,9 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    ImplicitParamsToCSV()
+    val rootPath = "target/projects/akka"
+    val walker = new SingleProjectWalker(rootPath)
+    ImplicitParamsToCSV(walker)
     // printReport(report)
   }
 }
