@@ -57,11 +57,14 @@ create_model <- function(proj, funs, params, params_funs) {
     color="red"
   )
 
-  if (all(grepl("src", funs$path))) {
-    funs_module <- str_replace(funs$path, "(.*)/src/.*", "\\1")
-    funs_srcset <- str_replace(funs$path, ".*/src/([^/]+)/.*", "\\1")
-  } else {
+  funs_module <- str_replace(funs$path, "(.*)/src/.*", "\\1")
+  funs_srcset <- str_replace(funs$path, ".*/src/([^/]+)/.*", "\\1")
+
+  if (any(grepl(".scala$", funs_module))) {
     funs_module <- "all"
+  }
+
+  if (any(grepl(".scala$", funs_srcset))) {
     funs_srcset <- "all"
   }
 
