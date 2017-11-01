@@ -1,0 +1,5 @@
+{
+    "scala_url": "",
+    "sbt_projects": "../materials/singlecodebase",
+    "projects_dest": "./projects"
+}
