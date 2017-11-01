@@ -1,29 +1,9 @@
-lazy val V = _root_.scalafix.Versions
-// Use a scala version supported by scalafix.
-scalaVersion in ThisBuild := V.scala212
+name := "implicit-collector"
 
-lazy val rules = project.settings(
-  libraryDependencies += "ch.epfl.scala" %% "scalafix-core" % V.version
-)
+version := "0.1"
 
-lazy val input = project.settings(
-  scalafixSourceroot := sourceDirectory.in(Compile).value
-)
+scalaVersion := "2.12.3"
 
-lazy val output = project
+libraryDependencies += "org.scalameta" %% "testkit" % "2.0.0-M3"
 
-lazy val tests = project
-  .settings(
-    libraryDependencies += "ch.epfl.scala" % "scalafix-testkit" % V.version % Test cross CrossVersion.full,
-    buildInfoPackage := "fix",
-    buildInfoKeys := Seq[BuildInfoKey](
-      "inputSourceroot" ->
-        sourceDirectory.in(input, Compile).value,
-      "outputSourceroot" ->
-        sourceDirectory.in(output, Compile).value,
-      "inputClassdirectory" ->
-        classDirectory.in(input, Compile).value
-    )
-  )
-  .dependsOn(input, rules)
-  .enablePlugins(BuildInfoPlugin)
+scalacOptions += "-Yno-adapted-args"
