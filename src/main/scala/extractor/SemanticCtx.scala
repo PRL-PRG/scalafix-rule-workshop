@@ -180,6 +180,7 @@ class MultipleProjectWalker(rootPath: String) extends SemanticDBWalker {
         .toVector
         .par
       files.foreach(x => SemanticDBFileVisitor(x, projectPath, f))
+      println(" ")
     }
   }
 }
