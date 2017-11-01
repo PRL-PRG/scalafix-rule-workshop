@@ -57,16 +57,19 @@ create_model <- function(proj, funs, params, params_funs) {
     color="red"
   )
 
-  if (all(grepl("src", funs$path))) {
-    funs_module <- str_replace(funs$path, "(.*)/src/.*", "\\1")
-    funs_srcset <- str_replace(funs$path, ".*/src/([^/]+)/.*", "\\1")
-  } else {
+  funs_module <- str_replace(funs$path, "(.*)/src/.*", "\\1")
+  funs_srcset <- str_replace(funs$path, ".*/src/([^/]+)/.*", "\\1")
+
+  if (any(grepl(".scala$", funs_module))) {
     funs_module <- "all"
+  }
+
+  if (any(grepl(".scala$", funs_srcset))) {
     funs_srcset <- "all"
   }
 
   m_fun_nodes <- funs %>% transmute(
-    id=nrow(params)+(1:nrow(funs)),g
+    id=nrow(params)+(1:nrow(funs)),
     node_type=NODE_FUN,
 
     # FIXME: this is only good for github
@@ -152,7 +155,8 @@ server <- function(input, output, session) {
     data <- data()
     df <- data$projects %>%
       mutate(name=str_c(name, version, sep=":")) %>%
-      select(name, id)
+      select(name, id) %>%
+      arrange(name)
 
     projects <- df$id
     names(projects) <- df$name
@@ -172,6 +176,11 @@ server <- function(input, output, session) {
     if (is.na(p_id)) {
       NULL
     } else {
+      progress <- shiny::Progress$new()
+      on.exit(progress$close())
+      progress$set(message="Creating model", value = 0)
+      progress$inc(0, detail="loading data from DB")
+
       project <- data$project %>% filter(id == p_id)
 
       funs <-
@@ -193,6 +202,7 @@ server <- function(input, output, session) {
         ) %>%
         collect(n=Inf)
 
+      progress$inc(1/2, detail="creating graph")
       create_model(project, funs, params, params_funs)
     }
   })
@@ -283,6 +293,11 @@ server <- function(input, output, session) {
     if (is.null(model)) {
       NULL
     } else {
+      progress <- shiny::Progress$new()
+      on.exit(progress$close())
+      progress$set(message="Creating graph view", value = 0)
+      progress$inc(0, detail="filtering nodes")
+
       # filter params
       param_nodes <-
         model$nodes %>%
@@ -305,6 +320,7 @@ server <- function(input, output, session) {
         filter(from %in% param_nodes$id & to %in% fun_nodes$id) %>%
         .$id
 
+      progress$inc(1/2, detail="creating sub graph")
       subgraph.edges(model$graph, eids)
     }
   })
@@ -314,6 +330,11 @@ server <- function(input, output, session) {
     if (is.null(graph)) {
       NULL
     } else {
+      progress <- shiny::Progress$new()
+      on.exit(progress$close())
+      progress$set(message="Rendering graph", value = 0)
+
+      progress$inc(0, detail=str_c("V: ", vcount(graph), " E: ", ecount(graph)))
       visIgraph(graph, idToLabel=FALSE, physics=FALSE, smooth=FALSE) %>%
       visOptions(nodesIdSelection=TRUE, highlightNearest=TRUE)
     }
@@ -356,4 +377,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
-q
