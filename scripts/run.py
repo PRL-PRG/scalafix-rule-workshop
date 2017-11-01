@@ -1,11 +1,12 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 import argparse
 import json
 import os
 import shutil
 import sys
-import subprocess
+from fabric.api import local, abort, lcd, get
+from fabric.contrib.console import confirm
 
 def log(msg):
     print("[Runner] %s" % msg)
@@ -23,21 +24,9 @@ def log_process(process):
         rc = process.poll()
     process.terminate()
 
-def handle_subprocess_error(name, process):
-    print(process)
-    if process.returncode:
-        error("Subprocess %s ended unsuccessfully." % name)
-        error("  (q)uit? (i)gnore (s)how?")
-        option = input("")
-        if option == "q":
-            log("  Oki-doke")
-            sys.exit(1)
-        elif option == "s":
-            log(process.decode('ascii').strip())
-        elif option == "i":
-            log("  Ignoring")
-        else:
-            log("Wrong option. Ignoring by default")            
+def handle_subprocess_error(name, result):
+    if result.failed and not confirm("%s failed. Continue anyway?" % name):
+        abort("Aborting at user request.")           
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(description='Collect data from sbt projects and push it into a database')
@@ -66,20 +55,33 @@ def import_projects(source, dest):
             except RuntimeError as error:
                 print(error)   
 
-def generate_semanticdb_files(cwd, projects):
+def checkout_latest_tag():
+    local("git fetch --tags")
+    local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )")
+    local("git checkout $latestTag")
+
+def download_sbt_plugin(plugin_url, dest_folder):    
+    with lcd(dest_folder):        
+        local("wget -O SemanticdbConfigure.scala %s" % plugin_url)
+
+def generate_semanticdb_files(cwd, projects, plugin_url):
     log("Generating semanticdb files...")
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
         log("  %s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
-        os.chdir(subdir_path)
-        sbt_subprocess = subprocess.Popen(["sbt", "semanticdb", "compile"], stdout=subprocess.).communicate()
-        handle_subprocess_error("sbt", sbt_subprocess)
-        os.chdir(projects_path)
+        with lcd(subdir_path):
+            checkout_latest_tag()
+            download_sbt_plugin(plugin_url, "./project/")
+            result = local("sbt semanticdb compile")
+            handle_subprocess_error("Generate semanticdb", result)
+        lcd(projects_path)
+
 
 def run(cwd, config):
+    download_sbt_plugin(config["semanticdb_plugin_url"], config["local_sbt_folder"])
     import_projects(config["sbt_projects"], config["projects_dest"])
-    generate_semanticdb_files(cwd, config["projects_dest"])
+    generate_semanticdb_files(cwd, config["projects_dest"], config["semanticdb_plugin_url"])
 
 def main():
     cwd = os.getcwd()
