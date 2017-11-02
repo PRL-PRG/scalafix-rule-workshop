@@ -75,7 +75,7 @@ def import_projects(source, dest):
                 print(error)   
 
 def checkout_latest_tag():
-    log("  Checkout latest tag...")
+    log("      Checkout latest tag...")
     local("git fetch --tags", capture=True)
     local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", capture=True)
     local("git checkout $latestTag", capture=True)
@@ -85,7 +85,7 @@ def create_project_info(name, path):
     commit = local("git rev-parse HEAD", capture=True)
     url = local("git config --get remote.origin.url", capture=True)
     project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url}
-    log("  Capture project info: %s" % project_info)
+    log("      Capture project info: %s" % project_info)
     with open(os.path.join(path, "project.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(project_info.keys())
@@ -148,7 +148,7 @@ def run_cleanup_tool(project_path, tool_path):
     return continue_analysis
 
 def upload_to_database(project_path, tool_path, commit_to_db):
-    log("  Uploading to database...")
+    log("  Uploading to database...(commit changes: %s)" % commit_to_db)
     continue_analysis = True
     commit_option = "-y" if commit_to_db else "-n"
     if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):        
