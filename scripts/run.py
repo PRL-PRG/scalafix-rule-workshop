@@ -29,15 +29,18 @@ def log_process(process):
         rc = process.poll()
     process.terminate()
 
-def local_canfail(name, command, verbose=True):
+def local_canfail(name, command, verbose=True, interactive=True):
     failed = False
     with settings(warn_only=True):
         result = local(command, capture=(not verbose))
         if result.failed:
-            if confirm("%s failed. Skip project?" % name):
+            if not interactive:
                 failed = True
             else:
-                abort("Aborting at user request.")   
+                if confirm("%s failed. Skip project?" % name):
+                    failed = True
+                else:
+                    abort("Aborting at user request.")   
     return failed
 
 
@@ -89,7 +92,7 @@ def import_projects(source, dest):
 def checkout_latest_tag():
     log("      Checkout latest tag...")
     local("git fetch --tags", capture=True)
-    local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", capture=True)
+    local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, interactive=False)
     local("git checkout $latestTag", capture=True)
 
 def create_project_info(name, path):
