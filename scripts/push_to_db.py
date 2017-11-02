@@ -137,8 +137,11 @@ if len(sys.argv) >= 2:
                         print error
     
     commit = False
-    if len(sys.argv) >= 3 and sys.argv[1] == "-y":
-        commit = True
+    if len(sys.argv) >= 3:
+        if sys.argv[1] == "-y":
+            commit = True
+        if sys.argv[1] == "-n":
+            commit = False
     else:
         commit = raw_input("Commit changes to the database? (y/n) ") == "y"
     

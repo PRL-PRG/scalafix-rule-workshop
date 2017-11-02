@@ -147,11 +147,12 @@ def run_cleanup_tool(project_path, tool_path):
         log("    Cleanup report found. Skipping")
     return continue_analysis
 
-def upload_to_database(project_path, tool_path):
+def upload_to_database(project_path, tool_path, commit_to_db):
     log("  Uploading to database...")
     continue_analysis = True
+    commit_option = "-y" if commit_to_db else "-n"
     if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):        
-        failed = local_canfail("DB upload", "python %s -y %s" % (tool_path, project_path))
+        failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path))
         if not failed:
             local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
             log("    Done")
@@ -179,7 +180,7 @@ def analyze_projects(cwd, config):
         if continue_analysis:
             continue_analysis = run_cleanup_tool(subdir_path, cleanup_tool_path)
         if continue_analysis: 
-            continue_analysis = upload_to_database(subdir_path, db_tool_path)
+            continue_analysis = upload_to_database(subdir_path, db_tool_path, config["commit_to_db"])
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
