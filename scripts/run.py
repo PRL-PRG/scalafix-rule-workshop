@@ -54,9 +54,21 @@ def cleanup(cwd):
             log("  %s" % item)
             shutil.rmtree(item)
 
+def baseconfig():
+    base_path = os.path.join(os.getcwd(), ".baseconfig.json")
+    if not os.path.exists(base_path):
+        log("Downloading default config")
+        local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.collector.json", capture=True)
+    with open(os.path.join(base_path)) as base_file:
+        return json.load(base_file)
+
 def load_config(file):
+    config = baseconfig()    
     with open(file) as data_file:    
-        return json.load(data_file)
+        userconfig = json.load(data_file)
+        for field in userconfig:            
+            config[field] = userconfig[field]
+    return config
 
 def import_projects(source, dest):
     log("Importing projects into %s..." % dest)
@@ -219,13 +231,15 @@ def main():
     if args.cleanup:
         cleanup(cwd)
         sys.exit(0)
-    if args.config:        
+    if args.config:
         config = load_config(args.config)
-        run(cwd, config)
+        print(config["db_push_tool_name"])
+        #run(cwd, config)
     else:
-        log("No config provided.")
-        sys.exit(0)
-  
+        log("No config provided. Loading default...")
+        config = baseconfig()
+        #run(cwd, config)
+
 main()
 
     
