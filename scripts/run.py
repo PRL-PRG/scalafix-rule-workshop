@@ -5,7 +5,7 @@ import json
 import os
 import shutil
 import sys
-from fabric.api import local, abort, lcd, get
+from fabric.api import local, abort, lcd, get, settings
 from fabric.contrib.console import confirm
 from fabric.contrib import files
 import csv
@@ -29,9 +29,17 @@ def log_process(process):
         rc = process.poll()
     process.terminate()
 
-def handle_subprocess_error(name, result):
-    if result.failed and not confirm("%s failed. Continue anyway?" % name):
-        abort("Aborting at user request.")           
+def local_canfail(name, command):
+    failed = False
+    with settings(warn_only=True):
+        result = local(command)
+        if result.failed:
+            if confirm("%s failed. Skip project?" % name):
+                failed = True
+            else:
+                abort("Aborting at user request.")   
+    return failed
+
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(description='Collect data from sbt projects and push it into a database')
@@ -88,34 +96,40 @@ def download_sbt_plugin(plugin_url, dest_folder):
         with lcd(dest_folder):
             local("wget -O SemanticdbConfigure.scala %s" % plugin_url, capture=True)
 
-def compile_project():
-    result = local("sbt semanticdb compile", capture=True)
-    handle_subprocess_error("Generate semanticdb", result)
-
 def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
     log("  Looking for compilation report...")
+    continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
         log("    Not found. Recompiling...")
         with lcd(project_path):
             checkout_latest_tag()
             project_info = create_project_info(project_name, project_path)
             download_sbt_plugin(plugin_url, "./project/")
-            compile_project()                
-            local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
+            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile")   
+            if not failed: 
+                local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
+            else:
+                log("    Skipping project")
+                continue_analysis = False
         lcd(cwd)
     else:
         log("    Compilation report found. Skipping")
+    return continue_analysis
 
-def run_analysis_tool(project_path, tool_path):
+def run_analysis_tool(project_path, tool_path):    
     log("  Analyzing semanticdb files...")
+    continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
-        result = local("java -jar %s %s" % (tool_path, project_path))
-        handle_subprocess_error("Analyze semanticdb files", result)
-        local("cat SEMANTICDB_COMPLILATION_COMPLETE.TXT >> SEMANTICDB_ANALYSIS_COMPLETE.TXT")
-        log("    Done")
+        failed = local_canfail("Analyze semanticdb files", "java -jar %s %s" % (tool_path, project_path))
+        if not failed:
+            local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
+            log("    Done")
+        else:
+            log("    Skipping project")
+            continue_analysis = False
     else:
         log("    Analysis report found. Skipping")
-
+    return continue_analysis
 
 def analyze_projects(cwd, config):        
     projects = config["projects_dest"]
@@ -125,8 +139,8 @@ def analyze_projects(cwd, config):
     for subdir in os.listdir(projects_path):
         log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
-        generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
-        run_analysis_tool(subdir_path, analysis_tool_path)
+        continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
+        if continue_analysis: continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path)
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
