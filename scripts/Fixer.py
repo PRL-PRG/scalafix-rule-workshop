@@ -20,8 +20,6 @@ def remove_L_notation(text):
 def remove_hashtags(text):
     return (text if text[-1] != "#" else text[:-1]).replace("#", ".")
 
-
-
 def replace_unknown_kinds(text):
     flag_pattern = r".*Denotation\(([A-Z]*( \| [A-Z]*)*).*"
     match = re.search(flag_pattern, text)
@@ -40,7 +38,6 @@ class Fixer:
             "replace_unknown_kinds": replace_unknown_kinds,
             "remove_hashtags": remove_hashtags
         }
-
     
     def fix(self, transforms, text):
         if len(transforms) == 1 and transforms[0] == "all":
