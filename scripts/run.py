@@ -152,10 +152,14 @@ def upload_to_database(project_path, tool_path, commit_to_db):
     continue_analysis = True
     commit_option = "-y" if commit_to_db else "-n"
     if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):        
-        failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path))
+        failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path), False)
         if not failed:
             local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
-            log("    Done")
+            
+            if commit_to_db:
+                log("    Changes commited to the database", color='green')
+            else:
+                log("    DB changes NOT COMMITED", color='yellow')
         else:
             log("    Skipping project")
             continue_analysis = False
