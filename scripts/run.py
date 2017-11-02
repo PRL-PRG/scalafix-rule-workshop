@@ -94,7 +94,7 @@ def compile_project():
 
 def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
     log("  Looking for compilation report...")
-    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_REPORT.TXT")):
+    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
         log("    Not found. Recompiling...")
         with lcd(project_path):
             checkout_latest_tag()
@@ -106,14 +106,26 @@ def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
     else:
         log("    Compilation report found. Skipping")
 
+def run_analysis_tool(project_path, tool_path):
+    log("  Analyzing semanticdb files...")
+    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
+        local("java -jar %s %s" % (tool_path, project_path))
+        local("cat SEMANTICDB_COMPLILATION_COMPLETE.TXT >> SEMANTICDB_ANALYSIS_COMPLETE.TXT")
+        log("    Done")
+    else:
+        log("    Analysis report found. Skipping")
+
+
 def analyze_projects(cwd, config):        
     projects = config["projects_dest"]
     plugin_url = config["semanticdb_plugin_url"]
+    analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
         log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
         generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
+        run_analysis_tool(subdir_path, analysis_tool_path)
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
