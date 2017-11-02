@@ -12,12 +12,12 @@ import csv
 import subprocess
 from termcolor import colored
 
-def log(msg, color='green'):
+def log(msg, color='magenta'):
     label = colored("Runner", color)
     print("[%s] %s" % (label, msg))
 
 def error(msg):
-    log(msg)
+    log(msg, color='red')
 
 def log_process(process):
     while True:
@@ -29,10 +29,10 @@ def log_process(process):
         rc = process.poll()
     process.terminate()
 
-def local_canfail(name, command):
+def local_canfail(name, command, verbose):
     failed = False
     with settings(warn_only=True):
-        result = local(command)
+        result = local(command, capture=(not verbose))
         if result.failed:
             if confirm("%s failed. Skip project?" % name):
                 failed = True
@@ -69,7 +69,8 @@ def import_projects(source, dest):
                 if os.path.exists(destpath):
                     log("    Already imported")
                 else:
-                    shutil.copytree(srcpath, destpath)                
+                    shutil.copytree(srcpath, destpath)  
+                    log("    Done!")              
             except RuntimeError as error:
                 print(error)   
 
@@ -105,11 +106,11 @@ def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
             checkout_latest_tag()
             project_info = create_project_info(project_name, project_path)
             download_sbt_plugin(plugin_url, "./project/")
-            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile")   
+            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", False)   
             if not failed: 
                 local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
             else:
-                log("    Skipping project")
+                error("    Skipping project")
                 continue_analysis = False
         lcd(cwd)
     else:
@@ -120,15 +121,30 @@ def run_analysis_tool(project_path, tool_path, jvm_options):
     log("  Analyzing semanticdb files...")
     continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
-        failed = local_canfail("Analyze semanticdb files", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
+        failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path), True)
         if not failed:
             local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
+            log("    Done")
+        else:
+            error("    Skipping project")
+            continue_analysis = False
+    else:
+        log("    Analysis report found. Skipping")
+    return continue_analysis
+
+def run_cleanup_tool(project_path, tool_path):
+    log("  Cleaning up the data...")
+    continue_analysis = True
+    if not os.path.exists(os.path.join(project_path, "DATA_CLEANUP_COMPLETE.TXT")):        
+        failed = local_canfail("Data cleanup", "python %s %s" % (tool_path, project_path))
+        if not failed:
+            local("cat %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT >> %s/DATA_CLEANUP_COMPLETE.TXT" % (project_path, project_path))
             log("    Done")
         else:
             log("    Skipping project")
             continue_analysis = False
     else:
-        log("    Analysis report found. Skipping")
+        log("    Cleanup report found. Skipping")
     return continue_analysis
 
 def analyze_projects(cwd, config):        
@@ -136,12 +152,14 @@ def analyze_projects(cwd, config):
     plugin_url = config["semanticdb_plugin_url"]
     jvm_options = config["analyzer_jvm_options"]
     analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
+    cleanup_tool_path = os.path.join(cwd, config["tools_dir"], config["cleanup_tool_name"])
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
         log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
         continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
         if continue_analysis: continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path, jvm_options)
+        if continue_analysis: continue_analysis = run_cleanup_tool(subdir_path, cleanup_tool_path)
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
@@ -160,6 +178,7 @@ def download_extraction_tools(cwd, config):
     with lcd(tools_dir):
         download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
         download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
+        download_tool("Data cleanup library", config["cleanup_library_name"], config["cleanup_library_url"])
         download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
 
 
