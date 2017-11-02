@@ -101,7 +101,7 @@ def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
             project_info = create_project_info(project_name, project_path)
             download_sbt_plugin(plugin_url, "./project/")
             compile_project()                
-            local("echo %s >> SEMANTICDB_REPORT.TXT" % project_info["version"])
+            local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
         lcd(cwd)
     else:
         log("    Compilation report found. Skipping")
@@ -118,19 +118,19 @@ def analyze_projects(cwd, config):
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
         log("  %s" % title)
-        if not os.path.exists(os.path.join(cwd, name)):
+        if not os.path.exists(os.path.relpath(os.path.join('.', name))):
             log("    Not found. Dowloading...")
             local("wget -O %s %s" % (name, url), capture=True)
         else:
             log("    Already downloaded")
         
     log("Downloading tools...")
-    if not os.path.exists(config["tools_dir"]):
-        os.mkdir(config["tools_dir"])
-    with lcd(config["tools_dir"]):
-        download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
-        download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
-        download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
+    tools_dir = config["tools_dir"]
+    if not os.path.exists(tools_dir):
+        os.mkdir(tools_dir)
+    download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
+    download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
+    download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
 
 
 def run(cwd, config):
