@@ -109,7 +109,8 @@ def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
 def run_analysis_tool(project_path, tool_path):
     log("  Analyzing semanticdb files...")
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
-        local("java -jar %s %s" % (tool_path, project_path))
+        result = local("java -jar %s %s" % (tool_path, project_path))
+        handle_subprocess_error("Analyze semanticdb files", result)
         local("cat SEMANTICDB_COMPLILATION_COMPLETE.TXT >> SEMANTICDB_ANALYSIS_COMPLETE.TXT")
         log("    Done")
     else:
@@ -130,19 +131,21 @@ def analyze_projects(cwd, config):
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
         log("  %s" % title)
-        if not os.path.exists(os.path.relpath(os.path.join('.', name))):
+        tool_path = os.path.join(tools_dir, name)
+        if not os.path.exists(tool_path):
             log("    Not found. Dowloading...")
             local("wget -O %s %s" % (name, url), capture=True)
         else:
             log("    Already downloaded")
         
     log("Downloading tools...")
-    tools_dir = config["tools_dir"]
+    tools_dir = os.path.join(cwd, config["tools_dir"])
     if not os.path.exists(tools_dir):
         os.mkdir(tools_dir)
-    download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
-    download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
-    download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
+    with lcd(tools_dir):
+        download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
+        download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
+        download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
 
 
 def run(cwd, config):
