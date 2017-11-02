@@ -7,6 +7,9 @@ import shutil
 import sys
 from fabric.api import local, abort, lcd, get
 from fabric.contrib.console import confirm
+from fabric.contrib import files
+import csv
+import subprocess
 
 def log(msg):
     print("[Runner] %s" % msg)
@@ -48,21 +51,37 @@ def import_projects(source, dest):
     for subdir in os.listdir(source):  
         srcpath = os.path.join(source, subdir)
         destpath = os.path.join(dest, subdir)
-        if os.path.isdir(srcpath):
+        if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
             try:
                 log("  %s" % str(srcpath))
-                shutil.copytree(srcpath, destpath)
+                if os.path.exists(destpath):
+                    log("    Already imported")
+                else:
+                    shutil.copytree(srcpath, destpath)                
             except RuntimeError as error:
                 print(error)   
 
 def checkout_latest_tag():
+    log("    Checkout latest tag...")
     local("git fetch --tags")
     local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )")
     local("git checkout $latestTag")
 
+def create_project_info(name, path):
+    version = local("git describe --always", capture=True)
+    commit = local("git rev-parse HEAD", capture=True)
+    url = local("git config --get remote.origin.url", capture=True)
+    project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url}
+    log("  Info: %s" % project_info)
+    with open(os.path.join(path, "project.csv"), "w") as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        writer.writerow(project_info.keys())
+        writer.writerow(project_info.values())
+
 def download_sbt_plugin(plugin_url, dest_folder):    
-    with lcd(dest_folder):        
-        local("wget -O SemanticdbConfigure.scala %s" % plugin_url)
+    if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
+        with lcd(dest_folder):
+            local("wget -O SemanticdbConfigure.scala %s" % plugin_url)
 
 def generate_semanticdb_files(cwd, projects, plugin_url):
     log("Generating semanticdb files...")
@@ -70,13 +89,16 @@ def generate_semanticdb_files(cwd, projects, plugin_url):
     for subdir in os.listdir(projects_path):
         log("  %s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
-        with lcd(subdir_path):
-            checkout_latest_tag()
-            download_sbt_plugin(plugin_url, "./project/")
-            result = local("sbt semanticdb compile")
-            handle_subprocess_error("Generate semanticdb", result)
-        lcd(projects_path)
-
+        if not os.path.exists(os.path.join(subdir_path, "project.csv")):
+            with lcd(subdir_path):
+                checkout_latest_tag()
+                create_project_info(subdir, subdir_path)
+                download_sbt_plugin(plugin_url, "./project/")
+                result = local("sbt semanticdb compile")
+                handle_subprocess_error("Generate semanticdb", result)
+            lcd(projects_path)
+        else:
+            log("    Project info found. Skipping")
 
 def run(cwd, config):
     download_sbt_plugin(config["semanticdb_plugin_url"], config["local_sbt_folder"])
