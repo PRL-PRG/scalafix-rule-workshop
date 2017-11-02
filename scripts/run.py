@@ -29,7 +29,7 @@ def log_process(process):
         rc = process.poll()
     process.terminate()
 
-def local_canfail(name, command, verbose):
+def local_canfail(name, command, verbose=True):
     failed = False
     with settings(warn_only=True):
         result = local(command, capture=(not verbose))
@@ -121,7 +121,7 @@ def run_analysis_tool(project_path, tool_path, jvm_options):
     log("  Analyzing semanticdb files...")
     continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
-        failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path), True)
+        failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
         if not failed:
             local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
             log("    Done")
@@ -147,19 +147,39 @@ def run_cleanup_tool(project_path, tool_path):
         log("    Cleanup report found. Skipping")
     return continue_analysis
 
+def upload_to_database(project_path, tool_path):
+    log("  Uploading to database...")
+    continue_analysis = True
+    if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):        
+        failed = local_canfail("DB upload", "python %s -y %s" % (tool_path, project_path))
+        if not failed:
+            local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
+            log("    Done")
+        else:
+            log("    Skipping project")
+            continue_analysis = False
+    else:
+        log("    Upload report found. Skipping")
+    return continue_analysis
+
 def analyze_projects(cwd, config):        
     projects = config["projects_dest"]
     plugin_url = config["semanticdb_plugin_url"]
     jvm_options = config["analyzer_jvm_options"]
     analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
     cleanup_tool_path = os.path.join(cwd, config["tools_dir"], config["cleanup_tool_name"])
+    db_tool_path = os.path.join(cwd, config["tools_dir"], config["db_push_tool_name"])
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
         log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
         continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
-        if continue_analysis: continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path, jvm_options)
-        if continue_analysis: continue_analysis = run_cleanup_tool(subdir_path, cleanup_tool_path)
+        if continue_analysis: 
+            continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path, jvm_options)
+        if continue_analysis:
+            continue_analysis = run_cleanup_tool(subdir_path, cleanup_tool_path)
+        if continue_analysis: 
+            continue_analysis = upload_to_database(subdir_path, db_tool_path)
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
@@ -186,6 +206,7 @@ def run(cwd, config):
     import_projects(config["sbt_projects"], config["projects_dest"])
     download_extraction_tools(cwd, config)
     analyze_projects(cwd, config)
+    log("All done!", color="green")
 
 def main():
     cwd = os.getcwd()
