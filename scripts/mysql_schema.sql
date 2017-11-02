@@ -44,7 +44,7 @@ CREATE TABLE `funs` (
 DROP TABLE IF EXISTS `params_funs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `param_funs` (
+CREATE TABLE `params_funs` (
   `param` int(11) NOT NULL,
   `fun` int(11) NOT NULL,
   PRIMARY KEY (`param`,`fun`),

@@ -93,24 +93,21 @@ def insert_project_into_db(dir):
     if not os.path.exists(projectfile):
         raise RuntimeError("No project info found")
 
-    info = get_project_info(dir)
-    proceed = raw_input("Wish to insert %s in the database? (y/n) " % info)
-    if proceed == "y":
-        # Push into database
-        print("Inserting %s into db" % info["name"])
-        try:
-            cursor.execute("INSERT INTO projects (name, version, path, url)"
-                            "VALUES (%s, %s, %s, %s)", 
-                            (info["name"], info["version"], info["path"], info["url"]))
-            project_id = cursor.lastrowid
-            print("Project ID is %s" % project_id)
-            insert_project_data(dir, project_id)
+    info = get_project_info(dir)    
+    # Push into database
+    print("Inserting %s into db" % info["name"])
+    try:
+        cursor.execute("INSERT INTO projects (name, version, path, url)"
+                        "VALUES (%s, %s, %s, %s)", 
+                        (info["name"], info["version"], info["path"], info["url"]))
+        project_id = cursor.lastrowid
+        print("Project ID is %s" % project_id)
+        insert_project_data(dir, project_id)
 
-        except sql.Error as error:
-            print("Error: {}".format(error))
-    	    sys.exit()
-    else:
-        print("Oki-doke")
+    except sql.Error as error:
+        print("Error: {}".format(error))
+        sys.exit()
+   
 
 
 db = sql.connect(host="127.0.0.1",
@@ -132,14 +129,20 @@ if len(sys.argv) >= 2:
                 except RuntimeError as error:
                     print error
     else:
-        for arg in range(1, len(sys.argv)):
-            try:
-                insert_project_into_db(sys.argv[arg])
-            except RuntimeError as error:
-                    print error
+        for arg in sys.argv[1:]:
+            if arg != "-y":
+                try:
+                    insert_project_into_db(arg)
+                except RuntimeError as error:
+                        print error
     
-    commit = raw_input("Commit changes to the database? (y/n) ")
-    if commit == "y":
+    commit = False
+    if len(sys.argv) >= 3 and sys.argv[1] == "-y":
+        commit = True
+    else:
+        commit = raw_input("Commit changes to the database? (y/n) ") == "y"
+    
+    if commit:
         db.commit()
     else:
         print "Oki-doke"
