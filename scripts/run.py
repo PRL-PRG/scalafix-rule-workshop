@@ -64,7 +64,7 @@ def import_projects(source, dest):
                 print(error)   
 
 def checkout_latest_tag():
-    log("    Checkout latest tag...")
+    log("  Checkout latest tag...")
     local("git fetch --tags", capture=True)
     local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", capture=True)
     local("git checkout $latestTag", capture=True)
@@ -90,27 +90,32 @@ def compile_project():
     result = local("sbt semanticdb compile", capture=True)
     handle_subprocess_error("Generate semanticdb", result)
 
-def generate_semanticdb_files(cwd, projects, plugin_url):
-    log("Generating semanticdb files...")
+def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
+    log("  Looking for compilation report...")
+    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_REPORT.TXT")):
+        log("    Not found. Recompiling...")
+        with lcd(project_path):
+            checkout_latest_tag()
+            project_info = create_project_info(project_name, project_path)
+            download_sbt_plugin(plugin_url, "./project/")
+            compile_project()                
+            local("echo %s >> SEMANTICDB_REPORT.TXT" % project_info["version"])
+        lcd(cwd)
+    else:
+        log("    Compilation report found. Skipping")
+
+def analyze_projects(cwd, config):        
+    projects = config["projects_dest"]
+    plugin_url = config["semanticdb_plugin_url"]
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
-        log("  %s" % subdir)
+        log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
-        if not os.path.exists(os.path.join(subdir_path, "SEMANTICDB_REPORT.TXT")):
-            with lcd(subdir_path):
-                checkout_latest_tag()
-                project_info = create_project_info(subdir, subdir_path)
-                download_sbt_plugin(plugin_url, "./project/")
-                compile_project()                
-                local("echo %s >> SEMANTICDB_REPORT.TXT" % project_info["version"])
-            lcd(projects_path)
-        else:
-            log("    Project info found. Skipping")
+        generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
 
 def run(cwd, config):
-    download_sbt_plugin(config["semanticdb_plugin_url"], config["local_sbt_folder"])
     import_projects(config["sbt_projects"], config["projects_dest"])
-    generate_semanticdb_files(cwd, config["projects_dest"], config["semanticdb_plugin_url"])
+    analyze_projects(cwd, config)
 
 def main():
     cwd = os.getcwd()
