@@ -2,7 +2,6 @@
     "extractor_tool_url": "",
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
-    "local_sbt_folder": "~/.sbt/0.13/plugins/",
     "semanticdb_plugin_url": "https://gist.githubusercontent.com/olafurpg/e581ed507d32a867007246bc9d7b38bd/raw/e45226b023ab4b8c7c9ce2ddf51bc600cdd87cb2/Semanticdb.scala",
    
     "tools_dir": "tools",   
