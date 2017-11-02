@@ -10,9 +10,11 @@ from fabric.contrib.console import confirm
 from fabric.contrib import files
 import csv
 import subprocess
+from termcolor import colored
 
-def log(msg):
-    print("[Runner] %s" % msg)
+def log(msg, color='green'):
+    label = colored("Runner", color)
+    print("[%s] %s" % (label, msg))
 
 def error(msg):
     log(msg)
@@ -63,25 +65,30 @@ def import_projects(source, dest):
 
 def checkout_latest_tag():
     log("    Checkout latest tag...")
-    local("git fetch --tags")
-    local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )")
-    local("git checkout $latestTag")
+    local("git fetch --tags", capture=True)
+    local("latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", capture=True)
+    local("git checkout $latestTag", capture=True)
 
 def create_project_info(name, path):
     version = local("git describe --always", capture=True)
     commit = local("git rev-parse HEAD", capture=True)
     url = local("git config --get remote.origin.url", capture=True)
     project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url}
-    log("  Info: %s" % project_info)
+    log("  Capture project info: %s" % project_info)
     with open(os.path.join(path, "project.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(project_info.keys())
         writer.writerow(project_info.values())
+    return project_info
 
 def download_sbt_plugin(plugin_url, dest_folder):    
     if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
         with lcd(dest_folder):
-            local("wget -O SemanticdbConfigure.scala %s" % plugin_url)
+            local("wget -O SemanticdbConfigure.scala %s" % plugin_url, capture=True)
+
+def compile_project():
+    result = local("sbt semanticdb compile", capture=True)
+    handle_subprocess_error("Generate semanticdb", result)
 
 def generate_semanticdb_files(cwd, projects, plugin_url):
     log("Generating semanticdb files...")
@@ -89,13 +96,13 @@ def generate_semanticdb_files(cwd, projects, plugin_url):
     for subdir in os.listdir(projects_path):
         log("  %s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
-        if not os.path.exists(os.path.join(subdir_path, "project.csv")):
+        if not os.path.exists(os.path.join(subdir_path, "SEMANTICDB_REPORT.TXT")):
             with lcd(subdir_path):
                 checkout_latest_tag()
-                create_project_info(subdir, subdir_path)
+                project_info = create_project_info(subdir, subdir_path)
                 download_sbt_plugin(plugin_url, "./project/")
-                result = local("sbt semanticdb compile")
-                handle_subprocess_error("Generate semanticdb", result)
+                compile_project()                
+                local("echo %s >> SEMANTICDB_REPORT.TXT" % project_info["version"])
             lcd(projects_path)
         else:
             log("    Project info found. Skipping")
