@@ -116,11 +116,11 @@ def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
         log("    Compilation report found. Skipping")
     return continue_analysis
 
-def run_analysis_tool(project_path, tool_path):    
+def run_analysis_tool(project_path, tool_path, jvm_options):
     log("  Analyzing semanticdb files...")
     continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):        
-        failed = local_canfail("Analyze semanticdb files", "java -jar %s %s" % (tool_path, project_path))
+        failed = local_canfail("Analyze semanticdb files", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
         if not failed:
             local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
             log("    Done")
@@ -134,13 +134,14 @@ def run_analysis_tool(project_path, tool_path):
 def analyze_projects(cwd, config):        
     projects = config["projects_dest"]
     plugin_url = config["semanticdb_plugin_url"]
+    jvm_options = config["analyzer_jvm_options"]
     analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
         log("%s" % subdir)
         subdir_path = os.path.join(projects_path, subdir)
         continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
-        if continue_analysis: continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path)
+        if continue_analysis: continue_analysis = run_analysis_tool(subdir_path, analysis_tool_path, jvm_options)
 
 def download_extraction_tools(cwd, config):
     def download_tool(title, name, url):
