@@ -40,9 +40,11 @@ def parse_cli_args():
     return parser.parse_args()
 
 def cleanup(cwd):
-    for subdir in os.listdir(cwd):
-        if os.path.isdir(subdir):
-            shutil.rmtree(subdir)
+    log("Removing subdirs...")
+    for item in os.listdir(cwd):
+        if os.path.isdir(item):
+            log("  %s" % item)
+            shutil.rmtree(item)
 
 def load_config(file):
     with open(file) as data_file:    
@@ -113,8 +115,27 @@ def analyze_projects(cwd, config):
         subdir_path = os.path.join(projects_path, subdir)
         generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
 
+def download_extraction_tools(cwd, config):
+    def download_tool(title, name, url):
+        log("  %s" % title)
+        if not os.path.exists(os.path.join(cwd, name)):
+            log("    Not found. Dowloading...")
+            local("wget -O %s %s" % (name, url), capture=True)
+        else:
+            log("    Already downloaded")
+        
+    log("Downloading tools...")
+    if not os.path.exists(config["tools_dir"]):
+        os.mkdir(config["tools_dir"])
+    with lcd(config["tools_dir"]):
+        download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
+        download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
+        download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
+
+
 def run(cwd, config):
     import_projects(config["sbt_projects"], config["projects_dest"])
+    download_extraction_tools(cwd, config)
     analyze_projects(cwd, config)
 
 def main():

@@ -3,5 +3,13 @@
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
     "local_sbt_folder": "~/.sbt/0.13/plugins/",
-    "semanticdb_plugin_url": "https://gist.githubusercontent.com/olafurpg/e581ed507d32a867007246bc9d7b38bd/raw/e45226b023ab4b8c7c9ce2ddf51bc600cdd87cb2/Semanticdb.scala"
+    "semanticdb_plugin_url": "https://gist.githubusercontent.com/olafurpg/e581ed507d32a867007246bc9d7b38bd/raw/e45226b023ab4b8c7c9ce2ddf51bc600cdd87cb2/Semanticdb.scala",
+   
+    "tools_dir": "tools",   
+    "analyzer_name": "implicit-analyzer.jar",
+    "analyzer_url": "https://github.com/PRL-PRG/scalafix-rule-workshop/blob/implicit-context/bin/implicit-collector.jar?raw=true",
+    "cleanup_tool_name": "clean_data.py",
+    "cleanup_tool_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/clean_data.py",
+    "db_push_tool_name": "push_to_db.py",
+    "db_push_tool_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/push_to_db.py"
 }
