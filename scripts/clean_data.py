@@ -6,12 +6,14 @@ from Fixer import Fixer
 
 fully_qualified_name_fixes = ["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"]
 
-
 def get_project_info(cwd):
-    # Assuming cwd is the project
-    name = os.path.relpath(cwd, cwd + "/..")
-    # Eventually we could parse project.csv
-    return {"name": name}
+    with open(os.path.join(cwd, "project.csv"), "r") as projfile:  
+        reader = csv.reader(projfile)
+        names = next(reader)
+        data = next(reader)
+        info = dict(zip(names, data))
+        print(info)
+        return info
 
 def clean_param_row(row, fixer):
     row["id"] = fixer.fix(fully_qualified_name_fixes, row["id"])

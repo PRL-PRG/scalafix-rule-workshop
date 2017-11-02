@@ -6,13 +6,12 @@ import mysql.connector as sql
 
 def get_project_info(cwd):
     # Assuming cwd is the project
-    path = os.path.abspath(cwd)
-    name = os.path.relpath(cwd, cwd + "/..")
-    os.chdir(name)
-    version = subprocess.check_output(["git", "describe", "--always"]).strip()
-    url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"]).strip()
-    os.chdir("..")
-    return {"path": path, "name": name, "version": version, "url": url}
+    with open(os.path.join(cwd, "project.csv"), "r") as projfile:  
+        reader = csv.reader(projfile)
+        names = next(reader)
+        data = next(reader)
+        info = dict(zip(names, data))
+        return info
 
 def dump_params(full_path, project_id):
     csv_file = open(full_path, 'rb')
@@ -115,7 +114,7 @@ def insert_project_into_db(dir):
 
 
 db = sql.connect(host="127.0.0.1",
-                port="6612",
+                port="3306",
                 user="scala",
                 passwd="scala",
                 database="scala")
