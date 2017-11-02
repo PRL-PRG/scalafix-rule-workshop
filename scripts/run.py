@@ -234,11 +234,11 @@ def main():
     if args.config:
         config = load_config(args.config)
         print(config["db_push_tool_name"])
-        #run(cwd, config)
+        run(cwd, config)
     else:
         log("No config provided. Loading default...")
         config = baseconfig()
-        #run(cwd, config)
+        run(cwd, config)
 
 main()
 
