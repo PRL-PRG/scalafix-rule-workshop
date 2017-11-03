@@ -91,7 +91,7 @@ def load_project_info(path):
 
 def importp(source, dest="./projects"):
     def checkout_latest_tag(project_name):
-        log("[Import][%s]     Checkout latest tag..." % project_name)
+        log("[Import][%s] Checkout latest tag..." % project_name)
         local("git fetch --tags", capture=True)
         local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, False)
         local("git checkout $latestTag", capture=True)
@@ -115,7 +115,7 @@ def importp(source, dest="./projects"):
         url = local("git config --get remote.origin.url", capture=True)
         sloc = count_locs()
         project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url, "total_loc": sloc["total"], "scala_loc": sloc["scala"]}
-        log("[Import][%s]     Capture project info: %s" % (name, project_info))
+        log("[Import][%s] Capture project info: %s" % (name, project_info))
         with open(os.path.join(path, "project.csv"), "w") as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             writer.writerow(project_info.keys())
@@ -128,15 +128,15 @@ def importp(source, dest="./projects"):
         destpath = os.path.join(dest, subdir)
         if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
             try:
-                log("[Import]  %s" % str(srcpath))
+                log("[Import] %s" % str(srcpath))
                 if os.path.exists(destpath):
-                    log("[Import]   Already imported")
+                    log("[Import] Already imported")
                 else:
                     shutil.copytree(srcpath, destpath)
                     with lcd(destpath):
                         checkout_latest_tag(subdir)
                         project_info = create_project_info(subdir, destpath)
-                        log("[Import]   Done!")
+                        log("[Import] Done!")
             except RuntimeError as error:
                 print(error)
 
@@ -152,7 +152,7 @@ def analyze(subdir, always_abort=True, config={}):
         log("[%s] Looking for compilation report..." % project_name)
         continue_analysis = True
         if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
-            log("[%s]   Not found. Recompiling..." % project_name)
+            log("[%s] Not found. Recompiling..." % project_name)
             with lcd(project_path):
                 download_sbt_plugin(plugin_url, "./project/")
                 project_info = load_project_info(project_path)
@@ -160,11 +160,11 @@ def analyze(subdir, always_abort=True, config={}):
                 if not failed:
                     local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
                 else:
-                    error("[%s]   Skipping project" % project_name)
+                    error("[%s] Skipping project" % project_name)
                     continue_analysis = False
             lcd(cwd)
         else:
-            log("[%s]   Compilation report found. Skipping" % project_name)
+            log("[%s] Compilation report found. Skipping" % project_name)
         return continue_analysis
 
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
@@ -174,12 +174,12 @@ def analyze(subdir, always_abort=True, config={}):
             failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
             if not failed:
                 local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
-                log("[%s]   Done" % project_name)
+                log("[%s] Done" % project_name)
             else:
-                error("[%s]   Skipping project" % project_name)
+                error("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s]   Analysis report found. Skipping" % project_name)
+            log("[%s] Analysis report found. Skipping" % project_name)
         return continue_analysis
 
     def run_cleanup_tool(project_name, project_path, tool_path):
@@ -189,12 +189,12 @@ def analyze(subdir, always_abort=True, config={}):
             failed = local_canfail("Data cleanup", "python %s %s" % (tool_path, project_path))
             if not failed:
                 local("cat %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT >> %s/DATA_CLEANUP_COMPLETE.TXT" % (project_path, project_path))
-                log("[%s]   Done" % project_name)
+                log("[%s] Done" % project_name)
             else:
-                log("[%s]   Skipping project" % project_name)
+                log("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s]   Cleanup report found. Skipping" % project_name)
+            log("[%s] Cleanup report found. Skipping" % project_name)
         return continue_analysis
 
     def upload_to_database(project_name, project_path, tool_path, commit_to_db):
@@ -206,14 +206,14 @@ def analyze(subdir, always_abort=True, config={}):
             if not failed:
                 local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
                 if commit_to_db:
-                    log("[%s]   Changes commited to the database" % project_name, color='green')
+                    log("[%s] Changes commited to the database" % project_name, color='green')
                 else:
-                    log("[%s]   DB changes NOT COMMITED" % project_name, color='yellow')
+                    log("[%s] DB changes NOT COMMITED" % project_name, color='yellow')
             else:
-                log("[%s]   Skipping project" % project_name)
+                log("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s]   Upload report found. Skipping" % project_name)
+            log("[%s] Upload report found. Skipping" % project_name)
         return continue_analysis
 
     cwd = os.getcwd()
@@ -250,10 +250,10 @@ def setup(config={}):
         log("[Setup] %s" % title)
         tool_path = os.path.join(tools_dir, name)
         if not os.path.exists(tool_path):
-            log("[Setup]   Not found. Dowloading...")
+            log("[Setup] Not found. Dowloading...")
             local("wget -O %s %s" % (name, url), capture=True)
         else:
-            log("[Setup]   Already downloaded")
+            log("[Setup] Already downloaded")
 
     log("Downloading tools...")
     tools_dir = os.path.join(cwd, config["tools_dir"])
