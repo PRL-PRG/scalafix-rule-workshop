@@ -80,26 +80,18 @@ def load_config(file):
         userconfig = json.load(data_file)
         return override_config(config, userconfig)
 
+def load_project_info(path):
+    with open(os.path.join(path, "project.csv")) as csv_file:
+        reader = csv.reader(csv_file)
+        names = next(reader)
+        data = next(reader)
+        info = dict(zip(names, data))
+        print(info)
+        return info
+
 def importp(source, dest="./projects"):
-    log("[Import] Importing projects into %s..." % dest)
-    for subdir in os.listdir(source):
-        srcpath = os.path.join(source, subdir)
-        destpath = os.path.join(dest, subdir)
-        if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
-            try:
-                log("[Import]  %s" % str(srcpath))
-                if os.path.exists(destpath):
-                    log("[Import]   Already imported")
-                else:
-                    shutil.copytree(srcpath, destpath)
-                    log("[Import]   Done!")
-            except RuntimeError as error:
-                print(error)
-
-
-def analyze(subdir, config={}):
     def checkout_latest_tag(project_name):
-        log("[%s]     Checkout latest tag..." % project_name)
+        log("[Import][%s]     Checkout latest tag..." % project_name)
         local("git fetch --tags", capture=True)
         local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, False)
         local("git checkout $latestTag", capture=True)
@@ -123,13 +115,34 @@ def analyze(subdir, config={}):
         url = local("git config --get remote.origin.url", capture=True)
         sloc = count_locs()
         project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url, "total_loc": sloc["total"], "scala_loc": sloc["scala"]}
-        log("[%s]     Capture project info: %s" % (name, project_info))
+        log("[Import][%s]     Capture project info: %s" % (name, project_info))
         with open(os.path.join(path, "project.csv"), "w") as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             writer.writerow(project_info.keys())
             writer.writerow(project_info.values())
         return project_info
 
+    log("[Import] Importing projects into %s..." % dest)
+    for subdir in os.listdir(source):
+        srcpath = os.path.join(source, subdir)
+        destpath = os.path.join(dest, subdir)
+        if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
+            try:
+                log("[Import]  %s" % str(srcpath))
+                if os.path.exists(destpath):
+                    log("[Import]   Already imported")
+                else:
+                    shutil.copytree(srcpath, destpath)
+                    with lcd(destpath):
+                        checkout_latest_tag(subdir)
+                        project_info = create_project_info(subdir, destpath)
+                        log("[Import]   Done!")
+            except RuntimeError as error:
+                print(error)
+
+
+
+def analyze(subdir, always_abort=True, config={}):
     def download_sbt_plugin(plugin_url, dest_folder):
         if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
             with lcd(dest_folder):
@@ -141,9 +154,8 @@ def analyze(subdir, config={}):
         if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
             log("[%s]   Not found. Recompiling..." % project_name)
             with lcd(project_path):
-                checkout_latest_tag(project_name)
-                project_info = create_project_info(project_name, project_path)
                 download_sbt_plugin(plugin_url, "./project/")
+                project_info = load_project_info(project_path)
                 failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", False)
                 if not failed:
                     local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
@@ -264,7 +276,7 @@ def main():
     cwd = os.getcwd()
     args = parse_cli_args()
     if args.cleanup:
-        cleanup(cwd)
+        cleanup()
         sys.exit(0)
     if args.config:
         config = load_config(args.config)
