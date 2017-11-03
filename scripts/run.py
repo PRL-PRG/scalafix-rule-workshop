@@ -105,10 +105,24 @@ def analyze(subdir, config={}):
         local("git checkout $latestTag", capture=True)
 
     def create_project_info(name, path):
+        def count_locs():
+            local("cloc --out=cloc_report.csv --csv .")
+            with open(os.path.join(path, "cloc_report.csv")) as csv_file:
+                scala_lines = 0
+                total_lines = 0
+                reader = csv.DictReader(csv_file)
+                for line in reader:
+                    lines = int(line["code"])
+                    total_lines += lines
+                    if line["language"] == "Scala":
+                        scala_lines += lines
+            return {"total": total_lines, "scala": scala_lines}
+
         version = local("git describe --always", capture=True)
         commit = local("git rev-parse HEAD", capture=True)
         url = local("git config --get remote.origin.url", capture=True)
-        project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url}
+        sloc = count_locs()
+        project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url, "total_loc": sloc["total"], "scala_loc": sloc["scala"]}
         log("[%s]     Capture project info: %s" % (name, project_info))
         with open(os.path.join(path, "project.csv"), "w") as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
