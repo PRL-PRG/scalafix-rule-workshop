@@ -54,16 +54,16 @@ def parse_cli_args():
 
 def cleanup():
     cwd = os.getcwd()
-    log("Removing subdirs...")
+    log("[Cleanup] Removing subdirs...")
     for item in os.listdir(cwd):
         if os.path.isdir(item):
-            log("  %s" % item)
+            log("[Cleanup]  %s" % item)
             shutil.rmtree(item)
 
 def baseconfig():
     base_path = os.path.join(os.getcwd(), ".baseconfig.json")
     if not os.path.exists(base_path):
-        log("Downloading default config")
+        log("[Config] Downloading default config")
         local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.collector.json", capture=True)
     with open(os.path.join(base_path)) as base_file:
         return json.load(base_file)
@@ -87,7 +87,7 @@ def importp(source, dest="./projects"):
         destpath = os.path.join(dest, subdir)
         if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
             try:
-                log("  %s" % str(srcpath))
+                log("[Import]  %s" % str(srcpath))
                 if os.path.exists(destpath):
                     log("[Import]   Already imported")
                 else:
@@ -106,7 +106,7 @@ def analyze(subdir, config={}):
 
     def create_project_info(name, path):
         def count_locs():
-            local("cloc --out=cloc_report.csv --csv .")
+            local("cloc --out=cloc_report.csv --csv .", capture=True)
             with open(os.path.join(path, "cloc_report.csv")) as csv_file:
                 scala_lines = 0
                 total_lines = 0
@@ -215,15 +215,15 @@ def analyze(subdir, config={}):
     db_tool_path = os.path.join(cwd, config["tools_dir"], config["db_push_tool_name"])
     projects_path = os.path.join(cwd, projects)
 
-    log("[%s]" % subdir)
-    subdir_path = os.path.join(projects_path, subdir)
+    subdir_path = os.path.join(cwd, subdir)
     continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
     if continue_analysis:
         continue_analysis = run_analysis_tool(subdir, subdir_path, analysis_tool_path, jvm_options)
     if continue_analysis:
         continue_analysis = run_cleanup_tool(subdir, subdir_path, cleanup_tool_path)
-    if continue_analysis:
-        continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
+    #if continue_analysis:
+    #   continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
+    log("[%s] Done!" % subdir, color='green')
 
 def analyze_projects(cwd, config):
     projects = config["projects_dest"]
