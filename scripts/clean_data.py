@@ -4,7 +4,13 @@ import csv
 import sys
 from Fixer import Fixer
 
-fully_qualified_name_fixes = ["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"]
+fully_qualified_name_fixes = [
+    "remove_leading_root",
+    "remove_trailing_dot",
+    "extract_function_name"
+    "remove_L_notation",
+    "remove_hashtags",
+]
 
 def get_project_info(cwd):
     with open(os.path.join(cwd, "project.csv"), "r") as projfile:  
@@ -22,7 +28,7 @@ def clean_param_row(row, fixer):
     return row
 
 def clean_funs_row(row, fixer):
-    row["symbol"] = fixer.fix(fully_qualified_name_fixes, row["symbol"])
+    row["symbol"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["symbol"])
     return row
 
 def clean_links_row(row, fixer):
