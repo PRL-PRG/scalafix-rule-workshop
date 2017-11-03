@@ -225,6 +225,7 @@ def analyze(subdir, always_abort=True, config={}):
     analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
     cleanup_tool_path = os.path.join(cwd, config["tools_dir"], config["cleanup_tool_name"])
     db_tool_path = os.path.join(cwd, config["tools_dir"], config["db_push_tool_name"])
+    push_to_db = config["push_to_db_enabled"]
     projects_path = os.path.join(cwd, projects)
 
     subdir_path = os.path.join(cwd, subdir)
@@ -233,8 +234,8 @@ def analyze(subdir, always_abort=True, config={}):
         continue_analysis = run_analysis_tool(subdir, subdir_path, analysis_tool_path, jvm_options)
     if continue_analysis:
         continue_analysis = run_cleanup_tool(subdir, subdir_path, cleanup_tool_path)
-    #if continue_analysis:
-    #   continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
+    if continue_analysis and push_to_db:
+       continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
     log("[%s] Done!" % subdir, color='green')
 
 def analyze_projects(cwd, config):
