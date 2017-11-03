@@ -266,6 +266,31 @@ def setup(config={}):
         download_tool("Data cleanup library", config["cleanup_library_name"], config["cleanup_library_url"])
         download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
 
+def merge_reports(config={}):
+    cwd = os.getcwd()
+    config = override_config(baseconfig(), config)
+    projects_path = config["projects_dest"]
+    log("[Reports] Gathering reports")
+    for report in config["report_files"]:
+        log("[Reports] %s..." % report)
+        headers = False
+        with open("report_"+report, 'w') as report_file:
+            writer = csv.writer(report_file)
+            for subdir in os.listdir(projects_path):
+                log("[Reports] Extracting from %s" % subdir)
+                project_report_path = os.path.join(projects_path, subdir, report)
+                if os.path.exists(project_report_path):
+                    with open(project_report_path) as project_report_file:
+                        project_report = csv.DictReader(project_report_file)
+                        if not headers:
+                            header = list(project_report.fieldnames)
+                            header.append("project")
+                            writer.writerow(header)
+                            headers = True
+                        for line in project_report:
+                            data = list(line.values())
+                            data.append(subdir)
+                            writer.writerow(data)
 
 def run(cwd, config):
     importp(config["sbt_projects"], config["projects_dest"])
