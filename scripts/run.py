@@ -112,9 +112,20 @@ def importp(source, dest="./projects"):
 
         version = local("git describe --always", capture=True)
         commit = local("git rev-parse HEAD", capture=True)
-        url = local("git config --get remote.origin.url", capture=True)
+        url = local("git config --get remote.origin.url", capture=True)        
+        reponame = url.split('.com/')[1]
         sloc = count_locs()
-        project_info = {"path": str(name), "name": str(name), "version": version, "last_commit": commit, "url": url, "total_loc": sloc["total"], "scala_loc": sloc["scala"]}
+        gh_stars = json.loads(local("curl --silent 'https://api.github.com/repos/%s'" % reponame, capture=True))["stargazers_count"]
+        project_info = {
+            "name": str(name),
+            "version": version,
+            "last_commit": commit,
+            "url": url,
+            "total_loc": sloc["total"],
+            "scala_loc": sloc["scala"],
+            "reponame": reponame,
+            "gh_stars": gh_stars
+        }
         log("[Import][%s] Capture project info: %s" % (name, project_info))
         with open(os.path.join(path, "project.csv"), "w") as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
