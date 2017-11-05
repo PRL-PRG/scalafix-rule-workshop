@@ -29,6 +29,8 @@ def clean_param_row(row, fixer):
 
 def clean_funs_row(row, fixer):
     row["symbol"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["symbol"])
+    row["fun_name"] = fixer.fix(["extract_function_name"], row["symbol"])
+    row["parameters"] = fixer.fix(["extract_parameter_list"], row["symbol"])
     return row
 
 def clean_links_row(row, fixer):

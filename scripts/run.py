@@ -243,7 +243,7 @@ def analyze(subdir, always_abort=True, config={}):
     projects_path = os.path.join(cwd, projects)
 
     subdir_path = os.path.join(cwd, subdir)
-    continue_analysis = gen_sdb(projects_path, subdir, subdir_path, plugin_url)
+    continue_analysis = gen_sdb(subdir_path)
     if continue_analysis:
         continue_analysis = run_analysis_tool(subdir, subdir_path, analysis_tool_path, jvm_options)
     if continue_analysis:
