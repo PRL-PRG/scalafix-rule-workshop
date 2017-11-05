@@ -140,33 +140,36 @@ def importp(source, dest="./projects"):
             except RuntimeError as error:
                 print(error)
 
+def gen_sdb(project_path, config={}):
+    cwd = os.getcwd()
+    config = override_config(baseconfig(), config)
+    plugin_url = config["semanticdb_plugin_url"]
+    project_name = os.path.dirname(project_path)
 
-
-def analyze(subdir, always_abort=True, config={}):
     def download_sbt_plugin(plugin_url, dest_folder):
         if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
             with lcd(dest_folder):
                 local("wget -O SemanticdbConfigure.scala %s" % plugin_url, capture=True)
 
-    def generate_semanticdb_files(cwd, project_name, project_path, plugin_url):
-        log("[%s] Looking for compilation report..." % project_name)
-        continue_analysis = True
-        if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
-            log("[%s] Not found. Recompiling..." % project_name)
-            with lcd(project_path):
-                download_sbt_plugin(plugin_url, "./project/")
-                project_info = load_project_info(project_path)
-                failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", False)
-                if not failed:
-                    local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
-                else:
-                    error("[%s] Skipping project" % project_name)
-                    continue_analysis = False
-            lcd(cwd)
-        else:
-            log("[%s] Compilation report found. Skipping" % project_name)
-        return continue_analysis
+    log("[%s] Looking for compilation report..." % project_name)
+    continue_analysis = True
+    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
+        log("[%s] Not found. Recompiling..." % project_name)
+        with lcd(project_path):
+            download_sbt_plugin(plugin_url, "./project/")
+            project_info = load_project_info(project_path)
+            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", False)
+            if not failed:
+                local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
+            else:
+                error("[%s] Skipping project" % project_name)
+                continue_analysis = False
+        lcd(cwd)
+    else:
+        log("[%s] Compilation report found. Skipping" % project_name)
+    return continue_analysis
 
+def analyze(subdir, always_abort=True, config={}):
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
         log("[%s] Analyzing semanticdb files..." % project_name)
         continue_analysis = True
@@ -229,7 +232,7 @@ def analyze(subdir, always_abort=True, config={}):
     projects_path = os.path.join(cwd, projects)
 
     subdir_path = os.path.join(cwd, subdir)
-    continue_analysis = generate_semanticdb_files(projects_path, subdir, subdir_path, plugin_url)
+    continue_analysis = gen_sdb(projects_path, subdir, subdir_path, plugin_url)
     if continue_analysis:
         continue_analysis = run_analysis_tool(subdir, subdir_path, analysis_tool_path, jvm_options)
     if continue_analysis:
