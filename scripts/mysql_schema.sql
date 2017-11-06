@@ -86,8 +86,13 @@ CREATE TABLE `projects` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` tinytext NOT NULL,
   `version` tinytext NOT NULL,
+  `last_commit` tinytext NOT NULL,
   `path` text NOT NULL,
   `url` text NOT NULL,
+  `scala_loc` int(11) NOT NULL,
+  `total_loc` int(11) NOT NULL,
+  `reponame` tinytext NOT NULL,
+  `gh_stars` int(11) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
