@@ -7,7 +7,7 @@ from Fixer import Fixer
 fully_qualified_name_fixes = [
     "remove_leading_root",
     "remove_trailing_dot",
-    "extract_function_name"
+    "extract_function_name",
     "remove_L_notation",
     "remove_hashtags",
 ]
@@ -22,15 +22,15 @@ def get_project_info(cwd):
         return info
 
 def clean_param_row(row, fixer):
-    row["id"] = fixer.fix(fully_qualified_name_fixes, row["id"])
-    row["clazz"] = fixer.fix(fully_qualified_name_fixes, row["clazz"])
+    row["fqn"] = fixer.fix(fully_qualified_name_fixes, row["fqn"])
+    row["class"] = fixer.fix(fully_qualified_name_fixes, row["class"])
     row["kind"] = fixer.fix(["replace_unknown_kinds"], row["kind"])
     return row
 
 def clean_funs_row(row, fixer):
     row["symbol"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["symbol"])
-    row["fun_name"] = fixer.fix(["extract_function_name"], row["symbol"])
-    row["parameters"] = fixer.fix(["extract_parameter_list"], row["symbol"])
+    row["fqfn"] = fixer.fix(["extract_function_name"], row["symbol"])
+    row["fqparamlist"] = fixer.fix(["extract_parameter_list"], row["symbol"])
     return row
 
 def clean_links_row(row, fixer):

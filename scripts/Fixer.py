@@ -15,7 +15,9 @@ def clean_L_notation_instance(text):
 def remove_L_notation(text):
     pattern = re.compile(r"L([a-zA-Z-_$]*\/)*[a-zA-Z-_$]*;")
     clean = pattern.sub(lambda m: clean_L_notation_instance(m.group(0)), text)
-    return clean.replace(",)", ")").replace(",.", ".")
+    corner_cases = clean.replace(",)", ")").replace(",.", ".")
+    no_trail = corner_cases[:-1] if corner_cases[-1] == "," else corner_cases
+    return no_trail
 
 def remove_hashtags(text):
     return (text if text[-1] != "#" else text[:-1]).replace("#", ".")
