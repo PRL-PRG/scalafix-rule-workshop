@@ -89,8 +89,9 @@ def load_project_info(path):
         print(info)
         return info
 
-def importp(source, dest="./projects"):
+def importp(srcpath, dest="./projects"):
     def checkout_latest_tag(project_name):
+        print(os.getcwd())
         log("[Import][%s] Checkout latest tag..." % project_name)
         local("git fetch --tags --depth 1", capture=True)
         local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, False)
@@ -115,7 +116,8 @@ def importp(source, dest="./projects"):
         url = local("git config --get remote.origin.url", capture=True)        
         reponame = url.split('.com/')[1]
         sloc = count_locs()
-        gh_stars = json.loads(local("curl --silent 'https://api.github.com/repos/%s'" % reponame, capture=True))["stargazers_count"]
+        repo_info = json.loads(local("curl 'https://api.github.com/repos/%s'" % reponame, capture=True))
+        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
         project_info = {
             "name": str(name),
             "version": version,
@@ -133,24 +135,37 @@ def importp(source, dest="./projects"):
             writer.writerow(project_info.values())
         return project_info
 
+    def do_import(subdir, srcpath, destpath):
+        shutil.copytree(srcpath, destpath)
+        with lcd(destpath):
+            checkout_latest_tag(subdir)
+            project_info = create_project_info(subdir, destpath)
+            log("[Import] Done!")
+
+    subdir = os.path.basename(srcpath)
+    destpath = os.path.join(dest, subdir)
+    if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
+        try:
+            log("[Import] %s" % str(srcpath))
+            if not os.path.exists(destpath):
+                do_import(subdir, srcpath, destpath)
+            else:
+                if os.path.exists(os.path.join(destpath, "project.csv")):
+                    log("[Import] Already imported")
+                else:
+                    log("[Import] Failed last time. Removing")
+                    shutil.rmtree(destpath)
+                    do_import(subdir, srcpath, destpath)
+        except RuntimeError as error:
+            print(error)
+            
+def importa(source, dest="./projects"): 
     log("[Import] Importing projects into %s..." % dest)
     for subdir in os.listdir(source):
         srcpath = os.path.join(source, subdir)
         destpath = os.path.join(dest, subdir)
-        if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
-            try:
-                log("[Import] %s" % str(srcpath))
-                if os.path.exists(destpath):
-                    log("[Import] Already imported")
-                else:
-                    shutil.copytree(srcpath, destpath)
-                    with lcd(destpath):
-                        checkout_latest_tag(subdir)
-                        project_info = create_project_info(subdir, destpath)
-                        log("[Import] Done!")
-            except RuntimeError as error:
-                print(error)
-
+        importp(srcpath, dest)
+      
 def gen_sdb(project_path, config={}):
     cwd = os.getcwd()
     config = override_config(baseconfig(), config)
