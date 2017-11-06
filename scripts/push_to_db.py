@@ -34,25 +34,22 @@ def dump_params(full_path, project_id):
     return ids
 
 def dump_funs(full_path, project_id):
-    csv_file = open(full_path, 'rb')
-    csv_file.readline() # Skip headers
-    reader = csv.reader(csv_file)
     ids = {}
-    for fun in reader:
-        print "Insert [%s, %s] into funs" % (project_id, fun)
-        try:
-            cursor.execute("INSERT INTO funs (project, path, line, col, name, fqfn, nargs)"
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-                            (project_id, fun[1], fun[2], fun[3], fun[4], fun[5], fun[6]))
+    with open(full_path, 'rb') as csv_file:
+        reader = csv.DictReader(csv_file)
+        for fun in reader:
+            print "Insert [%s, %s] into funs" % (project_id, fun)
+            try:
+                cursor.execute("INSERT INTO funs (project, sourcelink, path, line, col, code, symbol, fqfn, fqparamlist, nargs)"
+                                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (project_id, fun["id"], fun["path"], fun["line"], fun["col"], fun["code"], fun["symbol"], fun["fqfn"], fun["fqparamlist"], fun["nargs"]))
 
-        except sql.Error as error:
-            print error
-            sys.exit()
+            except sql.Error as error:
+                print error
+                sys.exit()
 
-        rowid = cursor.lastrowid
-        ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
-             
-    csv_file.close()
+            rowid = cursor.lastrowid
+            ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
     return ids
 
 def dump_declared_implicits(full_path, project_id):
@@ -115,9 +112,9 @@ def insert_project_into_db(dir):
     # Push into database
     print("Inserting %s into db" % info["name"])
     try:
-        cursor.execute("INSERT INTO projects (name, version, path, url)"
-                        "VALUES (%s, %s, %s, %s)", 
-                        (info["name"], info["version"], info["path"], info["url"]))
+        cursor.execute("INSERT INTO projects (name, version, last_commit, url, scala_loc, total_loc, reponame, gh_stars)"
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (info["name"], info["version"], info["last_commit"], info["url"], info["scala_loc"], info["total_loc"], info["reponame"], info["gh_stars"]))
         project_id = cursor.lastrowid
         print("Project ID is %s" % project_id)
         insert_project_data(dir, project_id)
