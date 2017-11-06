@@ -6,3 +6,5 @@ temp
 *.csv
 __pycache__
 .vscode
+temp
+.ensime

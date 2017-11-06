@@ -137,15 +137,28 @@ object SemanticDBFileVisitor {
   }
 }
 
-trait SemanticDBWalker {
+abstract class SemanticDBWalker {
   def run[T](f: SemanticCtx => T): Unit
+  def deleteOldFiles(projectPath: AbsolutePath): Unit = {
+    val files = Files
+      .walk(projectPath.toNIO)
+      .filter { file =>
+        Files.isRegularFile(file) &&
+          PathIO.extension(file) == "csv" &&
+          file.getFileName.toString != "project.csv"
+      }
+    files.forEach{file =>
+      Files.delete(file)
+    }
+  }
 }
 
 class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
   val root = AbsolutePath(rootPath)
-  println(s"Analyzing: ${rootPath}")
+  println(s"Analyzing ${rootPath}")
   def run[T](f: SemanticCtx => T): Unit = {
     import scala.collection.JavaConverters._
+    deleteOldFiles(root)
     val files = Files
         .walk(root.toNIO)
         .iterator()
@@ -157,18 +170,20 @@ class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
         .toVector
         .par
       files.foreach(x => SemanticDBFileVisitor(x, root, f))
+      println(" ")
   }
 }
 
 class MultipleProjectWalker(rootPath: String) extends SemanticDBWalker {
   val root = AbsolutePath(rootPath)
 
-  def run[T](f: SemanticCtx => T): Unit = {    
+  def run[T](f: SemanticCtx => T): Unit = {
     import scala.collection.JavaConverters._
     val dirs = Files.list(root.toNIO)
     dirs.forEach { project =>
       val projectPath = AbsolutePath(s"$rootPath/${project.getFileName}")
-      println(s"Analyzing: ${project}")
+      deleteOldFiles(projectPath)
+      println(s"Analyzing ${project}")
       val files = Files
         .walk(project.toAbsolutePath)
         .iterator()

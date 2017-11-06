@@ -17,7 +17,7 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
   }
   val kind: String = ctx.getKind(denot)
 
-  override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name")
+  override val csvHeader: Seq[String] = Seq("fqn", "class", "type", "kind", "name")
   override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name)
 
 }
@@ -54,8 +54,8 @@ final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends 
   val code: String = app.term.toString
   val nargs = app.params.toString
 
-  override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "nargs")
-  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, nargs)
+  override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
+  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", nargs)
 }
 
 final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends CSV.Serializable[FunApply] {
@@ -67,8 +67,8 @@ final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String
   val symbol: String = synth.names(1).symbol.toString
   val code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
 
-  override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "nargs")
-  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, params.toString)
+  override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "code", "symbol", "fqfn", "symbol", "nargs")
+  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", params.toString)
 }
 
 
