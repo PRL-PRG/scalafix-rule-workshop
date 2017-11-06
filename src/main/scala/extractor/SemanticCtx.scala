@@ -89,16 +89,26 @@ case class SemanticCtx(database: Database, projectPath: AbsolutePath) {
   }
 
   def getKind(denot: Denotation): String = {
-    denot match {
-      case x: Denotation if x.isVal && x.isLazy => "lazy val"
-      case x: Denotation if x.isVal => "val"
-      case x: Denotation if x.isVar => "var"
-      case x: Denotation if x.isDef => "def"
-      case x: Denotation if x.isObject => "object"
-      case x: Denotation if x.isParam => "param"
-      case x: Denotation if x.isMacro => "macro"
-      case x: Denotation => s"<unknown: ${x.structure}>"
-    }
+      var kind: String = denot match {
+        case x if x.isVal => "val"
+        case x if x.isVar => "var"
+        case x if x.isDef => "def"
+        case x if x.isTrait => "trait"
+        case x if x.isMacro => "macro"
+        case x if x.isObject => "object"
+        case x if x.isVal && x.isLazy => "lazy val"
+        case x if x.isClass && !x.isCase => "class"
+        case x if x.isClass && x.isCase => "case class"
+        case x if x.isParam => "param"
+        case x if x.isPackage => "package"
+        case x if x.isPackageObject => "package object"
+        case x => s"<unknown: ${x.structure}>"
+      }
+      //if (denot.isImplicit) kind = s"implicit $kind"
+      if (denot.isFinal) kind = s"final $kind"
+      if (denot.isLazy) kind = s"lazy $kind"
+      if (denot.isAbstract) kind = s"abstract $kind"
+      kind
   }
 
   def getTypeKind(denot: Denotation): String = {

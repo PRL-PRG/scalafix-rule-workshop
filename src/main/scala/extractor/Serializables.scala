@@ -22,27 +22,6 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
 
 }
 
-final case class TypeParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation, pos: Int) extends CSV.Serializable[TypeParam] {
-  lazy val id: String = s"${symbol.syntax}"
-  // If there are no names on the denotation, we have an implicit which defines
-  // its own type - Most likely an object
-  val name: String = denot.name.toString
-  val clazz: String = denot.names.headOption match {
-    case Some(n) => n.symbol.toString
-    case None => symbol.toString
-  }
-  val typee: String = denot.names.headOption match {
-    case Some(n) => denot.signature.toString
-    case None => name
-  }
-  val kind: String = ctx.getKind(denot)
-
-
-  override val csvHeader: Seq[String] = Seq("id", "clazz", "type", "kind", "name")
-  override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name)
-
-}
-
 final case class AppTerm(term: Term, params: Int, nameEnd: Int)
 final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
   lazy val id: String = s"$file:$line:$col"
@@ -84,14 +63,25 @@ final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param
   override def id: String = "None"
 }
 
-final case class FunApplyWithTypeParam[A, B](fun: CSV.Serializable[A], param: TypeParam)
-  extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
+final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends CSV.Serializable[DeclaredImplicit] {
 
-  val from: String = param.id
-  val to: String = fun.id
+  val path: String = file
+  val line: String = name.position.endLine.toString
+  val col: String = name.position.endColumn.toString
+  lazy val id: String = s"$path:$line:$col"
 
-  override val csvHeader: Seq[String] = Seq("from", "to")
-  override val csvValues: Seq[String] = Seq(from, to)
+  val fqn: String = name.symbol.syntax
+  val plainName: String = denot.name.toString
+  val kind: String = ctx.getKind(denot)
+  val clazz: String = denot.names.headOption match {
+    case Some(n) => n.symbol.toString
+    case None => denot.name.toString
+  }
+  val typee: String = denot.names.headOption match {
+    case Some(n) => denot.signature.toString
+    case None => name.symbol.toString
+  }
 
-  override def id: String = "None"
+  override val csvHeader: Seq[String] = Seq("id", "path", "line", "col", "name", "fqn", "class", "type", "kind")
+  override val csvValues: Seq[String] = Seq(id, path, line, col, plainName, fqn, clazz, typee, kind)
 }

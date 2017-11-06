@@ -25,14 +25,12 @@ object ImplicitParamsToCSV {
 
       lazy val syntheticApplies = ctx.index.synthetics.filter(_.names.exists(_.toString() == "apply"))
 
-      lazy val allApps = ctx.tree collect {
-        case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
-        case x: Term.Name => AppTerm(x, 0, x.pos.end)
-      }
-
       lazy val paramsFuns =
         for {
-          app <- allApps
+          app <- ctx.tree collect {
+            case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
+            case x: Term.Name => AppTerm(x, 0, x.pos.end)
+          }
           param <- syntheticImplicits collect {
             case (syn, den) if syn.position.end == app.term.pos.end => den
           }
@@ -49,9 +47,18 @@ object ImplicitParamsToCSV {
       val params = paramsFuns.groupBy(_.param).keys.toSet
       val funs = paramsFuns.groupBy(_.fun).keys
 
+      lazy val declaredImplicits =
+        for {
+          name <- ctx.index.names
+          den <- ctx.denotation(name.symbol) if den.isImplicit
+        } yield {
+          DeclaredImplicit(ctx, name, den, file)
+        }
+
       CSV.writeCSV(params, s"${ctx.projectPath}/params.csv")
       CSV.writeCSV(funs, s"${ctx.projectPath}/funs.csv")
       CSV.writeCSV(paramsFuns, s"${ctx.projectPath}/params-funs.csv")
+      CSV.writeCSV(declaredImplicits,  s"${ctx.projectPath}/declared-implicits.csv")
     }
 
   }
