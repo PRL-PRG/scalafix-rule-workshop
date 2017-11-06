@@ -55,12 +55,30 @@ def dump_funs(full_path, project_id):
     csv_file.close()
     return ids
 
+def dump_declared_implicits(full_path, project_id):
+    with open(full_path, 'rb') as file:
+        reader = csv.DictReader(file)
+        for line in reader:
+            print "Insert [%s, %s] into declared_implicits" % (project_id, line)
+            try:
+                cursor.execute("INSERT INTO declared_implicits (project, sourcelink, path, line, col, name, fqn, class, type, kind)"
+                               "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                               (project_id, line["id"], line["path"], line["line"], line["col"], line["name"], line["fqn"], line["class"], line["type"], line["kind"]))
+            except sql.Error as error:
+                print error
+                sys.exit()
+
 def insert_project_data(dir, project_id):
     params_path = dir+"/params.clean.csv"
     funs_path = dir+"/funs.clean.csv"
     params_funs_path = dir+"/params-funs.clean.csv"
-    if os.path.exists(params_path) and os.path.exists(funs_path) and os.path.exists(params_funs_path):
+    declared_implicits_path = dir+"/declared-implicits.clean.csv"
+    if os.path.exists(params_path) \
+            and os.path.exists(funs_path) \
+            and os.path.exists(params_funs_path)\
+            and os.path.exists(declared_implicits_path):
 
+        dump_declared_implicits(declared_implicits_path, project_id)
         param_ids = dump_params(params_path, project_id)
         funs_ids = dump_funs(funs_path, project_id)
         

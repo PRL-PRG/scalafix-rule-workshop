@@ -18,7 +18,6 @@ def get_project_info(cwd):
         names = next(reader)
         data = next(reader)
         info = dict(zip(names, data))
-        print(info)
         return info
 
 def clean_param_row(row, fixer):
@@ -35,6 +34,12 @@ def clean_funs_row(row, fixer):
 
 def clean_links_row(row, fixer):
     row["from"] = fixer.fix(fully_qualified_name_fixes, row["from"])
+    return row
+
+def clean_declared_implicits_row(row, fixer):
+    row["fqn"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["fqn"])
+    row["kind"] = fixer.fix(["replace_unknown_kinds"], row["kind"])
+    row["class"] = fixer.fix(fully_qualified_name_fixes, row["class"])
     return row
 
 def clean_file(basepath, fixer, clean_function):
@@ -54,13 +59,18 @@ def clean_project(directory):
     params_path = directory+"/params"
     funs_path = directory+"/funs"
     params_funs_path = directory+"/params-funs"
+    declared_implicits_path = directory+"/declared-implicits"
 
-    if os.path.exists(params_path+".csv") and os.path.exists(funs_path+".csv") and os.path.exists(params_funs_path+".csv"):
+    if os.path.exists(params_path+".csv") \
+            and os.path.exists(funs_path+".csv") \
+            and os.path.exists(params_funs_path+".csv")\
+            and os.path.exists(declared_implicits_path+".csv"):
         print("Cleaning %s" % info["name"])
 
         clean_file(params_path, fixer, clean_param_row)
         clean_file(funs_path, fixer, clean_funs_row)
         clean_file(params_funs_path, fixer, clean_links_row)
+        clean_file(declared_implicits_path, fixer, clean_declared_implicits_row)
     else: 
         print("csv files not found")
 

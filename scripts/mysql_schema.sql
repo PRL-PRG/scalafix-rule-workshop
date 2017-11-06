@@ -93,6 +93,29 @@ CREATE TABLE `projects` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+--
+-- Table structure for table `declared_implicits`
+--
+DROP TABLE IF EXISTS `declared_implicits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `declared_implicits` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project` int(11) NOT NULL,
+  `sourcelink` text NOT NULL,
+  `path` text NOT NULL,
+  `line` int(11) NOT NULL,
+  `col` int(11) NOT NULL,
+  `name` text NOT NULL,
+  `fqn` text NOT NULL,
+  `class` text NOT NULL,
+  `type` text NOT NULL,
+  `kind` tinytext NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `declared_implicits_projects_id_fk` (`project`),
+  CONSTRAINT `declared_implicits_projects_id_fk` FOREIGN KEY (`project`) REFERENCES `projects` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2878 DEFAULT CHARSET=latin1;
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;

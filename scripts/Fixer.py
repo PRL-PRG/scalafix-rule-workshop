@@ -73,7 +73,7 @@ def main():
                     == "_root_.org.scalacheck.util.Pretty.prettyAny")
             assert(fixer.fix(["remove_L_notation"], "_root_.akka.actor.Scheduler#schedule(Lscala/concurrent/duration/FiniteDuration;Lscala/concurrent/duration/FiniteDuration;Lakka/actor/ActorRef;Ljava/lang/Object;Lscala/concurrent/ExecutionContext;Lakka/actor/ActorRef;)Lakka/actor/Cancellable;.")
                     == "_root_.akka.actor.Scheduler#schedule(scala.concurrent.duration.FiniteDuration,scala.concurrent.duration.FiniteDuration,akka.actor.ActorRef,java.lang.Object,scala.concurrent.ExecutionContext,akka.actor.ActorRef)akka.actor.Cancellable.")
-            print("All tests passed!")
+            #print("All tests passed!")
     test()
 
 main()

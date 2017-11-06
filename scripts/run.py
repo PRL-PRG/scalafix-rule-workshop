@@ -230,6 +230,7 @@ def analyze(subdir, always_abort=True, config={}):
             log("[%s] Upload report found. Skipping" % project_name)
         return continue_analysis
 
+    setup()
     cwd = os.getcwd()
     config = override_config(baseconfig(), config)
 
