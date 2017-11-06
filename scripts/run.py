@@ -92,7 +92,7 @@ def load_project_info(path):
 def importp(source, dest="./projects"):
     def checkout_latest_tag(project_name):
         log("[Import][%s] Checkout latest tag..." % project_name)
-        local("git fetch --tags", capture=True)
+        local("git fetch --tags --depth 1", capture=True)
         local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, False)
         local("git checkout $latestTag", capture=True)
 
