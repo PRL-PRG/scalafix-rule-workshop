@@ -13,94 +13,112 @@ import subprocess
 from termcolor import colored
 import datetime
 
-def log(msg, color='magenta'):
-    timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
-    label = colored("Runner", color)
-    print("%s[%s]%s" % (timestamp, label, msg))
+class Logger:
+    def log(self, msg, color='magenta'):
+        timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
+        label = colored("Runner", color)
+        print("%s[%s]%s" % (timestamp, label, msg))
+    
+    def error(self, msg):
+        self.log(msg, color='red')  
 
-def error(msg):
-    log(msg, color='red')
+class Config:
+    def __init__(self, config_file, logger):
+        self.config = self.load_config(config_file, logger) if config_file else self.baseconfig(logger)
+        self.logger = logger
+    
+    def get(self, key):
+        if key not in self.config:
+            self.logger.error("[Config] Key %s not found" % key)
+            return None
+        else:
+            return self.config[key]
 
-def log_process(process):
-    while True:
-        output = process.stdout.readline()
-        if output == '' and process.poll() is not None:
-            break
-        if output:
-            log(output.decode('ascii').strip())
-        rc = process.poll()
-    process.terminate()
+    def baseconfig(self, logger):
+        base_path = os.path.join(os.getcwd(), ".baseconfig.json")
+        if not os.path.exists(base_path):
+            logger.log("[Config] Downloading default config")
+            local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.collector.json", capture=True)
+        with open(os.path.join(base_path)) as base_file:
+            return json.load(base_file)
 
-def local_canfail(name, command, verbose=True, interactive=True):
-    failed = False
-    with settings(warn_only=True):
-        result = local(command, capture=(not verbose))
-        if result.failed:
-            if not interactive:
-                failed = True
-            else:
-                if confirm("%s failed. Skip project?" % name):
+    def load_config(self, config_file, logger):
+        config = self.baseconfig(logger)
+        with open(config_file) as data_file:
+            userconfig = json.load(data_file)
+            return self.override_config(config, userconfig)
+        
+    def override_config(self, base, userconfig):
+        config = base
+        for field in userconfig:
+            config[field] = userconfig[field]
+        return config
+
+class PipelineImpl:
+    def __init__(self, config_file):
+        self.logger = Logger()
+        self.config = Config(config_file, self.logger)
+
+    def local(self, command, directory, verbose=False):
+        with lcd(directory):
+            res = local(command, capture=True)
+            if verbose:
+                self.info("[%s] STDOUT:\n%s" % (command[:10]+"...", res.stdout))
+                self.info("[%s] STDERR:\n%s" % (command[:10]+"...", res.stderr))
+                self.info("[%s] DONE" % (command[:10]+"..."))
+            return res
+  
+    def local_canfail(self, name, command, directory, verbose=False, interactive=False):
+        failed = False
+        with settings(warn_only=True):
+            result = self.local(command, directory, verbose=verbose)
+            if result.failed:
+                if not interactive:
                     failed = True
                 else:
-                    abort("Aborting at user request.")
-    return failed
+                    if confirm("%s failed. Skip project?" % name):
+                        failed = True
+                    else:
+                        abort("Aborting at user request.")
+        return failed
 
+    def load_project_info(self, path):
+        with open(os.path.join(path, "project.csv")) as csv_file:
+            reader = csv.reader(csv_file)
+            names = next(reader)
+            data = next(reader)
+            info = dict(zip(names, data))
+            self.info("[%s] Load project info" % info["name"])
+            return info
 
-def parse_cli_args():
-    parser = argparse.ArgumentParser(description='Collect data from sbt projects and push it into a database')
-    parser.add_argument('--config', help='Path to the .collector.json config file', type=str)
-    parser.add_argument('--cleanup', action='store_true', help='Invoke in cleanup mode. If invoked this way, only cleanup will be made')
-    return parser.parse_args()
+    def info(self, msg):
+        self.logger.log(msg)
 
-def cleanup():
-    cwd = os.getcwd()
-    log("[Cleanup] Removing subdirs...")
-    for item in os.listdir(cwd):
-        if os.path.isdir(item):
-            log("[Cleanup]  %s" % item)
-            shutil.rmtree(item)
+    def error(self, msg):
+        self.logger.error(msg)
+   
+class Pipeline:
+    __instance = None        
+    def get(self, config_file):
+        if Pipeline.__instance is None:
+            Pipeline.__instance = PipelineImpl(config_file)
+        return Pipeline.__instance
 
-def baseconfig():
-    base_path = os.path.join(os.getcwd(), ".baseconfig.json")
-    if not os.path.exists(base_path):
-        log("[Config] Downloading default config")
-        local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.collector.json", capture=True)
-    with open(os.path.join(base_path)) as base_file:
-        return json.load(base_file)
+    def __call__(self):
+        return self
 
-def override_config(base, userconfig):
-    config = base
-    for field in userconfig:
-        config[field] = userconfig[field]
-    return config
+def import_single(src_path, config_file=None):
 
-def load_config(file):
-    config = baseconfig()
-    with open(file) as data_file:
-        userconfig = json.load(data_file)
-        return override_config(config, userconfig)
+    def checkout_latest_tag(project_name, project_path):
+        P.info("[Import][%s] Checkout latest tag..." % project_name)
+        P.local("git fetch --tags --depth 1", project_path)
+        P.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
+        P.local("git checkout $latestTag", project_path)
 
-def load_project_info(path):
-    with open(os.path.join(path, "project.csv")) as csv_file:
-        reader = csv.reader(csv_file)
-        names = next(reader)
-        data = next(reader)
-        info = dict(zip(names, data))
-        print(info)
-        return info
-
-def importp(srcpath, dest="./projects"):
-    def checkout_latest_tag(project_name):
-        print(os.getcwd())
-        log("[Import][%s] Checkout latest tag..." % project_name)
-        local("git fetch --tags --depth 1", capture=True)
-        local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", False, False)
-        local("git checkout $latestTag", capture=True)
-
-    def create_project_info(name, path):
+    def create_project_info(project_name, project_path):
         def count_locs():
-            local("cloc --out=cloc_report.csv --csv .", capture=True)
-            with open(os.path.join(path, "cloc_report.csv")) as csv_file:
+            P.local("cloc --out=cloc_report.csv --csv .", project_path)
+            with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
                 scala_lines = 0
                 total_lines = 0
                 reader = csv.DictReader(csv_file)
@@ -111,15 +129,15 @@ def importp(srcpath, dest="./projects"):
                         scala_lines += lines
             return {"total": total_lines, "scala": scala_lines}
 
-        version = local("git describe --always", capture=True)
-        commit = local("git rev-parse HEAD", capture=True)
-        url = local("git config --get remote.origin.url", capture=True)        
+        version = P.local("git describe --always", project_path)
+        commit = P.local("git rev-parse HEAD", project_path)
+        url = P.local("git config --get remote.origin.url", project_path)        
         reponame = url.split('.com/')[1]
         sloc = count_locs()
-        repo_info = json.loads(local("curl 'https://api.github.com/repos/%s'" % reponame, capture=True))
+        repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
         gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
         project_info = {
-            "name": str(name),
+            "name": str(project_name),
             "version": version,
             "last_commit": commit,
             "url": url,
@@ -128,54 +146,57 @@ def importp(srcpath, dest="./projects"):
             "reponame": reponame,
             "gh_stars": gh_stars
         }
-        log("[Import][%s] Capture project info: %s" % (name, project_info))
-        with open(os.path.join(path, "project.csv"), "w") as csv_file:
+        P.info("[Import][%s] Capture project info: %s" % (project_name, project_info))
+        with open(os.path.join(project_path, "project.csv"), "w") as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             writer.writerow(project_info.keys())
             writer.writerow(project_info.values())
         return project_info
 
     def do_import(subdir, srcpath, destpath):
-        shutil.copytree(srcpath, destpath)
-        with lcd(destpath):
-            checkout_latest_tag(subdir)
-            project_info = create_project_info(subdir, destpath)
-            log("[Import] Done!")
+        shutil.copytree(srcpath, destpath)        
+        checkout_latest_tag(subdir, destpath)
+        create_project_info(subdir, destpath)
+        P.info("[Import] Done!")
 
-    subdir = os.path.basename(srcpath)
-    destpath = os.path.join(dest, subdir)
-    if os.path.isdir(srcpath) and os.path.exists(os.path.join(srcpath, "build.sbt")):
+    P = Pipeline().get(config_file)
+    dest_dir = P.config.get("projects_dest")
+    subdir = os.path.basename(src_path)
+    dest_path = os.path.join(dest_dir, subdir)
+    if os.path.isdir(src_path) and os.path.exists(os.path.join(src_path, "build.sbt")):
         try:
-            log("[Import] %s" % str(srcpath))
-            if not os.path.exists(destpath):
-                do_import(subdir, srcpath, destpath)
+            P.info("[Import] %s" % str(src_path))
+            if not os.path.exists(dest_path):
+                do_import(subdir, src_path, dest_path)
             else:
-                if os.path.exists(os.path.join(destpath, "project.csv")):
-                    log("[Import] Already imported")
+                if os.path.exists(os.path.join(dest_path, "project.csv")):
+                    P.info("[Import] Already imported")
                 else:
-                    log("[Import] Failed last time. Removing")
-                    shutil.rmtree(destpath)
-                    do_import(subdir, srcpath, destpath)
+                    P.info("[Import] Failed last time. Removing")
+                    shutil.rmtree(dest_path)
+                    do_import(subdir, src_path, dest_path)
         except RuntimeError as error:
             print(error)
             
-def importa(source, dest="./projects"): 
-    log("[Import] Importing projects into %s..." % dest)
+def import_all(source, config_file=None):
+    P = Pipeline().get(config_file)
+    dest_folder = P.config.get("projects_dest")
+    P.info("[Import] Importing projects into %s..." % dest_folder)
     for subdir in os.listdir(source):
-        srcpath = os.path.join(source, subdir)
-        destpath = os.path.join(dest, subdir)
-        importp(srcpath, dest)
+        src_path = os.path.join(source, subdir)
+        import_single(src_path, config_file)
       
-def gen_sdb(project_path, json_config='{}'):
+def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), json.loads(json_config))
-    plugin_url = config["semanticdb_plugin_url"]
-    project_name = os.path.dirname(project_path)
+    P = Pipeline().get(config_file)
+    plugin_url = P.config.get("semanticdb_plugin_url")
+    project_info = P.load_project_info(project_path)
+    project_name = project_info["name"]
 
-    def download_sbt_plugin(plugin_url, dest_folder):
-        if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
-            with lcd(dest_folder):
-                local("wget -O SemanticdbConfigure.scala %s" % plugin_url, capture=True)
+    def download_sbt_plugin(plugin_url, project_path):
+        dest_folder = os.path.join(project_path, "project")
+        if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):            
+            P.local("wget -O SemanticdbConfigure.scala %s" % plugin_url, dest_folder)
 
     def sdb_files_exist(path):
         for wd, subdirs, files in os.walk(path):
@@ -183,146 +204,143 @@ def gen_sdb(project_path, json_config='{}'):
                 if file.endswith("semanticdb"):
                     return True
 
-    log("[%s] Looking for compilation report..." % project_name)
+    P.info("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
     previous_fail = os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_FAILED.TXT"))
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_COMPLETE.TXT")) \
        and not previous_fail:
-        log("[%s] Not found. Recompiling..." % project_name)
-        with lcd(project_path):
-            download_sbt_plugin(plugin_url, "./project/")
-            project_info = load_project_info(project_path)
-            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", verbose=True, interactive=False)
-            if sdb_files_exist(project_path):
-                if failed:
-                    log("[%s] Compilation completed with errors. Some SDB files found" % project_name)
-                else:
-                    log("[%s] Compilation completed succesfuly" % project_name)
-                local("echo %s >> SEMANTICDB_COMPILATION_COMPLETE.TXT" % project_info["version"])
+        P.info("[%s] Not found. Recompiling..." % project_name)       
+        download_sbt_plugin(plugin_url, project_path)
+        project_info = P.load_project_info(project_path)
+        failed = P.local_canfail("Generate semanticdb", "sbt semanticdb compile", project_path, verbose=True, interactive=False)
+        if sdb_files_exist(project_path):
+            if failed:
+                P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
             else:
-                local("echo %s >> SEMANTICDB_COMPILATION_FAILED.TXT" % project_info["version"])
-                error("[%s] Skipping project" % project_name)
-                continue_analysis = False
-        lcd(cwd)
+                P.info("[%s] Compilation completed succesfuly" % project_name)
+            P.local("echo %s >> SEMANTICDB_COMPILATION_COMPLETE.TXT" % project_info["version"], project_path)
+        else:
+            P.local("echo %s >> SEMANTICDB_COMPILATION_FAILED.TXT" % project_info["version"], project_path)
+            P.error("[%s] Skipping project" % project_name)
+            continue_analysis = False        
     else:
-        log("[%s] Compilation report found (%s). Skipping" % (project_name, "FAILURE" if previous_fail else "SUCCESS"))
+        P.info("[%s] Compilation report found (%s). Skipping" % (project_name, "FAILURE" if previous_fail else "SUCCESS"))
     return continue_analysis
 
-def analyze(subdir, always_abort=True, json_config='{}'):
+def analyze(project_path, always_abort=True, config_file=None):
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
-        log("[%s] Analyzing semanticdb files..." % project_name)
+        P.info("[%s] Analyzing semanticdb files..." % project_name)
         continue_analysis = True
         if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):
-            failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
+            failed = P.local_canfail("Semanticdb file analysis", "java -jar %s %s ." % (jvm_options, tool_path), project_path)
             if not failed:
                 local("cat %s/SEMANTICDB_COMPILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
-                log("[%s] Done" % project_name)
+                P.info("[%s] Done" % project_name)
             else:
-                error("[%s] Skipping project" % project_name)
+                P.error("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s] Analysis report found. Skipping" % project_name)
+            P.info("[%s] Analysis report found. Skipping" % project_name)
         return continue_analysis
 
     def run_cleanup_tool(project_name, project_path, tool_path):
-        log("[%s] Cleaning up the data..." % project_name)
+        P.info("[%s] Cleaning up the data..." % project_name)
         continue_analysis = True
         if not os.path.exists(os.path.join(project_path, "DATA_CLEANUP_COMPLETE.TXT")):
-            failed = local_canfail("Data cleanup", "python %s %s" % (tool_path, project_path))
+            failed = P.local_canfail("Data cleanup", "python %s ." % (tool_path), project_path)
             if not failed:
                 local("cat %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT >> %s/DATA_CLEANUP_COMPLETE.TXT" % (project_path, project_path))
-                log("[%s] Done" % project_name)
+                P.info("[%s] Done" % project_name)
             else:
-                log("[%s] Skipping project" % project_name)
+                P.error("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s] Cleanup report found. Skipping" % project_name)
+            P.info("[%s] Cleanup report found. Skipping" % project_name)
         return continue_analysis
 
     def upload_to_database(project_name, project_path, tool_path, commit_to_db):
-        log("[%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
+        P.info("[%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
         continue_analysis = True
         commit_option = "-y" if commit_to_db else "-n"
         if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):
-            failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path), verbose=True, interactive=False)
+            failed = P.local_canfail("DB upload", "python %s %s" % (tool_path, commit_option), project_path)
             if not failed:
-                local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
+                P.local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path), project_path)
                 if commit_to_db:
-                    log("[%s] Changes commited to the database" % project_name, color='green')
+                    P.info("[%s] Changes commited to the database" % project_name)
                 else:
-                    log("[%s] DB changes NOT COMMITED" % project_name, color='yellow')
+                    P.info("[%s] DB changes NOT COMMITED" % project_name)
             else:
-                log("[%s] Skipping project" % project_name)
+                P.error("[%s] Skipping project" % project_name)
                 continue_analysis = False
         else:
-            log("[%s] Upload report found. Skipping" % project_name)
+            P.info("[%s] Upload report found. Skipping" % project_name)
         return continue_analysis
 
-    setup()
+    P = Pipeline().get(config_file)
+    setup(config_file)
+
     cwd = os.getcwd()
-    config = override_config(baseconfig(), json.loads(json_config))
+    jvm_options = P.config.get("analyzer_jvm_options")
+    analysis_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("analyzer_name"))
+    cleanup_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("cleanup_tool_name"))
+    db_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("db_push_tool_name"))
+    push_to_db = P.config.get("push_to_db_enabled")
+    commit_to_db = P.config.get("commit_to_db")
 
-    projects = config["projects_dest"]
-    plugin_url = config["semanticdb_plugin_url"]
-    jvm_options = config["analyzer_jvm_options"]
-    analysis_tool_path = os.path.join(cwd, config["tools_dir"], config["analyzer_name"])
-    cleanup_tool_path = os.path.join(cwd, config["tools_dir"], config["cleanup_tool_name"])
-    db_tool_path = os.path.join(cwd, config["tools_dir"], config["db_push_tool_name"])
-    push_to_db = config["push_to_db_enabled"]
-    projects_path = os.path.join(cwd, projects)
+    project_info = P.load_project_info(project_path)
+    project_name = project_info["name"]
 
-    subdir_path = os.path.join(cwd, subdir)
-    continue_analysis = gen_sdb(subdir_path)
+    continue_analysis = gen_sdb(project_path)
     if continue_analysis:
-        continue_analysis = run_analysis_tool(subdir, subdir_path, analysis_tool_path, jvm_options)
+        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     if continue_analysis:
-        continue_analysis = run_cleanup_tool(subdir, subdir_path, cleanup_tool_path)
+        continue_analysis = run_cleanup_tool(project_name, project_path, cleanup_tool_path)
     if continue_analysis and push_to_db:
-       continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
-    log("[%s] Done!" % subdir, color='green')
+       continue_analysis = upload_to_database(project_name, project_path, db_tool_path, commit_to_db)
+    P.info("[%s] Analysis concluded" % project_name)
 
-def analyze_projects(json_config='{}'):
+def analyze_projects(config_file=None):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), json.loads(json_config))
-    projects = config["projects_dest"]
+    P = Pipeline().get(config_file)
+    projects = P.config.get("projects_dest")
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
-        analyze(subdir, json_config)
+        project_path = os.path.join(projects_path, subdir)
+        analyze(project_path, config_file)
 
-def setup(json_config='{}'):
+def setup(config_file=None):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), json.loads(json_config))
-    def download_tool(title, name, url):
-        log("[Setup] %s" % title)
+    P = Pipeline().get(config_file)
+
+    def download_tool(title, name, url, dest_path):
         tool_path = os.path.join(tools_dir, name)
         if not os.path.exists(tool_path):
-            log("[Setup] Not found. Dowloading...")
-            local("wget -O %s %s" % (name, url), capture=True)
-        else:
-            log("[Setup] Already downloaded")
+            P.info("[Setup][%s] Not found. Dowloading..." % title)
+            P.local("wget -O %s %s" % (name, url), dest_path)
 
-    log("Downloading tools...")
-    tools_dir = os.path.join(cwd, config["tools_dir"])
+    P.info("[Setup] Setting up...")
+    tools_dir = os.path.join(cwd, P.config.get("tools_dir"))
     if not os.path.exists(tools_dir):
         os.mkdir(tools_dir)
-    with lcd(tools_dir):
-        download_tool("Semanticdb Analyzer", config["analyzer_name"], config["analyzer_url"])
-        download_tool("Data cleanup tool", config["cleanup_tool_name"], config["cleanup_tool_url"])
-        download_tool("Data cleanup library", config["cleanup_library_name"], config["cleanup_library_url"])
-        download_tool("Database upload tool", config["db_push_tool_name"], config["db_push_tool_url"])
+    download_tool("Semanticdb Analyzer", P.config.get("analyzer_name"), P.config.get("analyzer_url"), tools_dir)
+    download_tool("Data cleanup tool", P.config.get("cleanup_tool_name"), P.config.get("cleanup_tool_url"), tools_dir)
+    download_tool("Data cleanup library", P.config.get("cleanup_library_name"), P.config.get("cleanup_library_url"), tools_dir)
+    download_tool("Database upload tool", P.config.get("db_push_tool_name"), P.config.get("db_push_tool_url"), tools_dir)
+    P.info("[Setup] Done")
 
-def merge_reports(config={}):
+def merge_reports(config_file=None):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), config)
-    projects_path = config["projects_dest"]
-    log("[Reports] Gathering reports")
-    for report in config["report_files"]:
-        log("[Reports] %s..." % report)
+    P = Pipeline().get(config_file)
+    projects_path = P.config.get("projects_dest")
+    P.info("[Reports] Gathering reports")
+    for report in P.config.get("report_files"):
+        P.info("[Reports] %s..." % report)
         headers = False
         with open("report_"+report, 'w') as report_file:
             writer = csv.writer(report_file)
             for subdir in os.listdir(projects_path):
-                log("[Reports] Extracting from %s" % subdir)
+                P.info("[Reports] Extracting from %s" % subdir)
                 project_report_path = os.path.join(projects_path, subdir, report)
                 if os.path.exists(project_report_path):
                     with open(project_report_path) as project_report_file:
@@ -336,24 +354,3 @@ def merge_reports(config={}):
                             data = list(line.values())
                             data.append(subdir)
                             writer.writerow(data)
-
-def run(cwd, config):
-    importp(config["sbt_projects"], config["projects_dest"])
-    setup(config)
-    analyze_projects(cwd, config)
-    log("All done!", color="green")
-
-def main():
-    cwd = os.getcwd()
-    args = parse_cli_args()
-    if args.cleanup:
-        cleanup()
-        sys.exit(0)
-    if args.config:
-        config = load_config(args.config)
-        print(config["db_push_tool_name"])
-        run(cwd, config)
-    else:
-        log("No config provided. Loading default...")
-        config = baseconfig()
-        run(cwd, config)
