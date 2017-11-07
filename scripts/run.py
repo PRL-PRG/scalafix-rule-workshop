@@ -91,6 +91,18 @@ class PipelineImpl:
             self.info("[%s] Load project info" % info["name"])
             return info
 
+    def get_report(self, project_path, kind):
+        report_path = os.path.join(project_path, self.config.get(kind))
+        if not os.path.exists(report_path):
+            return None
+        with open(report_path) as report:
+            return report.read()
+
+    def write_report(self, content, project_path, kind):
+        report_path = os.path.join(project_path, self.config.get(kind))
+        with open(report_path, 'w') as report:
+            return report.write(content)
+
     def info(self, msg):
         self.logger.log(msg)
 
@@ -206,76 +218,70 @@ def gen_sdb(project_path, config_file=None):
 
     P.info("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
-    previous_fail = os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_FAILED.TXT"))
-    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_COMPLETE.TXT")) \
-       and not previous_fail:
+    report = P.get_report(project_path, "compilation_report")
+    if report is None or report == "ERROR":
         P.info("[%s] Not found. Recompiling..." % project_name)       
         download_sbt_plugin(plugin_url, project_path)
         project_info = P.load_project_info(project_path)
-        failed = P.local_canfail("Generate semanticdb", "sbt semanticdb compile", project_path, verbose=True, interactive=False)
+        failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
         if sdb_files_exist(project_path):
             if failed:
                 P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
+                P.write_report("PARTIAL", project_path, "compilation_report")
             else:
                 P.info("[%s] Compilation completed succesfuly" % project_name)
-            P.local("echo %s >> SEMANTICDB_COMPILATION_COMPLETE.TXT" % project_info["version"], project_path)
+                P.write_report("SUCCESS", project_path, "compilation_report")
         else:
-            P.local("echo %s >> SEMANTICDB_COMPILATION_FAILED.TXT" % project_info["version"], project_path)
             P.error("[%s] Skipping project" % project_name)
+            P.write_report("ERROR", project_path, "compilation_report")
             continue_analysis = False        
     else:
-        P.info("[%s] Compilation report found (%s). Skipping" % (project_name, "FAILURE" if previous_fail else "SUCCESS"))
+        P.info("[%s] Compilation report found (%s). Skipping" % (project_name, report))
     return continue_analysis
 
 def analyze(project_path, always_abort=True, config_file=None):
-    def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
-        P.info("[%s] Analyzing semanticdb files..." % project_name)
-        continue_analysis = True
-        if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):
-            failed = P.local_canfail("Semanticdb file analysis", "java -jar %s %s ." % (jvm_options, tool_path), project_path)
+    def analysis_command(project_path, project_name, title, command, report_kind):
+        success = True
+        report = P.get_report(project_path, report_kind)
+        if report is None or report == 'ERROR':
+            failed = P.local_canfail(title, command, project_path, verbose=True)
             if not failed:
-                local("cat %s/SEMANTICDB_COMPILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
+                P.write_report('SUCCESS', project_path, report_kind)
                 P.info("[%s] Done" % project_name)
             else:
+                P.write_report('ERROR', project_path, report_kind)
                 P.error("[%s] Skipping project" % project_name)
-                continue_analysis = False
+                success = False
         else:
-            P.info("[%s] Analysis report found. Skipping" % project_name)
-        return continue_analysis
+            P.info("[%s] %s report found (%s). Skipping" % (project_name, title, report)) 
+        return success
+
+    def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
+        P.info("[%s] Analyzing semanticdb files..." % project_name)
+        title = "Semanticdb file analysis"
+        command = "java -jar %s %s ." % (jvm_options, tool_path)
+        return analysis_command(project_path, project_name, title, command, "analyzer_report")
 
     def run_cleanup_tool(project_name, project_path, tool_path):
         P.info("[%s] Cleaning up the data..." % project_name)
-        continue_analysis = True
-        if not os.path.exists(os.path.join(project_path, "DATA_CLEANUP_COMPLETE.TXT")):
-            failed = P.local_canfail("Data cleanup", "python %s ." % (tool_path), project_path)
-            if not failed:
-                local("cat %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT >> %s/DATA_CLEANUP_COMPLETE.TXT" % (project_path, project_path))
-                P.info("[%s] Done" % project_name)
-            else:
-                P.error("[%s] Skipping project" % project_name)
-                continue_analysis = False
-        else:
-            P.info("[%s] Cleanup report found. Skipping" % project_name)
-        return continue_analysis
+        title = "Data cleanup"
+        command = "python %s ." % (tool_path)
+        return analysis_command(project_path, project_name, title, command, "cleanup_report")
 
     def upload_to_database(project_name, project_path, tool_path, commit_to_db):
         P.info("[%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
-        continue_analysis = True
         commit_option = "-y" if commit_to_db else "-n"
-        if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):
-            failed = P.local_canfail("DB upload", "python %s %s" % (tool_path, commit_option), project_path)
-            if not failed:
-                P.local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path), project_path)
-                if commit_to_db:
-                    P.info("[%s] Changes commited to the database" % project_name)
-                else:
-                    P.info("[%s] DB changes NOT COMMITED" % project_name)
+        command = "python %s %s ." % (tool_path, commit_option)
+        title = "DB upload"
+        success = analysis_command(project_path, project_name, title, command, "db_push_report")
+        if success:
+            if commit_to_db:
+                P.write_report('SUCCESS', project_path, "db_push_report")
+                P.info("[%s] Changes commited to the database" % project_name)
             else:
-                P.error("[%s] Skipping project" % project_name)
-                continue_analysis = False
-        else:
-            P.info("[%s] Upload report found. Skipping" % project_name)
-        return continue_analysis
+                P.write_report('UNCOMMITED', project_path, "db_push_report")
+                P.info("[%s] DB changes NOT COMMITED" % project_name)
+        return success
 
     P = Pipeline().get(config_file)
     setup(config_file)
