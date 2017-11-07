@@ -84,17 +84,9 @@ def main():
     # Assume CWD is the codebases/ folder
     root = os.getcwd()
 
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == "--all":
-            for subdir in os.listdir(root):  
-                if os.path.isdir(os.path.join(root, subdir)):  
-                    try:
-                      clean_project(subdir)
-                    except (ValueError, TypeError):
-                      print("Error cleaning %s" % subdir)
-        else:
-            for arg in range(1, len(sys.argv)):
-                clean_project(sys.argv[arg])        
+    if len(sys.argv) >= 2:        
+        for arg in range(1, len(sys.argv)):
+            clean_project(sys.argv[arg])        
     else:
         print ("No arguments provided")
         sys.exit(1)

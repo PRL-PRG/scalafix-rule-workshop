@@ -135,21 +135,13 @@ cursor = db.cursor()
 # Assume CWD is the codebases/ folder
 root = os.getcwd()
 
-if len(sys.argv) >= 2:
-    if sys.argv[1] == "--all":
-         for subdir in os.listdir(root):  
-            if os.path.isdir(os.path.join(root, subdir)):
-                try:
-                    insert_project_into_db(subdir)
-                except RuntimeError as error:
+if len(sys.argv) >= 2:   
+    for arg in sys.argv[1:]:
+        if arg != "-y":
+            try:
+                insert_project_into_db(arg)
+            except RuntimeError as error:
                     print error
-    else:
-        for arg in sys.argv[1:]:
-            if arg != "-y":
-                try:
-                    insert_project_into_db(arg)
-                except RuntimeError as error:
-                        print error
     
     commit = False
     if len(sys.argv) >= 3:

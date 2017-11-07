@@ -63,8 +63,8 @@ class PipelineImpl:
         with lcd(directory):
             res = local(command, capture=True)
             if verbose:
-                self.info("[%s] STDOUT:\n%s" % (command[:10]+"...", res.stdout))
-                self.info("[%s] STDERR:\n%s" % (command[:10]+"...", res.stderr))
+                self.info("[%s] STDOUT:\n%s" % (command[:10]+"...", u'%s' % res.stdout))
+                self.info("[%s] STDERR:\n%s" % (command[:10]+"...", u'%s' % res.stderr))
                 self.info("[%s] DONE" % (command[:10]+"..."))
             return res
   
@@ -76,10 +76,10 @@ class PipelineImpl:
                 if not interactive:
                     failed = True
                 else:
-                    if confirm("%s failed. Skip project?" % name):
-                        failed = True
-                    else:
+                    if confirm("%s failed. Abort?" % name):
                         abort("Aborting at user request.")
+                    else:
+                        failed = True
         return failed
 
     def load_project_info(self, path):
@@ -244,7 +244,7 @@ def analyze(project_path, always_abort=True, config_file=None):
         success = True
         report = P.get_report(project_path, report_kind)
         if report is None or report == 'ERROR':
-            failed = P.local_canfail(title, command, project_path, verbose=True)
+            failed = P.local_canfail(title, command, project_path)
             if not failed:
                 P.write_report('SUCCESS', project_path, report_kind)
                 P.info("[%s] Done" % project_name)
@@ -321,6 +321,7 @@ def setup(config_file=None):
 
     def download_tool(title, name, url, dest_path):
         tool_path = os.path.join(tools_dir, name)
+        print(tool_path)
         if not os.path.exists(tool_path):
             P.info("[Setup][%s] Not found. Dowloading..." % title)
             P.local("wget -O %s %s" % (name, url), dest_path)
