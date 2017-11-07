@@ -177,6 +177,12 @@ def gen_sdb(project_path, config={}):
             with lcd(dest_folder):
                 local("wget -O SemanticdbConfigure.scala %s" % plugin_url, capture=True)
 
+    def sdb_files_exist(path):
+        for wd, subdirs, files in os.walk(path):
+            for file in files:
+                if file.endswith("semanticdb"):
+                    return True
+
     log("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
     if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
@@ -184,8 +190,12 @@ def gen_sdb(project_path, config={}):
         with lcd(project_path):
             download_sbt_plugin(plugin_url, "./project/")
             project_info = load_project_info(project_path)
-            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", False)
-            if not failed:
+            failed = local_canfail("Generate semanticdb", "sbt semanticdb compile", verbose=True, interactive=False)
+            if sdb_files_exist(project_path):
+                if failed:
+                    log("[%s] Compilation completed with errors. Some SDB files found" % project_name)
+                else:
+                    log("[%s] Compilation completed succesfuly" % project_name)
                 local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
             else:
                 error("[%s] Skipping project" % project_name)
