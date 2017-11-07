@@ -26,7 +26,7 @@ def dump_params(full_path, project_id):
                             (project_id, param[4], param[0], param[2], param[1], param[3]))
         except sql.Error as error:
             print error
-            sys.exit()
+            sys.exit(1)
 
         rowid = cursor.lastrowid
         ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
@@ -46,7 +46,7 @@ def dump_funs(full_path, project_id):
 
             except sql.Error as error:
                 print error
-                sys.exit()
+                sys.exit(1)
 
             rowid = cursor.lastrowid
             ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
@@ -63,7 +63,7 @@ def dump_declared_implicits(full_path, project_id):
                                (project_id, line["id"], line["path"], line["line"], line["col"], line["name"], line["fqn"], line["class"], line["type"], line["kind"]))
             except sql.Error as error:
                 print error
-                sys.exit()
+                sys.exit(1)
 
 def insert_project_data(dir, project_id):
     params_path = dir+"/params.clean.csv"
@@ -98,7 +98,7 @@ def insert_project_data(dir, project_id):
                                 (link[0], link[1]))
             except sql.Error as error:
                 print error
-                sys.exit()
+                sys.exit(1)
 
     else: 
         print "csv files not found not found"

@@ -32,6 +32,7 @@ CREATE TABLE `funs` (
   `code` text NOT NULL,
   `symbol` text NOT NULL,
   `fqfn` text NOT NULL,
+  `fqparamlist` text NOT NULL,
   `nargs` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `funs_projects_id_fk` (`project`),
