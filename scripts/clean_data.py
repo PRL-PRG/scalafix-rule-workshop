@@ -37,9 +37,14 @@ def clean_links_row(row, fixer):
     return row
 
 def clean_declared_implicits_row(row, fixer):
-    row["fqn"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["fqn"])
-    row["kind"] = fixer.fix(["replace_unknown_kinds"], row["kind"])
-    row["class"] = fixer.fix(fully_qualified_name_fixes, row["class"])
+    try:
+        row["fqn"] = fixer.fix(["remove_leading_root", "remove_trailing_dot", "remove_L_notation", "remove_hashtags"], row["fqn"])
+        row["kind"] = fixer.fix(["replace_unknown_kinds"], row["kind"])
+        row["class"] = fixer.fix(fully_qualified_name_fixes, row["class"])
+    except AttributeError as error:
+        print(row)
+        print(error)
+        sys.exit(1)
     return row
 
 def clean_file(basepath, fixer, clean_function):
@@ -73,6 +78,7 @@ def clean_project(directory):
         clean_file(declared_implicits_path, fixer, clean_declared_implicits_row)
     else: 
         print("csv files not found")
+        sys.exit(1)
 
 def main():
     # Assume CWD is the codebases/ folder
@@ -91,6 +97,7 @@ def main():
                 clean_project(sys.argv[arg])        
     else:
         print ("No arguments provided")
+        sys.exit(1)
 
 
 main()

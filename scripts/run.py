@@ -166,9 +166,9 @@ def importa(source, dest="./projects"):
         destpath = os.path.join(dest, subdir)
         importp(srcpath, dest)
       
-def gen_sdb(project_path, config={}):
+def gen_sdb(project_path, json_config='{}'):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), config)
+    config = override_config(baseconfig(), json.loads(json_config))
     plugin_url = config["semanticdb_plugin_url"]
     project_name = os.path.dirname(project_path)
 
@@ -185,7 +185,9 @@ def gen_sdb(project_path, config={}):
 
     log("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
-    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPLILATION_COMPLETE.TXT")):
+    previous_fail = os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_FAILED.TXT"))
+    if not os.path.exists(os.path.join(project_path, "SEMANTICDB_COMPILATION_COMPLETE.TXT")) \
+       and not previous_fail:
         log("[%s] Not found. Recompiling..." % project_name)
         with lcd(project_path):
             download_sbt_plugin(plugin_url, "./project/")
@@ -196,23 +198,24 @@ def gen_sdb(project_path, config={}):
                     log("[%s] Compilation completed with errors. Some SDB files found" % project_name)
                 else:
                     log("[%s] Compilation completed succesfuly" % project_name)
-                local("echo %s >> SEMANTICDB_COMPLILATION_COMPLETE.TXT" % project_info["version"])
+                local("echo %s >> SEMANTICDB_COMPILATION_COMPLETE.TXT" % project_info["version"])
             else:
+                local("echo %s >> SEMANTICDB_COMPILATION_FAILED.TXT" % project_info["version"])
                 error("[%s] Skipping project" % project_name)
                 continue_analysis = False
         lcd(cwd)
     else:
-        log("[%s] Compilation report found. Skipping" % project_name)
+        log("[%s] Compilation report found (%s). Skipping" % (project_name, "FAILURE" if previous_fail else "SUCCESS"))
     return continue_analysis
 
-def analyze(subdir, always_abort=True, config={}):
+def analyze(subdir, always_abort=True, json_config='{}'):
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
         log("[%s] Analyzing semanticdb files..." % project_name)
         continue_analysis = True
         if not os.path.exists(os.path.join(project_path, "SEMANTICDB_ANALYSIS_COMPLETE.TXT")):
             failed = local_canfail("Semanticdb file analysis", "java -jar %s %s %s" % (jvm_options, tool_path, project_path))
             if not failed:
-                local("cat %s/SEMANTICDB_COMPLILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
+                local("cat %s/SEMANTICDB_COMPILATION_COMPLETE.TXT >> %s/SEMANTICDB_ANALYSIS_COMPLETE.TXT" % (project_path, project_path))
                 log("[%s] Done" % project_name)
             else:
                 error("[%s] Skipping project" % project_name)
@@ -241,7 +244,7 @@ def analyze(subdir, always_abort=True, config={}):
         continue_analysis = True
         commit_option = "-y" if commit_to_db else "-n"
         if not os.path.exists(os.path.join(project_path, "DB_UPLOAD_COMPLETE.TXT")):
-            failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path), False)
+            failed = local_canfail("DB upload", "python %s %s %s" % (tool_path, commit_option, project_path), verbose=True, interactive=False)
             if not failed:
                 local("cat %s/DATA_CLEANUP_COMPLETE.TXT >> %s/DB_UPLOAD_COMPLETE.TXT" % (project_path, project_path))
                 if commit_to_db:
@@ -257,7 +260,7 @@ def analyze(subdir, always_abort=True, config={}):
 
     setup()
     cwd = os.getcwd()
-    config = override_config(baseconfig(), config)
+    config = override_config(baseconfig(), json.loads(json_config))
 
     projects = config["projects_dest"]
     plugin_url = config["semanticdb_plugin_url"]
@@ -278,15 +281,17 @@ def analyze(subdir, always_abort=True, config={}):
        continue_analysis = upload_to_database(subdir,subdir_path, db_tool_path, config["commit_to_db"])
     log("[%s] Done!" % subdir, color='green')
 
-def analyze_projects(cwd, config):
+def analyze_projects(json_config='{}'):
+    cwd = os.getcwd()
+    config = override_config(baseconfig(), json.loads(json_config))
     projects = config["projects_dest"]
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
-        analyze(subdir)
+        analyze(subdir, json_config)
 
-def setup(config={}):
+def setup(json_config='{}'):
     cwd = os.getcwd()
-    config = override_config(baseconfig(), config)
+    config = override_config(baseconfig(), json.loads(json_config))
     def download_tool(title, name, url):
         log("[Setup] %s" % title)
         tool_path = os.path.join(tools_dir, name)

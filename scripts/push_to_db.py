@@ -121,7 +121,7 @@ def insert_project_into_db(dir):
 
     except sql.Error as error:
         print("Error: {}".format(error))
-        sys.exit()
+        sys.exit(1)
    
 
 
