@@ -38,7 +38,7 @@ class Config:
         base_path = os.path.join(os.getcwd(), ".baseconfig.json")
         if not os.path.exists(base_path):
             logger.log("[Config] Downloading default config")
-            local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.collector.json", capture=True)
+            local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.baseconfig.json", capture=True)
         with open(os.path.join(base_path)) as base_file:
             return json.load(base_file)
 
