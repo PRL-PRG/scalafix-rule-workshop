@@ -20,7 +20,11 @@ class Logger:
         print("%s[%s]%s" % (timestamp, label, msg))
     
     def error(self, msg):
-        self.log(msg, color='red')  
+        self.log(msg, color='red')
+
+    def raw(self, stdout, stderr):
+        print(stdout, file=sys.stdout)
+        print(stderr, file=sys.stderr)
 
 class Config:
     def __init__(self, config_file, logger):
@@ -63,9 +67,7 @@ class PipelineImpl:
         with lcd(directory):
             res = local(command, capture=True)
             if verbose:
-                self.info("[%s] STDOUT:\n%s" % (command[:10]+"...", u'%s' % res.stdout))
-                self.info("[%s] STDERR:\n%s" % (command[:10]+"...", u'%s' % res.stderr))
-                self.info("[%s] DONE" % (command[:10]+"..."))
+                self.logger.raw(str(res.stdout), str(res.stderr))
             return res
   
     def local_canfail(self, name, command, directory, verbose=False, interactive=False):
@@ -73,6 +75,9 @@ class PipelineImpl:
         with settings(warn_only=True):
             result = self.local(command, directory, verbose=verbose)
             if result.failed:
+                with open(os.path.join(directory, name.replace(" ", "_"))) as command_report:
+                    command_report.write(result.stdout)
+                    command_report.write(result.stderr)
                 if not interactive:
                     failed = True
                 else:
@@ -111,6 +116,12 @@ class PipelineImpl:
 
     def error(self, msg):
         self.logger.error(msg)
+
+    def checkout_latest_tag(self, project_name, project_path):
+        self.info("[Import][%s] Checkout latest tag..." % project_name)
+        self.local("git fetch --tags --depth 1", project_path)
+        self.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
+        self.local("git checkout $latestTag", project_path)
    
 class Pipeline:
     __instance = None        
@@ -166,16 +177,8 @@ def create_project_info(project_path, config_file=None):
 
 def import_single(src_path, config_file=None):
 
-    def checkout_latest_tag(project_name, project_path):
-        P.info("[Import][%s] Checkout latest tag..." % project_name)
-        P.local("git fetch --tags --depth 1", project_path)
-        P.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
-        P.local("git checkout $latestTag", project_path)
-
-
     def do_import(subdir, srcpath, destpath):
         shutil.copytree(srcpath, destpath)        
-        checkout_latest_tag(subdir, destpath)
         create_project_info(subdir, destpath)
         P.info("[Import] Done!")
 
@@ -205,7 +208,44 @@ def import_all(source, config_file=None):
     for subdir in os.listdir(source):
         src_path = os.path.join(source, subdir)
         import_single(src_path, config_file)
-      
+
+def compile(project_path, config_file=None):
+    def handle_success(project_path, project_name, tag):
+        P.info("[%s] Compilation successful on master" % (project_name))
+        report = "SUCCESS\n%s" % tag
+        P.write_report(report, project_path, "compilation_report")
+        sys.exit(0)
+
+    def handle_failure(project_path, project_name, tags):
+        P.error("[%s] Could not find a tag that could compile in \n%s" % (project_name, tags))
+        report = "FAILURE\n%s" % tag
+        P.write_report(report, project_path, "compilation_report")
+        sys.exit(1)
+
+    project_name = os.path.split(project_path)[1]
+    cwd = os.getcwd()
+    P = Pipeline().get(config_file)
+    P.info("[%s] Attempting compilation of %s" % (project_name, project_name))
+    report = P.get_report(project_path, "compilation_report")
+    if report:
+        P.info("[%s] Compilation report found. Skipping" % project_name)
+        sys.exit(0 if report.startswith("SUCCESS") else 1)
+    
+    backwards_steps = P.config.get("max_backwards_steps")
+    tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s`" % backwards_steps, project_path)
+    current_commit = P.local("git describe --always --abbrev=0", project_path)
+    tags = [current_commit] + tag_stream.split('\n')
+    for tag in tags:
+        checkout_failed = P.local_canfail("git checkout %s" % tag, "git checkout %s" % tag, project_path)
+        if not checkout_failed:
+            failed = P.local_canfail("Compile tag %s" % tag, "sbt -batch compile", project_path, verbose=True)
+            if not failed:
+                return handle_success(project_path, project_name, tag)
+        else:
+            P.error("[%s] Checkout for tag %s failed. Skipping" % (project_name, tag))
+
+    return handle_failure(project_path, project_name, tags)
+
 def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
@@ -226,27 +266,27 @@ def gen_sdb(project_path, config_file=None):
 
     P.info("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
-    report = P.get_report(project_path, "compilation_report")
+    report = P.get_report(project_path, "semanticdb_report")
     force_recompile = P.config.get("force_recompile_on_fail")
     if report is None or (report == "ERROR" and force_recompile):
-        P.info("[%s] Not found. Recompiling..." % project_name)       
+        P.info("[%s] Not found. Recompiling..." % project_name)
         download_sbt_plugin(plugin_url, project_path)
         project_info = P.load_project_info(project_path)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
         if sdb_files_exist(project_path):
             if failed:
                 P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
-                P.write_report("PARTIAL", project_path, "compilation_report")
+                P.write_report("PARTIAL", project_path, "semanticdb_report")
             else:
                 P.info("[%s] Compilation completed succesfuly" % project_name)
-                P.write_report("SUCCESS", project_path, "compilation_report")
+                P.write_report("SUCCESS", project_path, "semanticdb_report")
         else:
             P.error("[%s] Skipping project" % project_name)
-            P.write_report("ERROR", project_path, "compilation_report")
-            continue_analysis = False        
+            P.write_report("ERROR", project_path, "semanticdb_report")
+            continue_analysis = False
     else:
         P.info("[%s] Compilation report found (%s). Skipping" % (project_name, report))
-    report = P.get_report(project_path, "compilation_report")
+    report = P.get_report(project_path, "semanticdb_report")
     if report == "ERROR":
         continue_analysis = False
     return continue_analysis
@@ -380,7 +420,7 @@ def condense_reports(config_file=None):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
 
     def append_report(project_path, report_file, report_kind):
-        status = P.get_report(project_path, report_kind)
+        status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\')
         report_file.write("  - %s: %s\n" % (report_kind, status))
 
     cwd = os.getcwd()
@@ -396,6 +436,7 @@ def condense_reports(config_file=None):
 
             report_file.write("%s:\n" % project_name)
             append_report(project_path, report_file, "compilation_report")
+            append_report(project_path, report_file, "semanticdb_report")
             append_report(project_path, report_file, "analyzer_report")
             append_report(project_path, report_file, "cleanup_report")
             append_report(project_path, report_file, "db_push_report")
