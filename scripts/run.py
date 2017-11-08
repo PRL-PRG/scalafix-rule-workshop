@@ -227,7 +227,8 @@ def gen_sdb(project_path, config_file=None):
     P.info("[%s] Looking for compilation report..." % project_name)
     continue_analysis = True
     report = P.get_report(project_path, "compilation_report")
-    if report is None or report == "ERROR":
+    force_recompile = P.config.get("force_recompile_on_fail")
+    if report is None or (report == "ERROR" and force_recompile):
         P.info("[%s] Not found. Recompiling..." % project_name)       
         download_sbt_plugin(plugin_url, project_path)
         project_info = P.load_project_info(project_path)
@@ -245,6 +246,9 @@ def gen_sdb(project_path, config_file=None):
             continue_analysis = False        
     else:
         P.info("[%s] Compilation report found (%s). Skipping" % (project_name, report))
+    report = P.get_report(project_path, "compilation_report")
+    if report == "ERROR":
+        continue_analysis = False
     return continue_analysis
 
 def analyze(project_path, always_abort=True, config_file=None):

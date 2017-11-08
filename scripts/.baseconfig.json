@@ -2,6 +2,8 @@
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
     "semanticdb_plugin_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config.scala",
+
+    "force_recompile_on_fail": false,
    
     "report_files": [
         "project.csv",
