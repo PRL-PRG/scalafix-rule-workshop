@@ -119,6 +119,46 @@ class Pipeline:
     def __call__(self):
         return self
 
+def create_project_info(project_path, config_file=None):
+    P = Pipeline().get(config_file)
+    def count_locs():
+        P.local("cloc --out=cloc_report.csv --csv .", project_path)
+        with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
+            scala_lines = 0
+            total_lines = 0
+            reader = csv.DictReader(csv_file)
+            for line in reader:
+                lines = int(line["code"])
+                total_lines += lines
+                if line["language"] == "Scala":
+                    scala_lines += lines
+        return {"total": total_lines, "scala": scala_lines}
+
+    project_name = os.path.split(project_path)[1]
+    version = P.local("git describe --always", project_path)
+    commit = P.local("git rev-parse HEAD", project_path)
+    url = P.local("git config --get remote.origin.url", project_path)        
+    reponame = url.split('.com/')[1]
+    sloc = count_locs()
+    repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
+    gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
+    project_info = {
+       "name": str(project_name),
+       "version": version,
+       "last_commit": commit,
+       "url": url,
+       "total_loc": sloc["total"],
+       "scala_loc": sloc["scala"],
+       "reponame": reponame,
+       "gh_stars": gh_stars
+    }
+    P.info("[Import][%s] Capture project info: %s" % (project_name, project_info))
+    with open(os.path.join(project_path, "project.csv"), "w") as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        writer.writerow(project_info.keys())
+        writer.writerow(project_info.values())
+    return project_info
+
 def import_single(src_path, config_file=None):
 
     def checkout_latest_tag(project_name, project_path):
@@ -127,43 +167,6 @@ def import_single(src_path, config_file=None):
         P.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
         P.local("git checkout $latestTag", project_path)
 
-    def create_project_info(project_name, project_path):
-        def count_locs():
-            P.local("cloc --out=cloc_report.csv --csv .", project_path)
-            with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
-                scala_lines = 0
-                total_lines = 0
-                reader = csv.DictReader(csv_file)
-                for line in reader:
-                    lines = int(line["code"])
-                    total_lines += lines
-                    if line["language"] == "Scala":
-                        scala_lines += lines
-            return {"total": total_lines, "scala": scala_lines}
-
-        version = P.local("git describe --always", project_path)
-        commit = P.local("git rev-parse HEAD", project_path)
-        url = P.local("git config --get remote.origin.url", project_path)        
-        reponame = url.split('.com/')[1]
-        sloc = count_locs()
-        repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
-        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
-        project_info = {
-            "name": str(project_name),
-            "version": version,
-            "last_commit": commit,
-            "url": url,
-            "total_loc": sloc["total"],
-            "scala_loc": sloc["scala"],
-            "reponame": reponame,
-            "gh_stars": gh_stars
-        }
-        P.info("[Import][%s] Capture project info: %s" % (project_name, project_info))
-        with open(os.path.join(project_path, "project.csv"), "w") as csv_file:
-            writer = csv.writer(csv_file, delimiter=',')
-            writer.writerow(project_info.keys())
-            writer.writerow(project_info.values())
-        return project_info
 
     def do_import(subdir, srcpath, destpath):
         shutil.copytree(srcpath, destpath)        
@@ -285,6 +288,7 @@ def analyze(project_path, always_abort=True, config_file=None):
 
     P = Pipeline().get(config_file)
     setup(config_file)
+    create_project_info(project_path, config_file)
 
     cwd = os.getcwd()
     jvm_options = P.config.get("analyzer_jvm_options")
