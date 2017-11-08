@@ -122,7 +122,8 @@ class Pipeline:
 def create_project_info(project_path, config_file=None):
     P = Pipeline().get(config_file)
     def count_locs():
-        P.local("cloc --out=cloc_report.csv --csv .", project_path)
+        if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
+            P.local("cloc --out=cloc_report.csv --csv .", project_path)
         with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
             scala_lines = 0
             total_lines = 0
