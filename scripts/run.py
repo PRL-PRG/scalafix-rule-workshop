@@ -324,6 +324,7 @@ def analyze_projects(config_file=None):
     projects = P.config.get("projects_dest")
     projects_path = os.path.join(cwd, projects)
     for subdir in os.listdir(projects_path):
+        P.info("[%s] Starting analysis" % subdir)
         project_path = os.path.join(projects_path, subdir)
         analyze(project_path, config_file)
     condense_reports(config_file)
