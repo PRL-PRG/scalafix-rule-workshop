@@ -314,6 +314,7 @@ def analyze_projects(config_file=None):
     for subdir in os.listdir(projects_path):
         project_path = os.path.join(projects_path, subdir)
         analyze(project_path, config_file)
+    condense_reports(config_file)
 
 def setup(config_file=None):
     cwd = os.getcwd()
@@ -321,7 +322,6 @@ def setup(config_file=None):
 
     def download_tool(title, name, url, dest_path):
         tool_path = os.path.join(tools_dir, name)
-        print(tool_path)
         if not os.path.exists(tool_path):
             P.info("[Setup][%s] Not found. Dowloading..." % title)
             P.local("wget -O %s %s" % (name, url), dest_path)
@@ -336,7 +336,7 @@ def setup(config_file=None):
     download_tool("Database upload tool", P.config.get("db_push_tool_name"), P.config.get("db_push_tool_url"), tools_dir)
     P.info("[Setup] Done")
 
-def merge_reports(config_file=None):
+def merge_csv(config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
     projects_path = P.config.get("projects_dest")
@@ -361,3 +361,28 @@ def merge_reports(config_file=None):
                             data = list(line.values())
                             data.append(subdir)
                             writer.writerow(data)
+
+def condense_reports(config_file=None):
+    def write_header(report_file):
+        report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
+
+    def append_report(project_path, report_file, report_kind):
+        status = P.get_report(project_path, report_kind)
+        report_file.write("  - %s: %s\n" % (report_kind, status))
+
+    cwd = os.getcwd()
+    P = Pipeline().get(config_file)
+    projects_path = P.config.get("projects_dest")
+    P.info("[Reports] Generating analysis report")
+    with open(os.path.join(cwd, P.config.get("condensed_report")), 'w') as report_file:
+        write_header(report_file)
+        for subdir in os.listdir(projects_path):
+            P.info("[Reports] Extracting from %s" % subdir)
+            project_path = os.path.join(projects_path, subdir)
+            project_name = subdir
+
+            report_file.write("%s:\n" % project_name)
+            append_report(project_path, report_file, "compilation_report")
+            append_report(project_path, report_file, "analyzer_report")
+            append_report(project_path, report_file, "cleanup_report")
+            append_report(project_path, report_file, "db_push_report")

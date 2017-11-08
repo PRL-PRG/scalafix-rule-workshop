@@ -23,6 +23,8 @@
     "commit_to_db": false,
     "push_to_db_enabled": false,
 
+    "condensed_report": "condensed_report.txt",
+
     "compilation_report": "SEMANTICDB_REPORT.TXT",
     "analyzer_report": "ANALYZER_REPORT.TXT",
     "cleanup_report": "CLEANUP_REPORT.TXT",
