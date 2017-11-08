@@ -47,8 +47,14 @@ def clean_declared_implicits_row(row, fixer):
         sys.exit(1)
     return row
 
-def clean_file(basepath, fixer, clean_function):
-    with open(basepath+".csv", "r") as original:  
+def clean_file(directory, filename, fixer, clean_function):
+    basepath = directory + "/" + filename
+    filepath = basepath+'.csv'
+    if not os.path.exists(filepath):
+        print("File %s not found. Skipping" % filepath)
+        return
+
+    with open(filepath, "r") as original:
         with open(basepath+".clean.csv", "w") as clean_file:  
             reader = csv.DictReader(original)
             writer = csv.DictWriter(clean_file, fieldnames = reader.fieldnames)    
@@ -60,25 +66,13 @@ def clean_file(basepath, fixer, clean_function):
 def clean_project(directory):    
     info = get_project_info(directory)
     fixer = Fixer(info)
-    
-    params_path = directory+"/params"
-    funs_path = directory+"/funs"
-    params_funs_path = directory+"/params-funs"
-    declared_implicits_path = directory+"/declared-implicits"
+    print("Cleaning %s" % info["name"])
 
-    if os.path.exists(params_path+".csv") \
-            and os.path.exists(funs_path+".csv") \
-            and os.path.exists(params_funs_path+".csv")\
-            and os.path.exists(declared_implicits_path+".csv"):
-        print("Cleaning %s" % info["name"])
+    clean_file(directory, "params", fixer, clean_param_row)
+    clean_file(directory, "funs", fixer, clean_funs_row)
+    clean_file(directory, "params-funs", fixer, clean_links_row)
+    clean_file(directory, "declared-implicits", fixer, clean_declared_implicits_row)
 
-        clean_file(params_path, fixer, clean_param_row)
-        clean_file(funs_path, fixer, clean_funs_row)
-        clean_file(params_funs_path, fixer, clean_links_row)
-        clean_file(declared_implicits_path, fixer, clean_declared_implicits_row)
-    else: 
-        print("csv files not found")
-        sys.exit(1)
 
 def main():
     # Assume CWD is the codebases/ folder

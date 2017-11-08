@@ -14,10 +14,16 @@ def get_project_info(cwd):
         return info
 
 def dump_params(full_path, project_id):
+    ids = {}
+
+    if not os.path.exists(full_path):
+        print("CVS file %s not found. Skipping" % full_path)
+        return ids
+
     csv_file = open(full_path, 'rb')
     csv_file.readline() # Skip headers
     reader = csv.reader(csv_file)
-    ids = {}
+
     for param in reader: 
         print "Insert [%s, %s] into params" % (project_id, param)
         try:                
@@ -35,6 +41,10 @@ def dump_params(full_path, project_id):
 
 def dump_funs(full_path, project_id):
     ids = {}
+    if not os.path.exists(full_path):
+        print("CVS file %s not found. Skipping" % full_path)
+        return ids
+
     with open(full_path, 'rb') as csv_file:
         reader = csv.DictReader(csv_file)
         for fun in reader:
@@ -53,6 +63,10 @@ def dump_funs(full_path, project_id):
     return ids
 
 def dump_declared_implicits(full_path, project_id):
+    if not os.path.exists(full_path):
+        print("CVS file %s not found. Skipping" % full_path)
+        return
+
     with open(full_path, 'rb') as file:
         reader = csv.DictReader(file)
         for line in reader:
@@ -70,38 +84,31 @@ def insert_project_data(dir, project_id):
     funs_path = dir+"/funs.clean.csv"
     params_funs_path = dir+"/params-funs.clean.csv"
     declared_implicits_path = dir+"/declared-implicits.clean.csv"
-    if os.path.exists(params_path) \
-            and os.path.exists(funs_path) \
-            and os.path.exists(params_funs_path)\
-            and os.path.exists(declared_implicits_path):
 
-        dump_declared_implicits(declared_implicits_path, project_id)
-        param_ids = dump_params(params_path, project_id)
-        funs_ids = dump_funs(funs_path, project_id)
-        
-        link_file = open(params_funs_path, 'rb')
-        link_file.readline() # Skip headers
-        link_reader = csv.reader(link_file)
+    dump_declared_implicits(declared_implicits_path, project_id)
+    param_ids = dump_params(params_path, project_id)
+    funs_ids = dump_funs(funs_path, project_id)
 
-        links = []
-        for link in link_reader:
-            links.append((param_ids[link[0]], funs_ids[link[1]]))
+    link_file = open(params_funs_path, 'rb')
+    link_file.readline() # Skip headers
+    link_reader = csv.reader(link_file)
 
-        link_file.close()
+    links = []
+    for link in link_reader:
+        links.append((param_ids[link[0]], funs_ids[link[1]]))
 
-        link_set = set(links)
-        for link in link_set:
-            print "Insert (%s, %s) into params_funs" % (link[0], link[1])
-            try:
-                cursor.execute("INSERT INTO params_funs (param, fun)"
-                                "VALUES (%s, %s)", 
-                                (link[0], link[1]))
-            except sql.Error as error:
-                print error
-                sys.exit(1)
+    link_file.close()
 
-    else: 
-        print "csv files not found not found"
+    link_set = set(links)
+    for link in link_set:
+        print "Insert (%s, %s) into params_funs" % (link[0], link[1])
+        try:
+            cursor.execute("INSERT INTO params_funs (param, fun)"
+                            "VALUES (%s, %s)",
+                            (link[0], link[1]))
+        except sql.Error as error:
+            print error
+            sys.exit(1)
 
 def insert_project_into_db(dir):
     projectfile = dir+"/project.csv"
@@ -123,7 +130,6 @@ def insert_project_into_db(dir):
         print("Error: {}".format(error))
         sys.exit(1)
    
-
 
 db = sql.connect(host="127.0.0.1",
                 port="3306",

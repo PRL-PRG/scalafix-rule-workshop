@@ -9,3 +9,4 @@ __pycache__
 temp
 .ensime
 *.pyc
+test_repos
