@@ -83,7 +83,10 @@ class PipelineImpl:
         return failed
 
     def load_project_info(self, path):
-        with open(os.path.join(path, "project.csv")) as csv_file:
+        info_path = os.path.join(path, "project.csv")
+        if not os.path.exists(info_path):
+            create_project_info(path)
+        with open(info_path) as csv_file:
             reader = csv.reader(csv_file)
             names = next(reader)
             data = next(reader)
@@ -124,6 +127,7 @@ def create_project_info(project_path, config_file=None):
     def count_locs():
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
             P.local("cloc --out=cloc_report.csv --csv .", project_path)
+        
         with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
             scala_lines = 0
             total_lines = 0
@@ -289,7 +293,6 @@ def analyze(project_path, always_abort=True, config_file=None):
 
     P = Pipeline().get(config_file)
     setup(config_file)
-    create_project_info(project_path, config_file)
 
     cwd = os.getcwd()
     jvm_options = P.config.get("analyzer_jvm_options")
