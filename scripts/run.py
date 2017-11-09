@@ -113,10 +113,12 @@ class PipelineImpl:
             return report.write(content)
 
     def info(self, msg):
-        self.logger.log(msg)
+        if self.config.get("debug_info"):
+            self.logger.log(msg)
 
     def error(self, msg):
-        self.logger.error(msg)
+        if self.config.get("debug_info"):
+            self.logger.error(msg)
 
     def checkout_latest_tag(self, project_name, project_path):
         self.info("[Import][%s] Checkout latest tag..." % project_name)
