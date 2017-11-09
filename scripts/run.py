@@ -211,13 +211,13 @@ def import_single(src_path, config_file=None):
 @task
 def compile(project_path, config_file=None):
     def handle_success(project_path, project_name, tag):
-        P.info("[%s] Compilation successful on master" % (project_name))
+        P.info("[CCompile][%s] Compilation successful on master" % (project_name))
         report = "SUCCESS\n%s" % tag
         P.write_report(report, project_path, "compilation_report")
         sys.exit(0)
 
     def handle_failure(project_path, project_name, tags):
-        P.error("[%s] Could not find a tag that could compile in \n%s" % (project_name, tags))
+        P.error("[CCompile][%s] Could not find a tag that could compile in \n%s" % (project_name, tags))
         report = "FAILURE\n%s" % tag
         P.write_report(report, project_path, "compilation_report")
         sys.exit(1)
@@ -225,10 +225,10 @@ def compile(project_path, config_file=None):
     project_name = os.path.split(project_path)[1]
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
-    P.info("[%s] Attempting compilation of %s" % (project_name, project_name))
+    P.info("[CCompile][%s] Attempting compilation of %s" % (project_name, project_name))
     report = P.get_report(project_path, "compilation_report")
     if report:
-        P.info("[%s] Compilation report found. Skipping" % project_name)
+        P.info("[CCompile][%s] Compilation report found. Skipping" % project_name)
         sys.exit(0 if report.startswith("SUCCESS") else 1)
 
     backwards_steps = P.config.get("max_backwards_steps")
@@ -242,7 +242,7 @@ def compile(project_path, config_file=None):
             if not failed:
                 handle_success(project_path, project_name, tag)
         else:
-            P.error("[%s] Checkout for tag %s failed. Skipping" % (project_name, tag))
+            P.error("[CCompile][%s] Checkout for tag %s failed. Skipping" % (project_name, tag))
 
     handle_failure(project_path, project_name, tags)
 
@@ -265,13 +265,13 @@ def gen_sdb(project_path, config_file=None):
                     return True
 
     def handle_success(project_path, project_name):
-        P.info("[%s] Compilation completed succesfuly" % project_name)
+        P.info("[GenSDB][%s] Compilation completed succesfuly" % project_name)
         P.write_report("SUCCESS", project_path, "semanticdb_report")
         sys.exit(0)
 
     def handle_partial(project_path, project_name):
         if sdb_files_exist(project_path):
-            P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
+            P.info("[GenSDB][%s] Compilation completed with errors. Some SDB files found" % project_name)
             P.write_report("PARTIAL", project_path, "semanticdb_report")
             sys.exit(0)
         else:
@@ -322,29 +322,29 @@ def analyze(project_path, always_abort=True, config_file=None):
             failed = P.local_canfail(title, command, project_path)
             if not failed:
                 P.write_report('SUCCESS', project_path, report_kind)
-                P.info("[%s] Done" % project_name)
+                P.info("[Analysis][%s] Done" % project_name)
             else:
                 P.write_report('ERROR', project_path, report_kind)
-                P.error("[%s] Skipping project" % project_name)
+                P.error("[Analysis][%s] Skipping project" % project_name)
                 success = False
         else:
-            P.info("[%s] %s report found (%s). Skipping" % (project_name, title, report))
+            P.info("[Analysis][%s] %s report found (%s). Skipping" % (project_name, title, report))
         return success
 
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
-        P.info("[%s] Analyzing semanticdb files..." % project_name)
+        P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
         title = "Semanticdb file analysis"
         command = "java -jar %s %s ." % (jvm_options, tool_path)
         return analysis_command(project_path, project_name, title, command, "analyzer_report")
 
     def run_cleanup_tool(project_name, project_path, tool_path):
-        P.info("[%s] Cleaning up the data..." % project_name)
+        P.info("[Analysis][%s] Cleaning up the data..." % project_name)
         title = "Data cleanup"
         command = "python %s ." % (tool_path)
         return analysis_command(project_path, project_name, title, command, "cleanup_report")
 
     def upload_to_database(project_name, project_path, tool_path, commit_to_db):
-        P.info("[%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
+        P.info("[Analysis][%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
         commit_option = "-y" if commit_to_db else "-n"
         command = "python %s %s ." % (tool_path, commit_option)
         title = "DB upload"
@@ -352,10 +352,10 @@ def analyze(project_path, always_abort=True, config_file=None):
         if success:
             if commit_to_db:
                 P.write_report('SUCCESS', project_path, "db_push_report")
-                P.info("[%s] Changes commited to the database" % project_name)
+                P.info("[Analysis][%s] Changes commited to the database" % project_name)
             else:
                 P.write_report('UNCOMMITED', project_path, "db_push_report")
-                P.info("[%s] DB changes NOT COMMITED" % project_name)
+                P.info("[Analysis][%s] DB changes NOT COMMITED" % project_name)
         return success
 
     P = Pipeline().get(config_file)
@@ -380,7 +380,7 @@ def analyze(project_path, always_abort=True, config_file=None):
         continue_analysis = run_cleanup_tool(project_name, project_path, cleanup_tool_path)
     if continue_analysis and push_to_db:
        continue_analysis = upload_to_database(project_name, project_path, db_tool_path, commit_to_db)
-    P.info("[%s] Analysis concluded" % project_name)
+    P.info("[Analysis][%s] Analysis concluded" % project_name)
     sys.exit(0 if continue_analysis else 1)
 
 @task
