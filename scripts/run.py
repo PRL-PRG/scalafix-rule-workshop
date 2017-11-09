@@ -139,7 +139,7 @@ class Pipeline:
 @task
 def create_project_info(project_path, config_file=None):
     P = Pipeline().get(config_file)
-    def count_locs():
+    def count_locs(project_path):
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
             P.local("cloc --out=cloc_report.csv --csv .", project_path)
 
@@ -154,6 +154,24 @@ def create_project_info(project_path, config_file=None):
                     scala_lines += lines
         return {"total": total_lines, "scala": scala_lines}
 
+    def has_file_with_ending(folder, extension):
+        for root, dirs, files in os.walk(folder):
+            for f in files:
+                if f.endswith(extension):
+                    return True
+
+    def get_build_systems(project_path):
+        systems = []
+        if has_file_with_ending(project_path, "pom.xml"):
+            systems.append("maven")
+        if has_file_with_ending(project_path, ".sbt"):
+            systems.append("sbt")
+        if has_file_with_ending(project_path, "gradle"):
+            systems.append("gradle")
+        if has_file_with_ending(project_path, "Vagrantfile"):
+            systems.append("vagrant")
+        return systems
+
     project_name = os.path.split(project_path)[1]
     P.info("[Import][%s] Creating project info..." % project_name)
 
@@ -161,9 +179,10 @@ def create_project_info(project_path, config_file=None):
     commit = P.local("git rev-parse HEAD", project_path)
     url = P.local("git config --get remote.origin.url", project_path)
     reponame = url.split('.com/')[1]
-    sloc = count_locs()
+    sloc = count_locs(project_path)
     repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
     gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
+    build_system = get_build_systems(project_path)
     project_info = {
        "name": str(project_name),
        "version": version,
@@ -172,7 +191,8 @@ def create_project_info(project_path, config_file=None):
        "total_loc": sloc["total"],
        "scala_loc": sloc["scala"],
        "reponame": reponame,
-       "gh_stars": gh_stars
+       "gh_stars": gh_stars,
+       "build_system": '|'.join(build_system)
     }
     P.info("[Import][%s] Capture project info: %s" % (project_name, project_info))
     with open(os.path.join(project_path, "project.csv"), "w") as csv_file:
@@ -454,8 +474,6 @@ def condense_reports(config_file=None):
             project_name = subdir
 
             report_file.write("%s:\n" % project_name)
-            append_report(project_path, report_file, "compilation_report")
-            append_report(project_path, report_file, "semanticdb_report")
-            append_report(project_path, report_file, "analyzer_report")
-            append_report(project_path, report_file, "cleanup_report")
-            append_report(project_path, report_file, "db_push_report")
+            reports = ["compilation_report", "semanticdb_report", "analyzer_report", "cleanup_report", "db_push_report"]
+            for report in reports:
+                append_report(project_path, report_file, report)
