@@ -23,12 +23,12 @@ class Logger:
         self.log(msg, color='red')
 
     def raw(self, stdout, stderr):
-        sys.stdout.write(stdout)
-        sys.stderr.write(stderr)
+        sys.stdout.write(stdout + '\n')
+        sys.stderr.write(stderr + '\n')
 
 class Config:
     def __init__(self, config_file, logger):
-        self.config = self.load_config(config_file, logger) if config_file else self.baseconfig(logger)
+        self.config = self.baseconfig(logger) if not config_file or config_file == "None" else self.load_config(config_file, logger)
         self.logger = logger
 
     def get(self, key):
@@ -152,6 +152,8 @@ def create_project_info(project_path, config_file=None):
         return {"total": total_lines, "scala": scala_lines}
 
     project_name = os.path.split(project_path)[1]
+    P.info("[Import][%s] Creating project info..." % project_name)
+
     version = P.local("git describe --always", project_path)
     commit = P.local("git rev-parse HEAD", project_path)
     url = P.local("git config --get remote.origin.url", project_path)
@@ -174,34 +176,36 @@ def create_project_info(project_path, config_file=None):
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(project_info.keys())
         writer.writerow(project_info.values())
-    return project_info
+    sys.exit(0)
 
 def import_single(src_path, config_file=None):
 
     def do_import(subdir, srcpath, destpath):
+        cwd = os.getcwd()
         shutil.copytree(srcpath, destpath)
-        create_project_info(subdir, destpath)
+        res = P.local_canfail("Create project information", "fab create_project_info:subdir=%s,destpath=%s" % (subdir, destpath), cwd)
         P.info("[Import] Done!")
+        return res
 
     P = Pipeline().get(config_file)
     dest_dir = P.config.get("projects_dest")
     subdir = os.path.basename(src_path)
     dest_path = os.path.join(dest_dir, subdir)
+    import_failed = False
     if os.path.isdir(src_path) and os.path.exists(os.path.join(src_path, "build.sbt")):
-        try:
-            P.info("[Import] %s" % str(src_path))
-            if not os.path.exists(dest_path):
-                do_import(subdir, src_path, dest_path)
+        P.info("[Import] %s" % str(src_path))
+        if not os.path.exists(dest_path):
+            import_failed = do_import(subdir, src_path, dest_path)
+        else:
+            if os.path.exists(os.path.join(dest_path, "project.csv")):
+                P.info("[Import] Already imported")
             else:
-                if os.path.exists(os.path.join(dest_path, "project.csv")):
-                    P.info("[Import] Already imported")
-                else:
-                    P.info("[Import] Failed last time. Removing")
-                    shutil.rmtree(dest_path)
-                    do_import(subdir, src_path, dest_path)
-        except RuntimeError as error:
-            print(error)
+                P.info("[Import] Failed last time. Removing")
+                shutil.rmtree(dest_path)
+                import_failed = do_import(subdir, src_path, dest_path)
+        sys.exit(1 if import_failed else 0)
 
+'''
 def import_all(source, config_file=None):
     P = Pipeline().get(config_file)
     dest_folder = P.config.get("projects_dest")
@@ -209,7 +213,7 @@ def import_all(source, config_file=None):
     for subdir in os.listdir(source):
         src_path = os.path.join(source, subdir)
         import_single(src_path, config_file)
-
+ '''
 def compile(project_path, config_file=None):
     def handle_success(project_path, project_name, tag):
         P.info("[%s] Compilation successful on master" % (project_name))
@@ -241,11 +245,11 @@ def compile(project_path, config_file=None):
         if not checkout_failed:
             failed = P.local_canfail("Compile tag %s" % tag, "sbt -batch compile", project_path, verbose=True)
             if not failed:
-                return handle_success(project_path, project_name, tag)
+                handle_success(project_path, project_name, tag)
         else:
             P.error("[%s] Checkout for tag %s failed. Skipping" % (project_name, tag))
 
-    return handle_failure(project_path, project_name, tags)
+    handle_failure(project_path, project_name, tags)
 
 def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
@@ -277,7 +281,7 @@ def gen_sdb(project_path, config_file=None):
         else:
             handle_error(project_path, project_name)
 
-    def handle_partial(project_path, project_name):
+    def handle_error(project_path, project_name):
         P.error("[%s] Skipping project" % project_name)
         P.write_report("ERROR", project_path, "semanticdb_report")
         sys.exit(1)
@@ -357,7 +361,8 @@ def analyze(project_path, always_abort=True, config_file=None):
     project_info = P.load_project_info(project_path)
     project_name = project_info["name"]
 
-    continue_analysis = gen_sdb(project_path)
+    compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s,config_file=%s" % (project_path, config_file), cwd, verbose=True)
+    continue_analysis = not compilation_failed
     if continue_analysis:
         continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     if continue_analysis:
@@ -365,7 +370,9 @@ def analyze(project_path, always_abort=True, config_file=None):
     if continue_analysis and push_to_db:
        continue_analysis = upload_to_database(project_name, project_path, db_tool_path, commit_to_db)
     P.info("[%s] Analysis concluded" % project_name)
+    sys.exit(0 if continue_analysis else 1)
 
+'''
 def analyze_projects(config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
@@ -374,8 +381,9 @@ def analyze_projects(config_file=None):
     for subdir in os.listdir(projects_path):
         P.info("[%s] Starting analysis" % subdir)
         project_path = os.path.join(projects_path, subdir)
-        analyze(project_path, config_file)
+        failed = P.local_canfail("Analysis for %s" % subdir, "fab analyze:project_path=%s,config_file=%s" % (project_path, config_file), cwd, verbose=True)
     condense_reports(config_file)
+    '''
 
 def setup(config_file=None):
     cwd = os.getcwd()
