@@ -282,15 +282,29 @@ def gen_sdb(project_path, config_file=None):
             handle_error(project_path, project_name)
 
     def handle_error(project_path, project_name):
-        P.error("[%s] Skipping project" % project_name)
+        P.error("[GenSDB][%s] Skipping project" % project_name)
         P.write_report("ERROR", project_path, "semanticdb_report")
         sys.exit(1)
 
-    P.info("[GenSDB][%s] Looking for compilation report..." % project_name)
+    def clean_compile_succeeded(project_path, project_name):
+        report = P.get_report(project_path, "compilation_report")
+        if report is None:
+            P.info("[GenSDB][%s] Clean compilation report not found" % project_name)
+            return False
+        elif not report.startswith("SUCCESS"):
+            P.info("[GenSDB][%s] Clean compilation report was not successful (%s)" % (project_name, report[:15]))
+            return False
+        else:
+            return True
+
+    if not clean_compile_succeeded(project_path, project_name):
+        sys.exit(1)
+
+    P.info("[GenSDB][%s] Looking for report from previous compilation..." % project_name)
     report = P.get_report(project_path, "semanticdb_report")
     force_recompile = P.config.get("force_recompile_on_fail")
     if report is None or (report == "ERROR" and force_recompile):
-        P.info("[%s] Not found. Recompiling..." % project_name)
+        P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
         download_sbt_plugin(plugin_url, project_path)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
         if not failed:
@@ -300,9 +314,10 @@ def gen_sdb(project_path, config_file=None):
         else:
             handle_error(project_path, project_name)
     else:
-        P.info("[%s] Compilation report found (%s). Skipping" % (project_name, report))
+        P.info("[GenSDB][%s] Compilation report found (%s). Skipping" % (project_name, report))
         sys.exit(0)
 
+@task
 def analyze(project_path, always_abort=True, config_file=None):
     def analysis_command(project_path, project_name, title, command, report_kind):
         success = True
