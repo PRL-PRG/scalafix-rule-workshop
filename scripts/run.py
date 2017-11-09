@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import argparse
 import json
@@ -23,8 +23,8 @@ class Logger:
         self.log(msg, color='red')
 
     def raw(self, stdout, stderr):
-        print(stdout, file=sys.stdout)
-        print(stderr, file=sys.stderr)
+        sys.stdout.write(stdout)
+        sys.stderr.write(stderr)
 
 class Config:
     def __init__(self, config_file, logger):
