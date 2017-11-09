@@ -102,10 +102,13 @@ class PipelineImpl:
 
     def get_report(self, project_path, kind):
         report_path = os.path.join(project_path, self.config.get(kind))
-        if not os.path.exists(report_path):
-            return None
-        with open(report_path) as report:
-            return report.read()
+        for root, subdir, files in os.walk(project_path):
+            for f in files:
+                if f == self.config.get(kind):
+                    with open(os.path.join(root, f)) as report:
+                        return report.read()
+
+        return None
 
     def write_report(self, content, project_path, kind):
         report_path = os.path.join(project_path, self.config.get(kind))
@@ -179,7 +182,7 @@ def create_project_info(project_path, config_file=None):
     project_name = os.path.split(project_path)[1]
     P.info("[Import][%s] Creating project info..." % project_name)
 
-    version = P.local("git describe --always", project_path)
+    version = P.local("git describe --always", project_path, verbose=True)
     commit = P.local("git rev-parse HEAD", project_path)
     url = P.local("git config --get remote.origin.url", project_path)
     reponame = url.split('.com/')[1]
@@ -276,7 +279,7 @@ def gen_sdb(project_path, config_file=None):
     def download_sbt_plugin(plugin_url, project_path):
         dest_folder = os.path.join(project_path, "project")
         if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
-            P.local("wget -O SemanticdbConfigure.scala %s" % plugin_url, dest_folder)
+            P.local("wget -O SemanticdbConfigure.scala %s" % plugin_url, dest_folder, verbose=True)
 
     def sdb_files_exist(path):
         for wd, subdirs, files in os.walk(path):
