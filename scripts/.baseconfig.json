@@ -15,6 +15,10 @@
         "params.clean.csv"
     ],
 
+    "supported_build_systems": [
+        "sbt"
+    ],
+
     "tools_dir": "tools",
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_url": "https://github.com/PRL-PRG/scalafix-rule-workshop/blob/implicit-context/scripts/implicit-analyzer.jar?raw=true",

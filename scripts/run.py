@@ -126,6 +126,28 @@ class PipelineImpl:
         self.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
         self.local("git checkout $latestTag", project_path)
 
+    def has_file_with_ending(self, folder, extension):
+        for root, dirs, files in os.walk(folder):
+            for f in files:
+                if f.endswith(extension):
+                    return True
+
+    def get_build_systems(self, project_path):
+        systems = []
+        if self.has_file_with_ending(project_path, "pom.xml"):
+            systems.append("maven")
+        if self.has_file_with_ending(project_path, ".sbt"):
+            systems.append("sbt")
+        if self.has_file_with_ending(project_path, "gradle"):
+            systems.append("gradle")
+        if self.has_file_with_ending(project_path, "Vagrantfile"):
+            systems.append("vagrant")
+        return systems
+
+    def is_build_system_supported(self, src_path):
+        project_build_systems = self.get_build_systems(src_path)
+        return any(system in self.config.get("supported_build_systems") for system in project_build_systems)
+
 class Pipeline:
     __instance = None
     def get(self, config_file):
@@ -154,24 +176,6 @@ def create_project_info(project_path, config_file=None):
                     scala_lines += lines
         return {"total": total_lines, "scala": scala_lines}
 
-    def has_file_with_ending(folder, extension):
-        for root, dirs, files in os.walk(folder):
-            for f in files:
-                if f.endswith(extension):
-                    return True
-
-    def get_build_systems(project_path):
-        systems = []
-        if has_file_with_ending(project_path, "pom.xml"):
-            systems.append("maven")
-        if has_file_with_ending(project_path, ".sbt"):
-            systems.append("sbt")
-        if has_file_with_ending(project_path, "gradle"):
-            systems.append("gradle")
-        if has_file_with_ending(project_path, "Vagrantfile"):
-            systems.append("vagrant")
-        return systems
-
     project_name = os.path.split(project_path)[1]
     P.info("[Import][%s] Creating project info..." % project_name)
 
@@ -182,7 +186,7 @@ def create_project_info(project_path, config_file=None):
     sloc = count_locs(project_path)
     repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
     gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
-    build_system = get_build_systems(project_path)
+    build_system = P.get_build_systems(project_path)
     project_info = {
        "name": str(project_name),
        "version": version,
@@ -207,7 +211,7 @@ def import_single(src_path, config_file=None):
     def do_import(subdir, srcpath, destpath):
         cwd = os.getcwd()
         shutil.copytree(srcpath, destpath)
-        res = P.local_canfail("Create project information", "fab create_project_info:subdir=%s,destpath=%s" % (subdir, destpath), cwd)
+        res = P.local_canfail("Create project information", "fab create_project_info:project_path=%s" % destpath, cwd, verbose=True)
         P.info("[Import] Done!")
         return res
 
@@ -216,7 +220,7 @@ def import_single(src_path, config_file=None):
     subdir = os.path.basename(src_path)
     dest_path = os.path.join(dest_dir, subdir)
     import_failed = False
-    if os.path.isdir(src_path) and os.path.exists(os.path.join(src_path, "build.sbt")):
+    if os.path.isdir(src_path) and P.is_build_system_supported(src_path):
         P.info("[Import] %s" % str(src_path))
         if not os.path.exists(dest_path):
             import_failed = do_import(subdir, src_path, dest_path)
