@@ -211,9 +211,8 @@ def import_single(src_path, config_file=None):
     def do_import(subdir, srcpath, destpath):
         cwd = os.getcwd()
         shutil.copytree(srcpath, destpath)
-        res = P.local_canfail("Create project information", "fab create_project_info:project_path=%s" % destpath, cwd, verbose=True)
         P.info("[Import] Done!")
-        return res
+        return False
 
     P = Pipeline().get(config_file)
     dest_dir = P.config.get("projects_dest")
@@ -225,12 +224,7 @@ def import_single(src_path, config_file=None):
         if not os.path.exists(dest_path):
             import_failed = do_import(subdir, src_path, dest_path)
         else:
-            if os.path.exists(os.path.join(dest_path, "project.csv")):
-                P.info("[Import] Already imported")
-            else:
-                P.info("[Import] Failed last time. Removing")
-                shutil.rmtree(dest_path)
-                import_failed = do_import(subdir, src_path, dest_path)
+            P.info("[Import] Already imported")
         sys.exit(1 if import_failed else 0)
 
 
