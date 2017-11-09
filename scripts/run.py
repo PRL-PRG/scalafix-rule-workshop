@@ -18,7 +18,7 @@ class Logger:
         timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
         label = colored("Runner", color)
         print("%s[%s]%s" % (timestamp, label, msg))
-    
+
     def error(self, msg):
         self.log(msg, color='red')
 
@@ -30,7 +30,7 @@ class Config:
     def __init__(self, config_file, logger):
         self.config = self.load_config(config_file, logger) if config_file else self.baseconfig(logger)
         self.logger = logger
-    
+
     def get(self, key):
         if key not in self.config:
             self.logger.error("[Config] Key %s not found" % key)
@@ -51,7 +51,7 @@ class Config:
         with open(config_file) as data_file:
             userconfig = json.load(data_file)
             return self.override_config(config, userconfig)
-        
+
     def override_config(self, base, userconfig):
         config = base
         for field in userconfig:
@@ -69,7 +69,7 @@ class PipelineImpl:
             if verbose:
                 self.logger.raw(str(res.stdout), str(res.stderr))
             return res
-  
+
     def local_canfail(self, name, command, directory, verbose=False, interactive=False):
         failed = False
         with settings(warn_only=True):
@@ -123,9 +123,9 @@ class PipelineImpl:
         self.local("git fetch --tags --depth 1", project_path)
         self.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
         self.local("git checkout $latestTag", project_path)
-   
+
 class Pipeline:
-    __instance = None        
+    __instance = None
     def get(self, config_file):
         if Pipeline.__instance is None:
             Pipeline.__instance = PipelineImpl(config_file)
@@ -139,7 +139,7 @@ def create_project_info(project_path, config_file=None):
     def count_locs():
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
             P.local("cloc --out=cloc_report.csv --csv .", project_path)
-        
+
         with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
             scala_lines = 0
             total_lines = 0
@@ -154,7 +154,7 @@ def create_project_info(project_path, config_file=None):
     project_name = os.path.split(project_path)[1]
     version = P.local("git describe --always", project_path)
     commit = P.local("git rev-parse HEAD", project_path)
-    url = P.local("git config --get remote.origin.url", project_path)        
+    url = P.local("git config --get remote.origin.url", project_path)
     reponame = url.split('.com/')[1]
     sloc = count_locs()
     repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
@@ -179,7 +179,7 @@ def create_project_info(project_path, config_file=None):
 def import_single(src_path, config_file=None):
 
     def do_import(subdir, srcpath, destpath):
-        shutil.copytree(srcpath, destpath)        
+        shutil.copytree(srcpath, destpath)
         create_project_info(subdir, destpath)
         P.info("[Import] Done!")
 
@@ -201,7 +201,7 @@ def import_single(src_path, config_file=None):
                     do_import(subdir, src_path, dest_path)
         except RuntimeError as error:
             print(error)
-            
+
 def import_all(source, config_file=None):
     P = Pipeline().get(config_file)
     dest_folder = P.config.get("projects_dest")
@@ -231,7 +231,7 @@ def compile(project_path, config_file=None):
     if report:
         P.info("[%s] Compilation report found. Skipping" % project_name)
         sys.exit(0 if report.startswith("SUCCESS") else 1)
-    
+
     backwards_steps = P.config.get("max_backwards_steps")
     tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s`" % backwards_steps, project_path)
     current_commit = P.local("git describe --always --abbrev=0", project_path)
@@ -256,7 +256,7 @@ def gen_sdb(project_path, config_file=None):
 
     def download_sbt_plugin(plugin_url, project_path):
         dest_folder = os.path.join(project_path, "project")
-        if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):            
+        if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
             P.local("wget -O SemanticdbConfigure.scala %s" % plugin_url, dest_folder)
 
     def sdb_files_exist(path):
@@ -306,7 +306,7 @@ def analyze(project_path, always_abort=True, config_file=None):
                 P.error("[%s] Skipping project" % project_name)
                 success = False
         else:
-            P.info("[%s] %s report found (%s). Skipping" % (project_name, title, report)) 
+            P.info("[%s] %s report found (%s). Skipping" % (project_name, title, report))
         return success
 
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):

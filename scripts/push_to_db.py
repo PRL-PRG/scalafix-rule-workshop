@@ -6,7 +6,7 @@ import mysql.connector as sql
 
 def get_project_info(cwd):
     # Assuming cwd is the project
-    with open(os.path.join(cwd, "project.csv"), "r") as projfile:  
+    with open(os.path.join(cwd, "project.csv"), "r") as projfile:
         reader = csv.reader(projfile)
         names = next(reader)
         data = next(reader)
@@ -24,9 +24,9 @@ def dump_params(full_path, project_id):
     csv_file.readline() # Skip headers
     reader = csv.reader(csv_file)
 
-    for param in reader: 
+    for param in reader:
         print "Insert [%s, %s] into params" % (project_id, param)
-        try:                
+        try:
             cursor.execute("INSERT INTO params (project, name, fqn, type, fqtn, kind)"
                             "VALUES (%s, %s, %s, %s, %s, %s)",
                             (project_id, param[4], param[0], param[2], param[1], param[3]))
@@ -35,7 +35,7 @@ def dump_params(full_path, project_id):
             sys.exit(1)
 
         rowid = cursor.lastrowid
-        ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication            
+        ids[param[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
     csv_file.close()
     return ids
 
@@ -115,7 +115,7 @@ def insert_project_into_db(dir):
     if not os.path.exists(projectfile):
         raise RuntimeError("No project info found")
 
-    info = get_project_info(dir)    
+    info = get_project_info(dir)
     # Push into database
     print("Inserting %s into db" % info["name"])
     try:
@@ -129,7 +129,7 @@ def insert_project_into_db(dir):
     except sql.Error as error:
         print("Error: {}".format(error))
         sys.exit(1)
-   
+
 
 db = sql.connect(host="127.0.0.1",
                 port="3306",
@@ -141,14 +141,14 @@ cursor = db.cursor()
 # Assume CWD is the codebases/ folder
 root = os.getcwd()
 
-if len(sys.argv) >= 2:   
+if len(sys.argv) >= 2:
     for arg in sys.argv[1:]:
         if arg != "-y":
             try:
                 insert_project_into_db(arg)
             except RuntimeError as error:
-                    print error
-    
+                print error
+
     commit = False
     if len(sys.argv) >= 3:
         if sys.argv[1] == "-y":
@@ -157,7 +157,7 @@ if len(sys.argv) >= 2:
             commit = False
     else:
         commit = raw_input("Commit changes to the database? (y/n) ") == "y"
-    
+
     if commit:
         db.commit()
     else:
@@ -165,4 +165,4 @@ if len(sys.argv) >= 2:
 else:
     print "No arguments provided"
 
-db.close()  
+db.close()

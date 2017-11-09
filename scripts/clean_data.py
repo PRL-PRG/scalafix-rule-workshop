@@ -13,7 +13,7 @@ fully_qualified_name_fixes = [
 ]
 
 def get_project_info(cwd):
-    with open(os.path.join(cwd, "project.csv"), "r") as projfile:  
+    with open(os.path.join(cwd, "project.csv"), "r") as projfile:
         reader = csv.reader(projfile)
         names = next(reader)
         data = next(reader)
@@ -55,15 +55,15 @@ def clean_file(directory, filename, fixer, clean_function):
         return
 
     with open(filepath, "r") as original:
-        with open(basepath+".clean.csv", "w") as clean_file:  
+        with open(basepath+".clean.csv", "w") as clean_file:
             reader = csv.DictReader(original)
-            writer = csv.DictWriter(clean_file, fieldnames = reader.fieldnames)    
+            writer = csv.DictWriter(clean_file, fieldnames = reader.fieldnames)
             writer.writeheader()
             for row in reader:
                 new_values = clean_function(row, fixer)
                 writer.writerow(new_values)
 
-def clean_project(directory):    
+def clean_project(directory):
     info = get_project_info(directory)
     fixer = Fixer(info)
     print("Cleaning %s" % info["name"])
@@ -78,9 +78,9 @@ def main():
     # Assume CWD is the codebases/ folder
     root = os.getcwd()
 
-    if len(sys.argv) >= 2:        
+    if len(sys.argv) >= 2:
         for arg in range(1, len(sys.argv)):
-            clean_project(sys.argv[arg])        
+            clean_project(sys.argv[arg])
     else:
         print ("No arguments provided")
         sys.exit(1)
