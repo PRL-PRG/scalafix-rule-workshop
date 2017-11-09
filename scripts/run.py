@@ -75,9 +75,10 @@ class PipelineImpl:
         with settings(warn_only=True):
             result = self.local(command, directory, verbose=verbose)
             if result.failed:
-                with open(os.path.join(directory, name.replace(" ", "_"))) as command_report:
-                    command_report.write(result.stdout)
-                    command_report.write(result.stderr)
+                with lcd(directory):
+                    with open(os.path.join(directory, name.replace(" ", "_")), 'w') as command_report:
+                        command_report.write(result.stdout)
+                        command_report.write(result.stderr)
                 if not interactive:
                     failed = True
                 else:
