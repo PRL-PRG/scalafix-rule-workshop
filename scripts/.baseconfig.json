@@ -4,8 +4,9 @@
     "semanticdb_plugin_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config.scala",
 
     "force_recompile_on_fail": false,
+    "allow_partial_semanticdb_files": false,
     "max_backwards_steps": 5,
-   
+
     "report_files": [
         "project.csv",
         "funs.clean.csv",
@@ -13,7 +14,7 @@
         "params.clean.csv"
     ],
 
-    "tools_dir": "tools",   
+    "tools_dir": "tools",
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_url": "https://github.com/PRL-PRG/scalafix-rule-workshop/blob/implicit-context/scripts/implicit-analyzer.jar?raw=true",
     "analyzer_jvm_options": "-Xmx2g",

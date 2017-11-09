@@ -251,8 +251,7 @@ def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
     plugin_url = P.config.get("semanticdb_plugin_url")
-    project_info = P.load_project_info(project_path)
-    project_name = project_info["name"]
+    project_name = os.path.split(project_path)[1]
 
     def download_sbt_plugin(plugin_url, project_path):
         dest_folder = os.path.join(project_path, "project")
@@ -265,32 +264,40 @@ def gen_sdb(project_path, config_file=None):
                 if file.endswith("semanticdb"):
                     return True
 
-    P.info("[%s] Looking for compilation report..." % project_name)
-    continue_analysis = True
+    def handle_success(project_path, project_name):
+        P.info("[%s] Compilation completed succesfuly" % project_name)
+        P.write_report("SUCCESS", project_path, "semanticdb_report")
+        sys.exit(0)
+
+    def handle_partial(project_path, project_name):
+        if sdb_files_exist(project_path):
+            P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
+            P.write_report("PARTIAL", project_path, "semanticdb_report")
+            sys.exit(0)
+        else:
+            handle_error(project_path, project_name)
+
+    def handle_partial(project_path, project_name):
+        P.error("[%s] Skipping project" % project_name)
+        P.write_report("ERROR", project_path, "semanticdb_report")
+        sys.exit(1)
+
+    P.info("[GenSDB][%s] Looking for compilation report..." % project_name)
     report = P.get_report(project_path, "semanticdb_report")
     force_recompile = P.config.get("force_recompile_on_fail")
     if report is None or (report == "ERROR" and force_recompile):
         P.info("[%s] Not found. Recompiling..." % project_name)
         download_sbt_plugin(plugin_url, project_path)
-        project_info = P.load_project_info(project_path)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
-        if sdb_files_exist(project_path):
-            if failed:
-                P.info("[%s] Compilation completed with errors. Some SDB files found" % project_name)
-                P.write_report("PARTIAL", project_path, "semanticdb_report")
-            else:
-                P.info("[%s] Compilation completed succesfuly" % project_name)
-                P.write_report("SUCCESS", project_path, "semanticdb_report")
+        if not failed:
+            handle_success(project_path, project_name)
+        if failed and P.config.get("allow_partial_semanticdb_files"):
+            handle_partial(project_path, project_name)
         else:
-            P.error("[%s] Skipping project" % project_name)
-            P.write_report("ERROR", project_path, "semanticdb_report")
-            continue_analysis = False
+            handle_error(project_path, project_name)
     else:
         P.info("[%s] Compilation report found (%s). Skipping" % (project_name, report))
-    report = P.get_report(project_path, "semanticdb_report")
-    if report == "ERROR":
-        continue_analysis = False
-    return continue_analysis
+        sys.exit(0)
 
 def analyze(project_path, always_abort=True, config_file=None):
     def analysis_command(project_path, project_name, title, command, report_kind):
