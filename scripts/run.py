@@ -5,7 +5,7 @@ import json
 import os
 import shutil
 import sys
-from fabric.api import local, abort, lcd, get, settings
+from fabric.api import task, local, abort, lcd, get, settings
 from fabric.contrib.console import confirm
 from fabric.contrib import files
 import csv
@@ -134,6 +134,7 @@ class Pipeline:
     def __call__(self):
         return self
 
+@task
 def create_project_info(project_path, config_file=None):
     P = Pipeline().get(config_file)
     def count_locs():
@@ -178,6 +179,7 @@ def create_project_info(project_path, config_file=None):
         writer.writerow(project_info.values())
     sys.exit(0)
 
+@task
 def import_single(src_path, config_file=None):
 
     def do_import(subdir, srcpath, destpath):
@@ -205,15 +207,8 @@ def import_single(src_path, config_file=None):
                 import_failed = do_import(subdir, src_path, dest_path)
         sys.exit(1 if import_failed else 0)
 
-'''
-def import_all(source, config_file=None):
-    P = Pipeline().get(config_file)
-    dest_folder = P.config.get("projects_dest")
-    P.info("[Import] Importing projects into %s..." % dest_folder)
-    for subdir in os.listdir(source):
-        src_path = os.path.join(source, subdir)
-        import_single(src_path, config_file)
- '''
+
+@task
 def compile(project_path, config_file=None):
     def handle_success(project_path, project_name, tag):
         P.info("[%s] Compilation successful on master" % (project_name))
@@ -251,6 +246,7 @@ def compile(project_path, config_file=None):
 
     handle_failure(project_path, project_name, tags)
 
+@task
 def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
@@ -387,19 +383,7 @@ def analyze(project_path, always_abort=True, config_file=None):
     P.info("[%s] Analysis concluded" % project_name)
     sys.exit(0 if continue_analysis else 1)
 
-'''
-def analyze_projects(config_file=None):
-    cwd = os.getcwd()
-    P = Pipeline().get(config_file)
-    projects = P.config.get("projects_dest")
-    projects_path = os.path.join(cwd, projects)
-    for subdir in os.listdir(projects_path):
-        P.info("[%s] Starting analysis" % subdir)
-        project_path = os.path.join(projects_path, subdir)
-        failed = P.local_canfail("Analysis for %s" % subdir, "fab analyze:project_path=%s,config_file=%s" % (project_path, config_file), cwd, verbose=True)
-    condense_reports(config_file)
-    '''
-
+@task
 def setup(config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
@@ -420,6 +404,7 @@ def setup(config_file=None):
     download_tool("Database upload tool", P.config.get("db_push_tool_name"), P.config.get("db_push_tool_url"), tools_dir)
     P.info("[Setup] Done")
 
+@task
 def merge_csv(config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
@@ -446,6 +431,7 @@ def merge_csv(config_file=None):
                             data.append(subdir)
                             writer.writerow(data)
 
+@task
 def condense_reports(config_file=None):
     def write_header(report_file):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
