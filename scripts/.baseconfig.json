@@ -2,7 +2,8 @@
     "debug_info": false,
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
-    "semanticdb_plugin_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config.scala",
+    "semanticdb_plugin_0_13_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_0_13.scala",
+    "semanticdb_plugin_1_0_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_1_0.scala",
 
     "force_recompile_on_fail": false,
     "allow_partial_semanticdb_files": false,
