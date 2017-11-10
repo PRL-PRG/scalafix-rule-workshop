@@ -11,10 +11,9 @@ object Main {
     config match {
       case Some(conf) => {
         println(s"Root: ${conf.root}, Multiple projects: ${conf.multidir}")
-        val walker = 
-          if (conf.multidir) new MultipleProjectWalker(conf.root)
-          else new SingleProjectWalker(conf.root)          
-        ImplicitParamsToCSV(walker)
+        val walker = new SingleProjectWalker(conf.root)
+        val results = ImplicitParamsToCSV(walker)
+        CSV.dumpFiles(conf.root, results)
       }
       case None => {
         println("No arguments found. Closing")

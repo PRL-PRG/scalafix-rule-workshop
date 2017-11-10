@@ -1,16 +1,17 @@
 package extractor
 
 import java.nio.file.{Files, Paths, StandardOpenOption}
+import java.util.concurrent.ConcurrentLinkedQueue
 
 object CSV {
 
-  trait Serializable[A] {
+  trait Serializable {
     def csvHeader: Seq[String]
     def csvValues: Seq[String]
     def id: String
   }
 
-  def writeCSV[A](xs: Iterable[_ <: Serializable[A]], path: String): Unit = {
+  def writeCSV(xs: Iterable[Serializable], path: String): Unit = {
     def prepareValue(x: String) = {
       // FIXME: properly escape " in x
       '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
@@ -29,5 +30,12 @@ object CSV {
         Files.write(Paths.get(path), s"$header\n$values".getBytes)
       }
     }
+  }
+
+
+  def dumpFiles(projectPath: String, results: ConcurrentLinkedQueue[(String, Iterable[CSV.Serializable])]) = {
+    results.forEach(x => {
+      CSV.writeCSV(x._2, s"${projectPath}/${x._1}")
+    })
   }
 }
