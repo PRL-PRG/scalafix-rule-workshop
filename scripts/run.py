@@ -278,8 +278,10 @@ def gen_sdb(project_path, config_file=None):
 
     def download_sbt_plugin(plugin_url, project_path):
         dest_folder = os.path.join(project_path, "project")
+        if not os.path.exists(dest_folder):
+            os.mkdir(dest_folder)
         if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
-            P.local_canfail("get sdb plugin", "cd %s && wget -O SemanticdbConfigure.scala %s" % (dest_folder, plugin_url), project_path)
+            P.local_canfail("get sdb plugin", "wget -O SemanticdbConfigure.scala %s" % (plugin_url), dest_folder)
 
     def sdb_files_exist(path):
         for wd, subdirs, files in os.walk(path):
