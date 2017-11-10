@@ -318,13 +318,15 @@ def gen_sdb(project_path, config_file=None):
         else:
             return True
 
+    def needs_recompile(report):
+        return report is None or (report.startswith("ERROR") and P.config.get("force_recompile_on_fail"))
+
     if not clean_compile_succeeded(project_path, project_name):
         sys.exit(1)
 
     P.info("[GenSDB][%s] Looking for report from previous compilation..." % project_name)
     report = P.get_report(project_path, "semanticdb_report")
-    force_recompile = P.config.get("force_recompile_on_fail")
-    if report is None or (report == "ERROR" and force_recompile):
+    if needs_recompile(report):
         P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
         download_sbt_plugin(plugin_url, project_path)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
@@ -335,8 +337,11 @@ def gen_sdb(project_path, config_file=None):
         else:
             handle_error(project_path, project_name)
     else:
-        P.info("[GenSDB][%s] Compilation report found (%s). Skipping" % (project_name, report))
-        sys.exit(0)
+        if report.startswith("ERROR"):
+            handle_error(project_path, project_name)
+        else:
+            P.info("[GenSDB][%s] Compilation report found (%s). Skipping" % (project_name, report))
+            sys.exit(0)
 
 @task
 def analyze(project_path, always_abort=True, config_file=None):
