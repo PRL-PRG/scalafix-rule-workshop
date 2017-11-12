@@ -273,7 +273,6 @@ def compile(project_path, config_file=None):
 def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
-    plugin_url = P.config.get("semanticdb_plugin_url")
     project_name = os.path.split(project_path)[1]
 
     def sdb_files_exist(path):

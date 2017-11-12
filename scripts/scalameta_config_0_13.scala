@@ -7,8 +7,8 @@ object SemanticdbCommandPlugin extends AutoPlugin {
   override def requires: Plugins = JvmPlugin
   override def trigger: PluginTrigger = allRequirements
   val V: Map[(Int, Int), String] = Map(
-    (2 -> 11) -> "2.11.11",
-    (2 -> 12) -> "2.12.3"
+    (2 -> 11) -> "2.11.12",
+    (2 -> 12) -> "2.12.4"
   )
   def relevantProjects(state: State): Seq[(ProjectRef, String)] = {
     val extracted = Project.extract(state)
@@ -41,7 +41,7 @@ object SemanticdbCommandPlugin extends AutoPlugin {
           scalaVersion.in(p) := fullVersion,
           scalacOptions.in(p) += "-Yrangepos",
           libraryDependencies.in(p) += compilerPlugin(
-            "org.scalameta" % "semanticdb-scalac" % "2.0.1" cross CrossVersion.full)
+            "org.scalameta" % "semanticdb-scalac" % "2.1.2" cross CrossVersion.full)
         )
       } yield setting
       val installed = extracted.append(settings, s)
