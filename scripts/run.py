@@ -255,8 +255,10 @@ def compile(project_path, config_file=None):
         sys.exit(0 if report.startswith("SUCCESS") else 1)
 
     backwards_steps = P.config.get("max_backwards_steps")
-    tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s`" % backwards_steps, project_path)
     current_commit = P.local("git describe --always --abbrev=0", project_path)
+    # Fetch the latest commits so they show up in `git describe`
+    P.local("git fetch --depth %s" % backwards_steps, project_path)
+    tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s %s`" % (backwards_steps, current_commit), project_path)
     tags = [current_commit] + tag_stream.split('\n')
     for tag in tags:
         checkout_failed = P.local_canfail("git checkout %s" % tag, "git checkout %s" % tag, project_path)
