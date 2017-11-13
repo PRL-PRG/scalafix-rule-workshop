@@ -5,7 +5,8 @@ import json
 import os
 import shutil
 import sys
-from fabric.api import task, local, abort, lcd, get, settings
+from fabric.api import task, abort, lcd, get, settings
+from fabric.api import local as fablocal
 from fabric.contrib.console import confirm
 from fabric.contrib import files
 import csv
@@ -52,28 +53,24 @@ BASE_CONFIG = {
     "db_push_report": "DB_PUSH_REPORT.TXT"
 }
 
-class Logger:
-    def log(self, msg, color='magenta'):
-        timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
-        label = colored("Runner", color)
-        print("%s[%s]%s" % (timestamp, label, msg))
+def log(msg, color='magenta'):
+    timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
+    label = colored("Runner", color)
+    print("%s[%s]%s" % (timestamp, label, msg))
 
-    def error(self, msg):
-        self.log(msg, color='red')
+def error(msg):
+    log(msg, color='red')
 
-    def raw(self, stdout, stderr):
-        sys.stdout.write(stdout + '\n')
-        sys.stderr.write(stderr + '\n')
+def raw(stdout, stderr):
+    sys.stdout.write(stdout + '\n')
+    sys.stderr.write(stderr + '\n')
 
-class Pipeline:
-    def __init__(self):
-        self.logger = Logger()
-
+class Pipeline():
     def local(self, command, directory, verbose=False):
         with lcd(directory):
-            res = local(command, capture=True)
+            res = fablocal(command, capture=True)
             if verbose:
-                self.logger.raw(str(res.stdout), str(res.stderr))
+                raw(str(res.stdout), str(res.stderr))
             return res
 
     def local_canfail(self, name, command, directory, verbose=False, interactive=False):
@@ -123,11 +120,11 @@ class Pipeline:
 
     def info(self, msg):
         if BASE_CONFIG["debug_info"]:
-            self.logger.log(msg)
+            log(msg)
 
     def error(self, msg):
         if BASE_CONFIG["debug_info"]:
-            self.logger.error(msg)
+            error(msg)
 
     def has_file_with_ending(self, folder, extension):
         for root, dirs, files in os.walk(folder):
