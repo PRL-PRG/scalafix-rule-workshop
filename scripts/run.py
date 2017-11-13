@@ -13,51 +13,44 @@ import subprocess
 from termcolor import colored
 import datetime
 
-base_config = json.loads("""
-{
-    \"debug_info\": false,
-    \"sbt_projects\": \"../materials/singlecodebase\",
-    \"projects_dest\": \"./projects\",
-    \"semanticdb_plugin_0_13_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_0_13.scala\",
-    \"semanticdb_plugin_1_0_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_1_0.scala\",
+BASE_CONFIG = {
+    "debug_info": True,
+    "sbt_projects": "../materials/singlecodebase",
+    "projects_dest": "./projects",
 
-    \"force_recompile_on_fail\": false,
-    \"allow_partial_semanticdb_files\": false,
-    \"max_backwards_steps\": 5,
+    "force_recompile_on_fail": False,
+    "allow_partial_semanticdb_files": False,
+    "max_backwards_steps": 5,
 
-    \"report_files\": [
-        \"project.csv\",
-        \"funs.clean.csv\",
-        \"params_funs.csv\",
-        \"params.clean.csv\"
+    "report_files": [
+        "project.csv",
+        "funs.clean.csv",
+        "params_funs.csv",
+        "params.clean.csv"
     ],
 
-    \"supported_build_systems\": [
-        \"sbt\"
+    "supported_build_systems": [
+        "sbt"
     ],
 
-    \"tools_dir\": \"tools\",
-    \"analyzer_name\": \"implicit-analyzer.jar\",
-    \"analyzer_url\": \"https://github.com/PRL-PRG/scalafix-rule-workshop/blob/implicit-context/scripts/implicit-analyzer.jar?raw=true\",
-    \"analyzer_jvm_options\": \"-Xmx2g\",
-    \"cleanup_tool_name\": \"clean_data.py\",
-    \"cleanup_tool_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/clean_data.py\",
-    \"cleanup_library_name\": \"Fixer.py\",
-    \"cleanup_library_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/Fixer.py\",
-    \"db_push_tool_name\": \"push_to_db.py\",
-    \"db_push_tool_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/push_to_db.py\",
-    \"commit_to_db\": false,
-    \"push_to_db_enabled\": false,
+    "tools_dir": "tools",
+    "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/",
+    "semanticdb_plugin_name": "scalameta_config",
+    "analyzer_name": "implicit-analyzer.jar",
+    "analyzer_jvm_options": "-Xmx2g",
+    "cleanup_tool_name": "clean_data.py",
+    "db_push_tool_name": "push_to_db.py",
+    "commit_to_db": False,
+    "push_to_db_enabled": False,
 
-    \"condensed_report\": \"condensed_report.txt\",
+    "condensed_report": "condensed_report.txt",
 
-    \"compilation_report\": \"COMPILATION_REPORT.TXT\",
-    \"semanticdb_report\": \"SEMANTICDB_REPORT.TXT\",
-    \"analyzer_report\": \"ANALYZER_REPORT.TXT\",
-    \"cleanup_report\": \"CLEANUP_REPORT.TXT\",
-    \"db_push_report\": \"DB_PUSH_REPORT.TXT\"
+    "compilation_report": "COMPILATION_REPORT.TXT",
+    "semanticdb_report": "SEMANTICDB_REPORT.TXT",
+    "analyzer_report": "ANALYZER_REPORT.TXT",
+    "cleanup_report": "CLEANUP_REPORT.TXT",
+    "db_push_report": "DB_PUSH_REPORT.TXT"
 }
-""")
 
 class Logger:
     def log(self, msg, color='magenta'):
@@ -72,37 +65,9 @@ class Logger:
         sys.stdout.write(stdout + '\n')
         sys.stderr.write(stderr + '\n')
 
-class Config:
-    def __init__(self, config_file, logger):
-        self.config = self.baseconfig() if not config_file or config_file == "None" else self.load_config(config_file)
-        self.logger = logger
-
-    def get(self, key):
-        if key not in self.config:
-            self.logger.error("[Config] Key %s not found" % key)
-            return None
-        else:
-            return self.config[key]
-
-    def baseconfig(self):
-        return base_config
-
-    def load_config(self, config_file):
-        config = self.baseconfig()
-        with open(config_file) as data_file:
-            userconfig = json.load(data_file)
-            return self.override_config(config, userconfig)
-
-    def override_config(self, base, userconfig):
-        config = base
-        for field in userconfig:
-            config[field] = userconfig[field]
-        return config
-
-class PipelineImpl:
-    def __init__(self, config_file):
+class Pipeline:
+    def __init__(self):
         self.logger = Logger()
-        self.config = Config(config_file, self.logger)
 
     def local(self, command, directory, verbose=False):
         with lcd(directory):
@@ -142,33 +107,27 @@ class PipelineImpl:
             return info
 
     def get_report(self, project_path, kind):
-        report_path = os.path.join(project_path, self.config.get(kind))
+        report_path = os.path.join(project_path, BASE_CONFIG[kind])
         for root, subdir, files in os.walk(project_path):
             for f in files:
-                if f == self.config.get(kind):
+                if f == BASE_CONFIG[kind]:
                     with open(os.path.join(root, f)) as report:
                         return report.read()
 
         return None
 
     def write_report(self, content, project_path, kind):
-        report_path = os.path.join(project_path, self.config.get(kind))
+        report_path = os.path.join(project_path, BASE_CONFIG[kind])
         with open(report_path, 'w') as report:
             return report.write(content)
 
     def info(self, msg):
-        if self.config.get("debug_info"):
+        if BASE_CONFIG["debug_info"]:
             self.logger.log(msg)
 
     def error(self, msg):
-        if self.config.get("debug_info"):
+        if BASE_CONFIG["debug_info"]:
             self.logger.error(msg)
-
-    def checkout_latest_tag(self, project_name, project_path):
-        self.info("[Import][%s] Checkout latest tag..." % project_name)
-        self.local("git fetch --tags --depth 1", project_path)
-        self.local_canfail("Load latest tag", "latestTag=$( git describe --tags `git rev-list --tags --max-count=1` )", directory=project_path)
-        self.local("git checkout $latestTag", project_path)
 
     def has_file_with_ending(self, folder, extension):
         for root, dirs, files in os.walk(folder):
@@ -190,21 +149,11 @@ class PipelineImpl:
 
     def is_build_system_supported(self, src_path):
         project_build_systems = self.get_build_systems(src_path)
-        return any(system in self.config.get("supported_build_systems") for system in project_build_systems)
-
-class Pipeline:
-    __instance = None
-    def get(self, config_file):
-        if Pipeline.__instance is None:
-            Pipeline.__instance = PipelineImpl(config_file)
-        return Pipeline.__instance
-
-    def __call__(self):
-        return self
+        return any(system in BASE_CONFIG["supported_build_systems"] for system in project_build_systems)
 
 @task
-def create_project_info(project_path, config_file=None):
-    P = Pipeline().get(config_file)
+def create_project_info(project_path):
+    P = Pipeline()
     def count_locs(project_path):
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
             P.local("cloc --out=cloc_report.csv --csv .", project_path)
@@ -250,7 +199,7 @@ def create_project_info(project_path, config_file=None):
     sys.exit(0)
 
 @task
-def import_single(src_path, config_file=None):
+def import_single(src_path, dest_dir=BASE_CONFIG["projects_dest"]):
 
     def do_import(subdir, srcpath, destpath):
         cwd = os.getcwd()
@@ -258,8 +207,7 @@ def import_single(src_path, config_file=None):
         P.info("[Import] Done!")
         return False
 
-    P = Pipeline().get(config_file)
-    dest_dir = P.config.get("projects_dest")
+    P = Pipeline()
     subdir = os.path.basename(src_path)
     dest_path = os.path.join(dest_dir, subdir)
     import_failed = False
@@ -273,7 +221,7 @@ def import_single(src_path, config_file=None):
 
 
 @task
-def compile(project_path, config_file=None):
+def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
     def handle_success(project_path, project_name, tag):
         P.info("[CCompile][%s] Compilation successful on master" % (project_name))
         report = "SUCCESS\n%s" % tag
@@ -288,14 +236,13 @@ def compile(project_path, config_file=None):
 
     project_name = os.path.split(project_path)[1]
     cwd = os.getcwd()
-    P = Pipeline().get(config_file)
+    P = Pipeline()
     P.info("[CCompile][%s] Attempting compilation of %s" % (project_name, project_name))
     report = P.get_report(project_path, "compilation_report")
     if report:
         P.info("[CCompile][%s] Compilation report found. Skipping" % project_name)
         sys.exit(0 if report.startswith("SUCCESS") else 1)
 
-    backwards_steps = P.config.get("max_backwards_steps")
     current_commit = P.local("git describe --always --abbrev=0", project_path)
     # Fetch the latest commits so they show up in `git describe`
     P.local("git fetch --depth %s" % backwards_steps, project_path)
@@ -313,9 +260,13 @@ def compile(project_path, config_file=None):
     handle_failure(project_path, project_name, tags)
 
 @task
-def gen_sdb(project_path, config_file=None):
+def gen_sdb(
+    project_path,
+    force_recompile=BASE_CONFIG["force_recompile_on_fail"],
+    allow_partial_semanticdbs=BASE_CONFIG["allow_partial_semanticdb_files"]
+    ):
     cwd = os.getcwd()
-    P = Pipeline().get(config_file)
+    P = Pipeline()
     project_name = os.path.split(project_path)[1]
 
     def sdb_files_exist(path):
@@ -354,7 +305,7 @@ def gen_sdb(project_path, config_file=None):
             return True
 
     def needs_recompile(report):
-        return report is None or (report.startswith("ERROR") and P.config.get("force_recompile_on_fail"))
+        return report is None or (report.startswith("ERROR") and force_recompile)
 
     if not clean_compile_succeeded(project_path, project_name):
         sys.exit(1)
@@ -366,7 +317,7 @@ def gen_sdb(project_path, config_file=None):
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
         if not failed:
             handle_success(project_path, project_name)
-        if failed and P.config.get("allow_partial_semanticdb_files"):
+        if failed and allow_partial_semanticdbs:
             handle_partial(project_path, project_name)
         else:
             handle_error(project_path, project_name)
@@ -378,7 +329,13 @@ def gen_sdb(project_path, config_file=None):
             sys.exit(0)
 
 @task
-def analyze(project_path, always_abort=True, config_file=None):
+def analyze(
+    project_path,
+    tools_dir=BASE_CONFIG["tools_dir"],
+    always_abort=True,
+    push_to_db=BASE_CONFIG["push_to_db_enabled"],
+    commit_to_db=BASE_CONFIG["commit_to_db"]
+    ):
     def analysis_command(project_path, project_name, title, command, report_kind):
         success = True
         report = P.get_report(project_path, report_kind)
@@ -422,21 +379,19 @@ def analyze(project_path, always_abort=True, config_file=None):
                 P.info("[Analysis][%s] DB changes NOT COMMITED" % project_name)
         return success
 
-    P = Pipeline().get(config_file)
-    setup(config_file)
+    P = Pipeline()
+    setup(tools_dir)
 
     cwd = os.getcwd()
-    jvm_options = P.config.get("analyzer_jvm_options")
-    analysis_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("analyzer_name"))
-    cleanup_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("cleanup_tool_name"))
-    db_tool_path = os.path.join(cwd, P.config.get("tools_dir"), P.config.get("db_push_tool_name"))
-    push_to_db = P.config.get("push_to_db_enabled")
-    commit_to_db = P.config.get("commit_to_db")
+    jvm_options = BASE_CONFIG["analyzer_jvm_options"]
+    analysis_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["analyzer_name"])
+    cleanup_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["cleanup_tool_name"])
+    db_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["db_push_tool_name"])
 
     project_info = P.load_project_info(project_path)
     project_name = project_info["name"]
 
-    compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s,config_file=%s" % (project_path, config_file), cwd, verbose=True)
+    compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
     continue_analysis = not compilation_failed
     if continue_analysis:
         continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
@@ -448,23 +403,27 @@ def analyze(project_path, always_abort=True, config_file=None):
     sys.exit(0 if continue_analysis else 1)
 
 @task
-def setup(config_file=None):
+def setup(tools_dest=BASE_CONFIG["tools_dir"]):
     cwd = os.getcwd()
-    P = Pipeline().get(config_file)
+    P = Pipeline()
 
     def download_plugin(sbt_folder, version):
-        plugin_url = P.config.get("semanticdb_plugin_%s_url" % version.replace(".", "_"))
+        # Stick to default plugin urls
+        version_name = version.replace(".", "_")
+        plugin_name = "%s_%s.scala" % (BASE_CONFIG["semanticdb_plugin_name"], version_name)
+        plugin_url = BASE_CONFIG["tools_base_url"] + plugin_name
         plugins_folder = os.path.join(sbt_folder, version, "plugins")
         if not os.path.exists(plugins_folder):
             os.mkdir(plugins_folder)
-        failed = P.local_canfail(
-            "download sbt plugin for v%s" % version,
-            "wget -O SemanticdbPlugin.scala %s" % plugin_url,
-            plugins_folder
-        )
-        if failed:
-            P.error("[Setup] Plugin download failed")
-            sys.exit(1)
+        if not os.path.exists(os.path.join(plugins_folder, plugin_name)):
+            failed = P.local_canfail(
+                "download sbt plugin for v%s" % version,
+                "wget -O %s %s" % (plugin_name, plugin_url),
+                plugins_folder
+                )
+            if failed:
+                P.error("[Setup] Plugin download failed")
+                sys.exit(1)
 
     def download_sbt_plugins():
         sbt_folder = os.path.expanduser(os.path.join("~", ".sbt"))
@@ -476,30 +435,30 @@ def setup(config_file=None):
             if os.path.exists(os.path.join(sbt_folder, version)):
                 download_plugin(sbt_folder, version)
 
-    def download_tool(title, name, url, dest_path):
+    def download_tool(title, name):
+        url = BASE_CONFIG["tools_base_url"] + name
         tool_path = os.path.join(tools_dir, name)
         if not os.path.exists(tool_path):
             P.info("[Setup][%s] Not found. Dowloading..." % title)
-            P.local("wget -O %s %s" % (name, url), dest_path)
+            P.local("wget -O %s %s" % (name, url), tools_dir)
 
     P.info("[Setup] Setting up...")
-    tools_dir = os.path.join(cwd, P.config.get("tools_dir"))
+    tools_dir = os.path.join(cwd, tools_dest)
     download_sbt_plugins()
     if not os.path.exists(tools_dir):
         os.mkdir(tools_dir)
-    download_tool("Semanticdb Analyzer", P.config.get("analyzer_name"), P.config.get("analyzer_url"), tools_dir)
-    download_tool("Data cleanup tool", P.config.get("cleanup_tool_name"), P.config.get("cleanup_tool_url"), tools_dir)
-    download_tool("Data cleanup library", P.config.get("cleanup_library_name"), P.config.get("cleanup_library_url"), tools_dir)
-    download_tool("Database upload tool", P.config.get("db_push_tool_name"), P.config.get("db_push_tool_url"), tools_dir)
+    # Stick to default tool names
+    download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
+    download_tool("Data cleanup tool", BASE_CONFIG["cleanup_tool_name"])
+    download_tool("Database upload tool", BASE_CONFIG["db_push_tool_name"])
     P.info("[Setup] Done")
 
 @task
-def merge_csv(config_file=None):
+def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
     cwd = os.getcwd()
-    P = Pipeline().get(config_file)
-    projects_path = P.config.get("projects_dest")
     P.info("[Reports] Gathering reports")
-    for report in P.config.get("report_files"):
+    # I don't think it's worth it to parametrize the report filenames
+    for report in BASE_CONFIG["report_files"]:
         P.info("[Reports] %s..." % report)
         headers = False
         with open("report_"+report, 'w') as report_file:
@@ -521,7 +480,10 @@ def merge_csv(config_file=None):
                             writer.writerow(data)
 
 @task
-def condense_reports(config_file=None):
+def condense_reports(
+    report_name=BASE_CONFIG["condensed_report"],
+    projects_path=BASE_CONFIG["projects_dest"]
+    ):
     def write_header(report_file):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
 
@@ -530,10 +492,9 @@ def condense_reports(config_file=None):
         report_file.write("  - %s: %s\n" % (report_kind, status))
 
     cwd = os.getcwd()
-    P = Pipeline().get(config_file)
-    projects_path = P.config.get("projects_dest")
+    P = Pipeline()
     P.info("[Reports] Generating analysis report")
-    with open(os.path.join(cwd, P.config.get("condensed_report")), 'w') as report_file:
+    with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
         for subdir in os.listdir(projects_path):
             P.info("[Reports] Extracting from %s" % subdir)
