@@ -2,7 +2,6 @@ target/
 *.class
 *.log
 .idea
-temp
 *.csv
 __pycache__
 .vscode
