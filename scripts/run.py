@@ -13,6 +13,52 @@ import subprocess
 from termcolor import colored
 import datetime
 
+base_config = json.loads("""
+{
+    \"debug_info\": false,
+    \"sbt_projects\": \"../materials/singlecodebase\",
+    \"projects_dest\": \"./projects\",
+    \"semanticdb_plugin_0_13_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_0_13.scala\",
+    \"semanticdb_plugin_1_0_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/scalameta_config_1_0.scala\",
+
+    \"force_recompile_on_fail\": false,
+    \"allow_partial_semanticdb_files\": false,
+    \"max_backwards_steps\": 5,
+
+    \"report_files\": [
+        \"project.csv\",
+        \"funs.clean.csv\",
+        \"params_funs.csv\",
+        \"params.clean.csv\"
+    ],
+
+    \"supported_build_systems\": [
+        \"sbt\"
+    ],
+
+    \"tools_dir\": \"tools\",
+    \"analyzer_name\": \"implicit-analyzer.jar\",
+    \"analyzer_url\": \"https://github.com/PRL-PRG/scalafix-rule-workshop/blob/implicit-context/scripts/implicit-analyzer.jar?raw=true\",
+    \"analyzer_jvm_options\": \"-Xmx2g\",
+    \"cleanup_tool_name\": \"clean_data.py\",
+    \"cleanup_tool_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/clean_data.py\",
+    \"cleanup_library_name\": \"Fixer.py\",
+    \"cleanup_library_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/Fixer.py\",
+    \"db_push_tool_name\": \"push_to_db.py\",
+    \"db_push_tool_url\": \"https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/push_to_db.py\",
+    \"commit_to_db\": false,
+    \"push_to_db_enabled\": false,
+
+    \"condensed_report\": \"condensed_report.txt\",
+
+    \"compilation_report\": \"COMPILATION_REPORT.TXT\",
+    \"semanticdb_report\": \"SEMANTICDB_REPORT.TXT\",
+    \"analyzer_report\": \"ANALYZER_REPORT.TXT\",
+    \"cleanup_report\": \"CLEANUP_REPORT.TXT\",
+    \"db_push_report\": \"DB_PUSH_REPORT.TXT\"
+}
+""")
+
 class Logger:
     def log(self, msg, color='magenta'):
         timestamp = colored("{:%H:%M:%S.%f}".format(datetime.datetime.now()), 'yellow')
@@ -28,7 +74,7 @@ class Logger:
 
 class Config:
     def __init__(self, config_file, logger):
-        self.config = self.baseconfig(logger) if not config_file or config_file == "None" else self.load_config(config_file, logger)
+        self.config = self.baseconfig() if not config_file or config_file == "None" else self.load_config(config_file)
         self.logger = logger
 
     def get(self, key):
@@ -38,16 +84,11 @@ class Config:
         else:
             return self.config[key]
 
-    def baseconfig(self, logger):
-        base_path = os.path.join(os.getcwd(), ".baseconfig.json")
-        if not os.path.exists(base_path):
-            logger.log("[Config] Downloading default config")
-            local("wget -O .baseconfig.json https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/.baseconfig.json", capture=True)
-        with open(os.path.join(base_path)) as base_file:
-            return json.load(base_file)
+    def baseconfig(self):
+        return base_config
 
-    def load_config(self, config_file, logger):
-        config = self.baseconfig(logger)
+    def load_config(self, config_file):
+        config = self.baseconfig()
         with open(config_file) as data_file:
             userconfig = json.load(data_file)
             return self.override_config(config, userconfig)
