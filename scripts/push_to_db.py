@@ -59,7 +59,7 @@ def dump_funs(full_path, project_id):
                 sys.exit(1)
 
             rowid = cursor.lastrowid
-            ids[fun[0]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
+            ids[fun["id"]] = rowid # FIXME: This is an ugly way to accidentaly sidestep duplication
     return ids
 
 def dump_declared_implicits(full_path, project_id):
@@ -88,6 +88,9 @@ def insert_project_data(dir, project_id):
     dump_declared_implicits(declared_implicits_path, project_id)
     param_ids = dump_params(params_path, project_id)
     funs_ids = dump_funs(funs_path, project_id)
+
+    if len(funs_ids) == 0 and len(param_ids) == 0:
+        return
 
     link_file = open(params_funs_path, 'rb')
     link_file.readline() # Skip headers
@@ -129,10 +132,10 @@ def insert_project_into_db(dir):
     except sql.Error as error:
         print("Error: {}".format(error))
         sys.exit(1)
-
+   
 
 db = sql.connect(host="127.0.0.1",
-                port="3306",
+                port="6612",
                 user="scala",
                 passwd="scala",
                 database="scala")
