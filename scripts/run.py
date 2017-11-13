@@ -87,18 +87,6 @@ class Pipeline():
                 failed = True
         return failed
 
-    def load_project_info(self, path):
-        info_path = os.path.join(path, "project.csv")
-        if not os.path.exists(info_path):
-            create_project_info(path)
-        with open(info_path) as csv_file:
-            reader = csv.reader(csv_file)
-            names = next(reader)
-            data = next(reader)
-            info = dict(zip(names, data))
-            self.info("[%s] Load project info" % info["name"])
-            return info
-
     def get_report(self, project_path, kind):
         for root, subdir, files in os.walk(project_path):
             for f in files:
@@ -411,8 +399,7 @@ def analyze(
     cleanup_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["cleanup_tool_name"])
     db_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["db_push_tool_name"])
 
-    project_info = P.load_project_info(project_path)
-    project_name = project_info["name"]
+    project_name = os.path.split(project_path)[1]
 
     compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
     continue_analysis = not compilation_failed
