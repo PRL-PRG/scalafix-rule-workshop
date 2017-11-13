@@ -79,10 +79,7 @@ def replace_unknown_kinds(text):
     'IMPLICIT | MACRO'
     '''
     match = re.search(unknow_kind_pattern, text)
-    if match:
-        return match.group(1)
-    else:
-        return text
+    return match.group(1) if match else text
 
 def extract_function_name(text):
     '''
