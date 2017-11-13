@@ -99,14 +99,14 @@ def clean_declared_implicits_row(row):
     return row
 
 def clean_file(directory, filename, clean_function):
-    basepath = directory + "/" + filename
+    basepath = os.path.join(directory, filename)
     filepath = basepath+'.csv'
     if not os.path.exists(filepath):
         print("File %s not found. Skipping" % filepath)
         return
 
     with open(filepath, "r") as original:
-        with open(basepath+".clean.csv", "w") as clean_file:
+        with open(basepath + ".clean.csv", "w") as clean_file:
             reader = csv.DictReader(original)
             writer = csv.DictWriter(clean_file, fieldnames = reader.fieldnames)
             writer.writeheader()
