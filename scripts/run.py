@@ -160,7 +160,7 @@ def create_project_info(
         reponame = repo_url.split('.com/')[1]
         sloc = count_locs(repo_path)
         repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, repo_path))
-        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
+        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else (repo_info["watchers_count"] if "watchers_count" in repo_info else -1)
         build_system = P.get_build_systems(repo_path)
         project_info = {
             "name": str(project_name),
@@ -181,6 +181,8 @@ def create_project_info(
                 .replace("git@", "https://") \
                 .replace("github.com:", "github.com/") \
                 .replace(".git", "")
+        if original.endswith(".git"):
+            return original.replace(".git", "")
         return original
 
     project_name = os.path.split(project_path)[1]
@@ -195,7 +197,7 @@ def create_project_info(
         # We have a custom url, we need to download the repo
         P.info("[Metadata][%s] Custom url provided. Downloading git repo" % project_name)
         url = transform_to_gh_url(url)
-        P.local("git clone %s %s" % (url, BASE_CONFIG["temporal_git_repo_storage"]), project_path)
+        P.local("git clone --depth 300 %s %s" % (url, BASE_CONFIG["temporal_git_repo_storage"]), project_path)
         repo_path = os.path.join(project_path, BASE_CONFIG["temporal_git_repo_storage"])
         if last_commit != None:
             P.local("git checkout %s" % last_commit, repo_path)
