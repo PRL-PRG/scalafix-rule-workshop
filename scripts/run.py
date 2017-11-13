@@ -73,7 +73,7 @@ class Pipeline():
                 raw(str(res.stdout), str(res.stderr))
             return res
 
-    def local_canfail(self, name, command, directory, verbose=False, interactive=False):
+    def local_canfail(self, name, command, directory, verbose=False):
         failed = False
         with settings(warn_only=True):
             result = self.local(command, directory, verbose=verbose)
@@ -82,13 +82,7 @@ class Pipeline():
                     with open(os.path.join(directory, name.replace(" ", "_")), 'w') as command_report:
                         command_report.write(result.stdout)
                         command_report.write(result.stderr)
-                if not interactive:
-                    failed = True
-                else:
-                    if confirm("%s failed. Abort?" % name):
-                        abort("Aborting at user request.")
-                    else:
-                        failed = True
+                failed = True
         return failed
 
     def load_project_info(self, path):
@@ -311,7 +305,7 @@ def gen_sdb(
     report = P.get_report(project_path, "semanticdb_report")
     if needs_recompile(report):
         P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
-        failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
+        failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True)
         if not failed:
             handle_success(project_path, project_name)
         if failed and allow_partial_semanticdbs:
