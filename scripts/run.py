@@ -46,6 +46,7 @@ BASE_CONFIG = {
 
     "condensed_report": "condensed_report.txt",
 
+    "reports_folder": "_reports",
     "compilation_report": "COMPILATION_REPORT.TXT",
     "semanticdb_report": "SEMANTICDB_REPORT.TXT",
     "analyzer_report": "ANALYZER_REPORT.TXT",
@@ -98,17 +99,18 @@ class Pipeline():
             return info
 
     def get_report(self, project_path, kind):
-        report_path = os.path.join(project_path, BASE_CONFIG[kind])
         for root, subdir, files in os.walk(project_path):
             for f in files:
                 if f == BASE_CONFIG[kind]:
                     with open(os.path.join(root, f)) as report:
                         return report.read()
-
         return None
 
     def write_report(self, content, project_path, kind):
-        report_path = os.path.join(project_path, BASE_CONFIG[kind])
+        report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
+        if not os.path.exists(report_folder):
+            os.mkdir(report_folder)
+        report_path = os.path.join(report_folder, BASE_CONFIG[kind])
         with open(report_path, 'w') as report:
             return report.write(content)
 
@@ -477,7 +479,7 @@ def condense_reports(
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
 
     def append_report(project_path, report_file, report_kind):
-        status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\')
+        status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
 
     cwd = os.getcwd()
@@ -494,3 +496,15 @@ def condense_reports(
             reports = ["compilation_report", "semanticdb_report", "analyzer_report", "cleanup_report", "db_push_report"]
             for report in reports:
                 append_report(project_path, report_file, report)
+
+@task
+def cleanup_reports(project_path):
+    P = Pipeline()
+    report_path = os.path.join(project_path, BASE_CONFIG["reports_folder"])
+    if os.path.exists(report_path):
+        P.info("[Cleanup][%s] Removing reports folder" % project_path)
+        shutil.rmtree(report_path)
+        sys.exit(0)
+    else:
+        P.info("[Cleanup][%s] Report folder not found" % project_path)
+        sys.exit(1)
