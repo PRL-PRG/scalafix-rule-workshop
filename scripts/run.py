@@ -134,8 +134,6 @@ class Pipeline():
             systems.append("sbt")
         if self.has_file_with_ending(project_path, "gradle"):
             systems.append("gradle")
-        if self.has_file_with_ending(project_path, "Vagrantfile"):
-            systems.append("vagrant")
         return systems
 
     def is_build_system_supported(self, src_path):
