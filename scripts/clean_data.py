@@ -9,7 +9,7 @@ unknow_kind_pattern = r".*Denotation\(([A-Z]*( \| [A-Z]*)*).*"
 L_notation_pattern = re.compile(r"L([a-zA-Z-_$]*\/)*[a-zA-Z-_$]*;")
 
 def remove_leading_root(text):
-        return text.replace("_root_.", "")
+    return text.replace("_root_.", "")
 
 def remove_trailing_dot(text):
     return text[:-1] if text[-1] == '.' else text
