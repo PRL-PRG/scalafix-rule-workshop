@@ -18,6 +18,7 @@ BASE_CONFIG = {
     "debug_info": True,
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
+    "temporal_git_repo_storage": "_gitrepotmp",
 
     "force_recompile_on_fail": False,
     "allow_partial_semanticdb_files": False,
@@ -143,7 +144,11 @@ class Pipeline():
         return any(system in BASE_CONFIG["supported_build_systems"] for system in project_build_systems)
 
 @task
-def create_project_info(project_path):
+def create_project_info(
+    project_path,
+    url=None,
+    last_commit=None,
+    ):
     P = Pipeline()
     def count_locs(project_path):
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
@@ -160,29 +165,56 @@ def create_project_info(project_path):
                     scala_lines += lines
         return {"total": total_lines, "scala": scala_lines}
 
-    project_name = os.path.split(project_path)[1]
-    P.info("[Import][%s] Creating project info..." % project_name)
+    def generate_project_metadata(repo_path):
+        repo_url = P.local("git config --get remote.origin.url", repo_path)
+        commit = P.local("git rev-parse HEAD", repo_path)
+        version = P.local("git describe --always", repo_path, verbose=True)
+        reponame = repo_url.split('.com/')[1]
+        sloc = count_locs(repo_path)
+        repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, repo_path))
+        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
+        build_system = P.get_build_systems(repo_path)
+        project_info = {
+            "name": str(project_name),
+            "version": version,
+            "last_commit": commit,
+            "url": repo_url,
+            "total_loc": sloc["total"],
+            "scala_loc": sloc["scala"],
+            "reponame": reponame,
+            "gh_stars": gh_stars,
+            "build_system": '|'.join(build_system)
+        }
+        return project_info
 
-    version = P.local("git describe --always", project_path, verbose=True)
-    commit = P.local("git rev-parse HEAD", project_path)
-    url = P.local("git config --get remote.origin.url", project_path)
-    reponame = url.split('.com/')[1]
-    sloc = count_locs(project_path)
-    repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, project_path))
-    gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else -1
-    build_system = P.get_build_systems(project_path)
-    project_info = {
-       "name": str(project_name),
-       "version": version,
-       "last_commit": commit,
-       "url": url,
-       "total_loc": sloc["total"],
-       "scala_loc": sloc["scala"],
-       "reponame": reponame,
-       "gh_stars": gh_stars,
-       "build_system": '|'.join(build_system)
-    }
-    P.info("[Import][%s] Capture project info: %s" % (project_name, project_info))
+    def transform_to_gh_url(original):
+        if original.startswith("git@github.com:"):
+            return original \
+                .replace("git@", "https://") \
+                .replace("github.com:", "github.com/") \
+                .replace(".git", "")
+        return original
+
+    project_name = os.path.split(project_path)[1]
+    P.info("[Metadata][%s] Creating project info..." % project_name)
+
+    project_info = {}
+    if url is None:
+        # We assume the git repo is in the project_path
+        P.info("[Metadata][%s] No custom url. Assume this is a git repo" % project_name)
+        project_info = generate_project_metadata(project_path)
+    else:
+        # We have a custom url, we need to download the repo
+        P.info("[Metadata][%s] Custom url provided. Downloading git repo" % project_name)
+        url = transform_to_gh_url(url)
+        P.local("git clone %s %s" % (url, BASE_CONFIG["temporal_git_repo_storage"]), project_path)
+        repo_path = os.path.join(project_path, BASE_CONFIG["temporal_git_repo_storage"])
+        if last_commit != None:
+            P.local("git checkout %s" % last_commit, repo_path)
+        project_info = generate_project_metadata(repo_path)
+        shutil.rmtree(repo_path)
+
+    P.info("[Metadata][%s] Capture project info: %s" % (project_name, project_info))
     with open(os.path.join(project_path, "project.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(project_info.keys())
