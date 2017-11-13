@@ -255,8 +255,10 @@ def compile(project_path, config_file=None):
         sys.exit(0 if report.startswith("SUCCESS") else 1)
 
     backwards_steps = P.config.get("max_backwards_steps")
-    tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s`" % backwards_steps, project_path)
     current_commit = P.local("git describe --always --abbrev=0", project_path)
+    # Fetch the latest commits so they show up in `git describe`
+    P.local("git fetch --depth %s" % backwards_steps, project_path)
+    tag_stream = P.local("git describe --always --abbrev=0 --tags `git rev-list --tags --max-count=%s %s`" % (backwards_steps, current_commit), project_path)
     tags = [current_commit] + tag_stream.split('\n')
     for tag in tags:
         checkout_failed = P.local_canfail("git checkout %s" % tag, "git checkout %s" % tag, project_path)
@@ -273,15 +275,7 @@ def compile(project_path, config_file=None):
 def gen_sdb(project_path, config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
-    plugin_url = P.config.get("semanticdb_plugin_url")
     project_name = os.path.split(project_path)[1]
-
-    def download_sbt_plugin(plugin_url, project_path):
-        dest_folder = os.path.join(project_path, "project")
-        if not os.path.exists(dest_folder):
-            os.mkdir(dest_folder)
-        if not os.path.exists(os.path.join(dest_folder, "SemanticdbConfigure.scala")):
-            P.local_canfail("get sdb plugin", "wget -O SemanticdbConfigure.scala %s" % (plugin_url), dest_folder)
 
     def sdb_files_exist(path):
         for wd, subdirs, files in os.walk(path):
@@ -328,7 +322,6 @@ def gen_sdb(project_path, config_file=None):
     report = P.get_report(project_path, "semanticdb_report")
     if needs_recompile(report):
         P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
-        download_sbt_plugin(plugin_url, project_path)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True, interactive=False)
         if not failed:
             handle_success(project_path, project_name)
@@ -418,6 +411,30 @@ def setup(config_file=None):
     cwd = os.getcwd()
     P = Pipeline().get(config_file)
 
+    def download_plugin(sbt_folder, version):
+        plugin_url = P.config.get("semanticdb_plugin_%s_url" % version.replace(".", "_"))
+        plugins_folder = os.path.join(sbt_folder, version, "plugins")
+        if not os.path.exists(plugins_folder):
+            os.mkdir(plugins_folder)
+        failed = P.local_canfail(
+            "download sbt plugin for v%s" % version,
+            "wget -O SemanticdbPlugin.scala %s" % plugin_url,
+            plugins_folder
+        )
+        if failed:
+            P.error("[Setup] Plugin download failed")
+            sys.exit(1)
+
+    def download_sbt_plugins():
+        sbt_folder = os.path.expanduser(os.path.join("~", ".sbt"))
+        sbt_versions = ["0.13", "1.0"]
+        if not os.path.exists(sbt_folder):
+            P.error("[Setup] No .sbt folder found. Exiting")
+            sys.exit(1)
+        for version in sbt_versions:
+            if os.path.exists(os.path.join(sbt_folder, version)):
+                download_plugin(sbt_folder, version)
+
     def download_tool(title, name, url, dest_path):
         tool_path = os.path.join(tools_dir, name)
         if not os.path.exists(tool_path):
@@ -426,6 +443,7 @@ def setup(config_file=None):
 
     P.info("[Setup] Setting up...")
     tools_dir = os.path.join(cwd, P.config.get("tools_dir"))
+    download_sbt_plugins()
     if not os.path.exists(tools_dir):
         os.mkdir(tools_dir)
     download_tool("Semanticdb Analyzer", P.config.get("analyzer_name"), P.config.get("analyzer_url"), tools_dir)

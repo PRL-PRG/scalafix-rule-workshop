@@ -2,7 +2,7 @@ package extractor
 
 import scala.meta._
 
-final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation) extends CSV.Serializable[ImplicitParam] {
+final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation) extends CSV.Serializable {
   lazy val id: String = s"${symbol.syntax}"
   // If there are no names on the denotation, we have an implicit which defines
   // its own type - Most likely an object
@@ -23,7 +23,7 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
 }
 
 final case class AppTerm(term: Term, params: Int, nameEnd: Int)
-final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends CSV.Serializable[FunApply] {
+final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends CSV.Serializable {
   lazy val id: String = s"$file:$line:$col"
 
   // Take end line and cols because function call chains have the same start
@@ -37,7 +37,7 @@ final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends 
   override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", nargs)
 }
 
-final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends CSV.Serializable[FunApply] {
+final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends CSV.Serializable {
   lazy val id: String = s"$file:$line:$col"
 
   // Take end line and cols because function call chains have the same start
@@ -51,8 +51,7 @@ final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String
 }
 
 
-final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param: CSV.Serializable[B])
-  extends CSV.Serializable[FunApplyWithImplicitParam[A, B]] {
+final case class FunApplyWithImplicitParam(fun: CSV.Serializable, param: CSV.Serializable) extends CSV.Serializable {
 
   val from: String = param.id
   val to: String = fun.id
@@ -63,7 +62,7 @@ final case class FunApplyWithImplicitParam[A, B](fun: CSV.Serializable[A], param
   override def id: String = "None"
 }
 
-final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends CSV.Serializable[DeclaredImplicit] {
+final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends CSV.Serializable {
 
   val path: String = file
   val line: String = name.position.endLine.toString

@@ -1,7 +1,8 @@
 package extractor
 
 import java.nio.file.{Files, Path}
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util
+import java.util.concurrent.{ConcurrentLinkedQueue, CopyOnWriteArrayList}
 
 import org.langmeta.internal.io.PathIO
 
@@ -131,12 +132,12 @@ case class SemanticCtx(database: Database, projectPath: AbsolutePath) {
 }
 
 object SemanticDBFileVisitor {
-  def apply[T](filePath: Path, projectPath: AbsolutePath, f: SemanticCtx => T) = {
+  def apply[T](filePath: Path, projectPath: AbsolutePath, results: ConcurrentLinkedQueue[(String, T)], f: SemanticCtx => Iterable[(String, T)]) = {
       try {
         val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
         val mdb = sdb.toDb(None)
         val ctx = SemanticCtx(mdb, projectPath)
-        f(ctx)
+        f(ctx).foreach(results.add)
         print(".")
       } catch {
         case NonFatal(e) =>
@@ -148,7 +149,7 @@ object SemanticDBFileVisitor {
 }
 
 abstract class SemanticDBWalker {
-  def run[T](f: SemanticCtx => T): Unit
+  def run[T](f: SemanticCtx => Iterable[(String, T)]): ConcurrentLinkedQueue[(String, T)]
   def deleteOldFiles(projectPath: AbsolutePath): Unit = {
     val files = Files
       .walk(projectPath.toNIO)
@@ -166,9 +167,10 @@ abstract class SemanticDBWalker {
 class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
   val root = AbsolutePath(rootPath)
   println(s"Analyzing ${rootPath}")
-  def run[T](f: SemanticCtx => T): Unit = {
+  def run[T](f: SemanticCtx => Iterable[(String, T)]): ConcurrentLinkedQueue[(String, T)] = {
     import scala.collection.JavaConverters._
     deleteOldFiles(root)
+    val results = new ConcurrentLinkedQueue[(String, T)]
     val files = Files
         .walk(root.toNIO)
         .iterator()
@@ -179,33 +181,8 @@ class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
         }
         .toVector
         .par
-      files.foreach(x => SemanticDBFileVisitor(x, root, f))
+      files.foreach(x => SemanticDBFileVisitor(x, root, results, f))
       println(" ")
-  }
-}
-
-class MultipleProjectWalker(rootPath: String) extends SemanticDBWalker {
-  val root = AbsolutePath(rootPath)
-
-  def run[T](f: SemanticCtx => T): Unit = {
-    import scala.collection.JavaConverters._
-    val dirs = Files.list(root.toNIO)
-    dirs.forEach { project =>
-      val projectPath = AbsolutePath(s"$rootPath/${project.getFileName}")
-      deleteOldFiles(projectPath)
-      println(s"Analyzing ${project}")
-      val files = Files
-        .walk(project.toAbsolutePath)
-        .iterator()
-        .asScala
-        .filter { file =>
-          Files.isRegularFile(file) &&
-            PathIO.extension(file) == "semanticdb"
-        }
-        .toVector
-        .par
-      files.foreach(x => SemanticDBFileVisitor(x, projectPath, f))
-      println(" ")
-    }
+      results
   }
 }

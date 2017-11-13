@@ -1,11 +1,14 @@
 package extractor
 
+import java.util.concurrent.ConcurrentLinkedQueue
+
 import org.langmeta.inputs.Input
+
 import scala.meta._
 
 object ImplicitParamsToCSV {
 
-  def apply(walker: SemanticDBWalker): Unit = {
+  def apply(walker: SemanticDBWalker): ConcurrentLinkedQueue[(String, Iterable[CSV.Serializable])] = {
     walker.run { ctx =>
       val file: String = ctx.input match {
         case Input.VirtualFile(path, _) => path
@@ -55,11 +58,17 @@ object ImplicitParamsToCSV {
           DeclaredImplicit(ctx, name, den, file)
         }
 
-      CSV.writeCSV(params, s"${ctx.projectPath}/params.csv")
-      CSV.writeCSV(funs, s"${ctx.projectPath}/funs.csv")
-      CSV.writeCSV(paramsFuns, s"${ctx.projectPath}/params-funs.csv")
-      CSV.writeCSV(declaredImplicits,  s"${ctx.projectPath}/declared-implicits.csv")
+      //CSV.writeCSV(params, s"${ctx.projectPath}/params.csv")
+      //CSV.writeCSV(funs, s"${ctx.projectPath}/funs.csv")
+      //CSV.writeCSV(paramsFuns, s"${ctx.projectPath}/params-funs.csv")
+      //CSV.writeCSV(declaredImplicits,  s"${ctx.projectPath}/declared-implicits.csv")
+      val res = List(
+        "params.csv" -> params,
+        "funs.csv" -> funs,
+        "params-funs.csv" -> paramsFuns,
+        "declared-inplicits.csv" -> declaredImplicits
+      )
+      res
     }
-
   }
 }

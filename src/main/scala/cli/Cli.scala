@@ -14,10 +14,6 @@ object Cli {
                     else failure("Folder does not exist or is not a folder"))
                 .action( (x, c) => c.copy(root = x) )
                 .text("The directory where the project(s) is stored")
-            opt[Unit]('m', "multiple")
-                .optional()
-                .action((_, c) => c.copy(multidir = true))
-                .text("Use if multiple projects are in the folder")
         }
 
         optParser.parse(args, CliConfig())
