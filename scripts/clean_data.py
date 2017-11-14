@@ -118,14 +118,6 @@ clean_fqn = compose(
     remove_hashtags
 )
 
-def get_project_info(cwd):
-    with open(os.path.join(cwd, "project.csv"), "r") as projfile:
-        reader = csv.reader(projfile)
-        names = next(reader)
-        data = next(reader)
-        info = dict(zip(names, data))
-        return info
-
 def clean_param_row(row):
     row["fqn"] = extract_function_name(clean_fqn(row["fqn"]))
     row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
@@ -165,8 +157,7 @@ def clean_file(directory, filename, clean_function):
                 writer.writerow(new_values)
 
 def clean_project(directory):
-    info = get_project_info(directory)
-    print("Cleaning %s" % info["name"])
+    print("Cleaning %s" % directory)
 
     clean_file(directory, "params", clean_param_row)
     clean_file(directory, "funs", clean_funs_row)
