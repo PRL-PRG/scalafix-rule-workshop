@@ -128,7 +128,7 @@ def get_project_info(cwd):
 
 def clean_param_row(row):
     row["fqn"] = extract_function_name(clean_fqn(row["fqn"]))
-    row["class"] = extract_function_name(clean_fqn(row["class"]))
+    row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
     row["kind"] = replace_unknown_kinds(row["kind"])
     return row
 
@@ -145,7 +145,7 @@ def clean_links_row(row):
 def clean_declared_implicits_row(row):
     row["fqn"] = clean_fqn(row["fqn"])
     row["kind"] = replace_unknown_kinds(row["kind"])
-    row["class"] = extract_function_name(clean_fqn(row["class"]))
+    row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
     return row
 
 def clean_file(directory, filename, clean_function):

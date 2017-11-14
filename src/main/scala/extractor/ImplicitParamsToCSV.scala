@@ -58,15 +58,11 @@ object ImplicitParamsToCSV {
           DeclaredImplicit(ctx, name, den, file)
         }
 
-      //CSV.writeCSV(params, s"${ctx.projectPath}/params.csv")
-      //CSV.writeCSV(funs, s"${ctx.projectPath}/funs.csv")
-      //CSV.writeCSV(paramsFuns, s"${ctx.projectPath}/params-funs.csv")
-      //CSV.writeCSV(declaredImplicits,  s"${ctx.projectPath}/declared-implicits.csv")
       val res = List(
         "params.csv" -> params,
         "funs.csv" -> funs,
         "params-funs.csv" -> paramsFuns,
-        "declared-inplicits.csv" -> declaredImplicits
+        "declared-implicits.csv" -> declaredImplicits
       )
       res
     }
