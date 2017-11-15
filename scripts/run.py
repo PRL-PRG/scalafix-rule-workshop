@@ -41,8 +41,7 @@ BASE_CONFIG = {
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_jvm_options": "-Xmx2g",
     "cleanup_tool_name": "clean_data.py",
-    "db_push_tool_name": "push_to_db.py",
-    "commit_to_db": False,
+    "db_push_tool_name": "push-to-db.R",
     "push_to_db_enabled": False,
 
     "condensed_report": "condensed_report.txt",
@@ -346,8 +345,7 @@ def analyze(
     project_path,
     tools_dir=BASE_CONFIG["tools_dir"],
     always_abort=True,
-    push_to_db=BASE_CONFIG["push_to_db_enabled"],
-    commit_to_db=BASE_CONFIG["commit_to_db"]
+    push_to_db=BASE_CONFIG["push_to_db_enabled"]
     ):
     def analysis_command(project_path, project_name, title, command, report_kind):
         success = True
@@ -377,19 +375,14 @@ def analyze(
         command = "python %s ." % (tool_path)
         return analysis_command(project_path, project_name, title, command, "cleanup_report")
 
-    def upload_to_database(project_name, project_path, tool_path, commit_to_db):
-        P.info("[Analysis][%s] Uploading to database...(commit changes: %s)" % (project_name, commit_to_db))
-        commit_option = "-y" if commit_to_db else "-n"
-        command = "python %s %s ." % (tool_path, commit_option)
+    def upload_to_database(project_name, project_path, tool_path):
+        P.info("[Analysis][%s] Uploading to database..." % project_name)
+        command = "Rscript %s ." % (tool_path)
         title = "DB upload"
         success = analysis_command(project_path, project_name, title, command, "db_push_report")
         if success:
-            if commit_to_db:
-                P.write_report('SUCCESS', project_path, "db_push_report")
-                P.info("[Analysis][%s] Changes commited to the database" % project_name)
-            else:
-                P.write_report('UNCOMMITED', project_path, "db_push_report")
-                P.info("[Analysis][%s] DB changes NOT COMMITED" % project_name)
+            P.write_report('SUCCESS', project_path, "db_push_report")
+            P.info("[Analysis][%s] Changes commited to the database" % project_name)
         return success
 
     P = Pipeline()
@@ -410,7 +403,7 @@ def analyze(
     if continue_analysis:
         continue_analysis = run_cleanup_tool(project_name, project_path, cleanup_tool_path)
     if continue_analysis and push_to_db:
-       continue_analysis = upload_to_database(project_name, project_path, db_tool_path, commit_to_db)
+       continue_analysis = upload_to_database(project_name, project_path, db_tool_path)
     P.info("[Analysis][%s] Analysis concluded" % project_name)
     sys.exit(0 if continue_analysis else 1)
 
