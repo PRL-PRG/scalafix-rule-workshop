@@ -33,8 +33,8 @@ object CSV {
   }
 
 
-  def dumpFiles(projectPath: String, results: ConcurrentLinkedQueue[(String, Iterable[CSV.Serializable])]) = {
-    results.forEach(x => {
+  def dumpFiles(projectPath: String, results: Map[String, Iterable[CSV.Serializable]]) = {
+    results.foreach(x => {
       CSV.writeCSV(x._2, s"${projectPath}/${x._1}")
     })
   }

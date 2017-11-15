@@ -7,9 +7,38 @@ import org.langmeta.inputs.Input
 import scala.meta._
 
 object ImplicitParamsToCSV {
+  /**
+    * Function that, given a queue of `results`, condenses them into a single map,
+    * performing project-wide modifications (e.g. Remove project-wide duplicates on params)
+    *
+    * @param results Results from running the analysis in a single project concurrently. Given as a list of tuples (filename, case classes to dump)
+    * @return A map of (filename -> data), to be dumped by the CSV class
+    */
+  def mergeResults(results: ConcurrentLinkedQueue[(String, Iterable[CSV.Serializable])]): Map[String, Iterable[CSV.Serializable]] = {
+    import scala.collection.JavaConverters._
 
-  def apply(walker: SemanticDBWalker): ConcurrentLinkedQueue[(String, Iterable[CSV.Serializable])] = {
-    walker.run { ctx =>
+    // Condense the queue into a map of Strings to Lists of case classes
+    val rawResults: Map[String, Iterable[CSV.Serializable]] = results
+      .asScala
+      .groupBy(_._1)
+      .map {case (k, v) =>
+        (k, v.flatMap(_._2))}
+
+    // Apply transformations to the map
+    rawResults.map{
+      // Remove duplicates, where duplicates are two ImplicitParameters with the same id fields
+      // we can't use toSet because it compares hashes, not ids, and the ctx field of the case classes
+      // is not the same
+      case ("params.csv", implicits) => ("params.csv", implicits
+        .groupBy(_.id)
+        .map{case (k, v) => v.head}
+      )
+      case (k, v) => (k, v)
+    }
+  }
+
+  def apply(walker: SemanticDBWalker): Map[String, Iterable[CSV.Serializable]] = {
+    mergeResults( walker.run { ctx =>
       val file: String = ctx.input match {
         case Input.VirtualFile(path, _) => path
         case Input.File(path, _) => path.toString
@@ -65,6 +94,6 @@ object ImplicitParamsToCSV {
         "declared-implicits.csv" -> declaredImplicits
       )
       res
-    }
+    })
   }
 }

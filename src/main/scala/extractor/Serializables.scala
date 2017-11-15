@@ -46,7 +46,7 @@ final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String
   val symbol: String = synth.names(1).symbol.toString
   val code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
 
-  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "symbol", "nargs")
+  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
   override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", params.toString)
 }
 
