@@ -119,7 +119,9 @@ clean_fqn = compose(
 )
 
 def clean_param_row(row):
-    row["fqn"] = extract_function_name(clean_fqn(row["fqn"]))
+    row["fqn"] = clean_fqn(row["fqn"])
+    row["fqfn"] = extract_function_name(row["fqn"])
+    row["fqparamlist"] = extract_parameter_list(row["fqn"])
     row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
     row["kind"] = replace_unknown_kinds(row["kind"])
     return row

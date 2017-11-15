@@ -17,8 +17,8 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
   }
   val kind: String = ctx.getKind(denot)
 
-  override val csvHeader: Seq[String] = Seq("fqn", "fqtn", "type", "kind", "name")
-  override val csvValues: Seq[String] = Seq(id, clazz, typee, kind, name)
+  override val csvHeader: Seq[String] = Seq("fqn", "fqfn", "fqparamlist", "fqtn", "type", "kind", "name")
+  override val csvValues: Seq[String] = Seq(id, "", "", clazz, typee, kind, name)
 
 }
 
