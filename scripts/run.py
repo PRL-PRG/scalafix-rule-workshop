@@ -37,14 +37,14 @@ BASE_CONFIG = {
 
     "tools_dir": "tools",
     "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/",
-    "semanticdb_plugin_name": "scalameta_config",
+    "semanticdb_plugin_name": "scalameta-config",
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_jvm_options": "-Xmx2g",
-    "cleanup_tool_name": "clean_data.py",
+    "cleanup_tool_name": "clean-data.py",
     "db_push_tool_name": "push-to-db.R",
     "push_to_db_enabled": False,
 
-    "condensed_report": "condensed_report.txt",
+    "condensed_report": "condensed-report.txt",
 
     "reports_folder": "_reports",
     "compilation_report": "COMPILATION_REPORT.TXT",
@@ -414,8 +414,8 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
 
     def download_plugin(sbt_folder, version):
         # Stick to default plugin urls
-        version_name = version.replace(".", "_")
-        plugin_name = "%s_%s.scala" % (BASE_CONFIG["semanticdb_plugin_name"], version_name)
+        version_name = version.replace(".", "-")
+        plugin_name = "%s-%s.scala" % (BASE_CONFIG["semanticdb_plugin_name"], version_name)
         plugin_url = BASE_CONFIG["tools_base_url"] + plugin_name
         plugins_folder = os.path.join(sbt_folder, version, "plugins")
         if not os.path.exists(plugins_folder):
