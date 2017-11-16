@@ -59,7 +59,7 @@ final case class FunApplyWithImplicitParam(fun: CSV.Serializable, param: CSV.Ser
   override val csvHeader: Seq[String] = Seq("from", "to")
   override val csvValues: Seq[String] = Seq(from, to)
 
-  override def id: String = "None"
+  override def id: String = s"($from, $to)"
 }
 
 final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends CSV.Serializable {

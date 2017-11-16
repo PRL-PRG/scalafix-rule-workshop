@@ -71,6 +71,8 @@ CREATE TABLE `params` (
   `fqn` text NOT NULL,
   `type` text NOT NULL,
   `fqtn` text NOT NULL,
+  `fqfn` text NOT NULL,
+  `fqparamlist` text NOT NULL,
   `kind` tinytext NOT NULL,
   PRIMARY KEY (`id`),
   KEY `params_projects_id_fk` (`project`),

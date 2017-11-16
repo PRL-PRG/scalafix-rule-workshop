@@ -18,18 +18,18 @@ dbWithTransaction(db, {
     dbWriteTable(db, name="projects", value=project, append=TRUE, row.names=FALSE)
     project_id <- dbGetQuery(db, "SELECT LAST_INSERT_ID();")
 
-    params %<>% mutate(project=project_id)
-    funs %<>% mutate(project=project_id)
+    params %<>% mutate(project=project_id$`LAST_INSERT_ID()`)
+    funs %<>% mutate(project=project_id$`LAST_INSERT_ID()`)
 
     dbWriteTable(db, name="funs", value=funs, append=TRUE, row.names=FALSE)
     dbWriteTable(db, name="params", value=params, append=TRUE, row.names=FALSE)
 
 
     # TODO: we should add unique indexes on fqn,project
-    params_ids <- dbGetQuery(db, sprintf("SELECT id, fqn FROM params WHERE project=%d;", project_id))
+    params_ids <- dbGetQuery(db, sprintf("SELECT id, fqn FROM params WHERE project=%s;", project_id))
 
     # TODO: we should add unique indexes on sourcelink,project
-    funs_ids <- dbGetQuery(db, sprintf("SELECT id, sourcelink FROM funs WHERE project=%d;", project_id))
+    funs_ids <- dbGetQuery(db, sprintf("SELECT id, sourcelink FROM funs WHERE project=%s;", project_id))
 
     links %<>%
         left_join(params_ids, by=c("from"="fqn")) %>%
