@@ -21,3 +21,12 @@ services:
       MYSQL_DATABASE: scala
       MYSQL_USER: scala
       MYSQL_PASSWORD: scala
+  
+  rstudio:
+    image: fikovnik/rstudio
+    ports:
+      - 8789:8787
+    volumes:
+      - "../:/home/rstudio"
+    links:
+      - mysql
