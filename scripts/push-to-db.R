@@ -10,6 +10,7 @@ project <- read_csv(file.path(base_dir, "project.csv"))
 funs <- read_csv(file.path(base_dir, "funs.clean.csv"))
 params <- read_csv(file.path(base_dir, "params.clean.csv"))
 links <- read_csv(file.path(base_dir, "params-funs.clean.csv"))
+declared <- read_csv(file.path(base_dir, "declared-implicits.clean.csv"))
 
 db <- dbConnect(MySQL(), user='scala', password='scala', dbname='scala', host='127.0.0.1')
 
@@ -20,10 +21,11 @@ dbWithTransaction(db, {
 
     params %<>% mutate(project=project_id$`LAST_INSERT_ID()`)
     funs %<>% mutate(project=project_id$`LAST_INSERT_ID()`)
+    declared %<>% mutate(project=project_id$`LAST_INSERT_ID()`)
 
     dbWriteTable(db, name="funs", value=funs, append=TRUE, row.names=FALSE)
     dbWriteTable(db, name="params", value=params, append=TRUE, row.names=FALSE)
-
+    dbWriteTable(db, name="declared_implicits", value=declared, append=TRUE, row.names=FALSE)
 
     # TODO: we should add unique indexes on fqn,project
     params_ids <- dbGetQuery(db, sprintf("SELECT id, fqn FROM params WHERE project=%s;", project_id))

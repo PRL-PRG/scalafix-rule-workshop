@@ -118,7 +118,7 @@ CREATE TABLE `declared_implicits` (
   `col` int(11) NOT NULL,
   `name` text NOT NULL,
   `fqn` text NOT NULL,
-  `class` text NOT NULL,
+  `fqtn` text NOT NULL,
   `type` text NOT NULL,
   `kind` tinytext NOT NULL,
   PRIMARY KEY (`id`),
