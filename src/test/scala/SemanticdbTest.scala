@@ -3,7 +3,7 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import extractor.ImplicitParamsToCSV
+import extractor.ExtractImplicits
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}
@@ -117,10 +117,10 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     super.test(name)(fn)
   }
 
-  protected def checkExtraction(code: String, f: ImplicitParamsToCSV.Result => Unit): Unit = {
+  protected def checkExtraction(code: String, f: ExtractImplicits.Result => Unit): Unit = {
     test(code) {
       val db = computeSemanticdbFromCode(code)
-      val result = ImplicitParamsToCSV.process(db)
+      val result = ExtractImplicits.process(db)
 
       f(result)
     }

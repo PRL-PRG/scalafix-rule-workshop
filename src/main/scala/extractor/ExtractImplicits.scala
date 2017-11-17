@@ -6,8 +6,7 @@ import org.langmeta.inputs.Input
 
 import scala.meta._
 
-// TODO: this should be called like ExtractImplicits
-object ImplicitParamsToCSV {
+object ExtractImplicits {
 
   final case class Result(
      params: Set[ImplicitParam],
