@@ -6,7 +6,15 @@ import org.langmeta.inputs.Input
 
 import scala.meta._
 
+// TODO: this should be called like ExtractImplicits
 object ImplicitParamsToCSV {
+
+  final case class Result(
+     params: Set[ImplicitParam],
+     funs: Seq[FunApply],
+     links: Set[FunApplyWithImplicitParam],
+     implicits: Set[DeclaredImplicit])
+
   /**
     * Function that, given a queue of `results`, condenses them into a single map,
     * performing project-wide modifications (e.g. Remove project-wide duplicates on params)
@@ -35,6 +43,11 @@ object ImplicitParamsToCSV {
       )
       case (k, v) => (k, v)
     }
+  }
+
+  def process(db: Database): Result = {
+    // TODO: the code from apply should move here and then it should be called apply
+    Result(Set(), Seq(), Set(), Set())
   }
 
   def apply(walker: SemanticDBWalker): Map[String, Iterable[CSV.Serializable]] = {
