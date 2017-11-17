@@ -4,15 +4,16 @@ import java.nio.file.{Files, Path}
 import java.util
 import java.util.concurrent.{ConcurrentLinkedQueue, CopyOnWriteArrayList}
 
+import extractor.ExtractImplicits.Result
 import org.langmeta.internal.io.PathIO
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.meta._
 import scala.util.control.NonFatal
 import org.langmeta.internal.semanticdb.{schema => s}
 
 
-case class SemanticCtx(database: Database, projectPath: AbsolutePath) {
+case class SemanticCtx(database: Database) {
   def input = database.documents.head.input
   val file: String = input match {
     case Input.VirtualFile(path, _) => path
@@ -132,24 +133,26 @@ case class SemanticCtx(database: Database, projectPath: AbsolutePath) {
 }
 
 object SemanticDBFileVisitor {
-  def apply[T](filePath: Path, projectPath: AbsolutePath, results: ConcurrentLinkedQueue[(String, T)], f: SemanticCtx => Iterable[(String, T)]) = {
+  def apply[T](filePath: Path, f: SemanticCtx => Result): Result = {
       try {
         val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
         val mdb = sdb.toDb(None)
-        val ctx = SemanticCtx(mdb, projectPath)
-        f(ctx).foreach(results.add)
+        val ctx = SemanticCtx(mdb)
+        val res = f(ctx)
         print(".")
+        res
       } catch {
         case NonFatal(e) =>
           val st = e.getStackTrace
           e.setStackTrace(st.take(10))
           e.printStackTrace()
+          Result(Set(), Seq(), Set(), Set())
       }
   }
 }
 
-abstract class SemanticDBWalker {
-  def run[T](f: SemanticCtx => Iterable[(String, T)]): ConcurrentLinkedQueue[(String, T)]
+abstract class TreeWalker {
+  def run[T](f: SemanticCtx => Result): Result
   def deleteOldFiles(projectPath: AbsolutePath): Unit = {
     val files = Files
       .walk(projectPath.toNIO)
@@ -162,16 +165,37 @@ abstract class SemanticDBWalker {
       Files.delete(file)
     }
   }
+  /**
+    * Function that, given two Results, it returns a Result that contains all the non-duplicate elements of both parameters.
+    *
+    * @param one
+    * @param other
+    * @return a Result that contains all the non-duplicate elements of one and other.
+    */
+  def mergeResults(one: Result, other: Result): Result = {
+    def mergeById[A <: ResultElement](one: Set[A], other: Set[A]): Set[A] = {
+      (one ++ other)
+        .groupBy(_.id)
+        .map{case (_, v) => v.head}
+        .toSet
+    }
+
+    Result(
+      mergeById(one.params, other.params),
+      one.funs ++ other.funs,
+      mergeById(one.links, other.links),
+      mergeById(one.implicits, other.implicits)
+    )
+  }
 }
 
-class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
+class SingleProjectWalker(rootPath: String) extends TreeWalker {
   val root = AbsolutePath(rootPath)
   println(s"Analyzing ${rootPath}")
-  def run[T](f: SemanticCtx => Iterable[(String, T)]): ConcurrentLinkedQueue[(String, T)] = {
+  def run[T](f: SemanticCtx => Result): Result = {
     import scala.collection.JavaConverters._
     deleteOldFiles(root)
-    val results = new ConcurrentLinkedQueue[(String, T)]
-    val files = Files
+    val results = Files
         .walk(root.toNIO)
         .iterator()
         .asScala
@@ -179,10 +203,12 @@ class SingleProjectWalker(rootPath: String) extends SemanticDBWalker {
           Files.isRegularFile(file) &&
             PathIO.extension(file) == "semanticdb"
         }
-        .toVector
+        .toSeq
         .par
-      files.foreach(x => SemanticDBFileVisitor(x, root, results, f))
-      println(" ")
-      results
+        .foldLeft(Result(Set(), Seq(), Set(), Set())) {(acc, file) =>
+          mergeResults(acc, SemanticDBFileVisitor(file, f))
+        }
+    println(" ")
+    results
   }
 }

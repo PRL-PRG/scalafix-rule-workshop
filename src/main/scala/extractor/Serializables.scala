@@ -2,7 +2,11 @@ package extractor
 
 import scala.meta._
 
-final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation) extends CSV.Serializable {
+trait ResultElement {
+  def id: String
+}
+
+final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation) extends ResultElement with CSV.Serializable {
   lazy val id: String = s"${symbol.syntax}"
   // If there are no names on the denotation, we have an implicit which defines
   // its own type - Most likely an object
@@ -25,7 +29,7 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
 /**
   * Common interface for function applications
   */
-abstract class Apply(ctx: SemanticCtx, file: String) extends CSV.Serializable {
+abstract class Apply(ctx: SemanticCtx, file: String) extends ResultElement with  CSV.Serializable {
   def code: String
   def symbol: String
   def nargs: String
@@ -58,7 +62,7 @@ final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String
 }
 
 
-final case class FunApplyWithImplicitParam(fun: Apply, param: ImplicitParam) extends CSV.Serializable {
+final case class FunApplyWithImplicitParam(fun: Apply, param: ImplicitParam) extends ResultElement with CSV.Serializable {
 
   val from: String = param.id
   val to: String = fun.id
@@ -69,7 +73,7 @@ final case class FunApplyWithImplicitParam(fun: Apply, param: ImplicitParam) ext
   override def id: String = s"($from, $to)"
 }
 
-final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends CSV.Serializable {
+final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends ResultElement with CSV.Serializable {
 
   val path: String = file
   val line: String = name.position.endLine.toString

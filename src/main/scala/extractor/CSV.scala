@@ -3,12 +3,13 @@ package extractor
 import java.nio.file.{Files, Paths, StandardOpenOption}
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import extractor.ExtractImplicits.Result
+
 object CSV {
 
   trait Serializable {
     def csvHeader: Seq[String]
     def csvValues: Seq[String]
-    def id: String
   }
 
   def writeCSV(xs: Iterable[Serializable], path: String): Unit = {
@@ -33,9 +34,10 @@ object CSV {
   }
 
 
-  def dumpFiles(projectPath: String, results: Map[String, Iterable[CSV.Serializable]]) = {
-    results.foreach(x => {
-      CSV.writeCSV(x._2, s"${projectPath}/${x._1}")
-    })
+  def dumpFiles(projectPath: String, results: Result) = {
+    CSV.writeCSV(results.params, s"$projectPath/params.csv")
+    CSV.writeCSV(results.funs, s"$projectPath/funs.csv")
+    CSV.writeCSV(results.links, s"$projectPath/params-funs.csv")
+    CSV.writeCSV(results.implicits, s"$projectPath/declared-implicits.csv")
   }
 }
