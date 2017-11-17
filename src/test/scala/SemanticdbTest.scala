@@ -2,6 +2,7 @@ import java.io.{File, UncheckedIOException}
 import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
+import com.typesafe.scalalogging.LazyLogging
 import extractor.ImplicitParamsToCSV
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
@@ -11,32 +12,38 @@ import scala.compat.Platform.EOL
 import scala.meta.internal.semanticdb.{DatabaseOps, FailureMode, ProfilingMode, SemanticdbMode}
 import scala.meta.io.AbsolutePath
 import scala.tools.cmd.CommandLineParser
+import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.{CompilerCommand, Global, Settings}
 import scala.util.{Failure, Success, Try}
 
 
-abstract class SemanticdbTest extends FunSuite with Matchers {
+abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   private val workingDir = File.createTempFile("semanticdb-test", "").getParentFile
+
+  private def findJar(pattern: String): Try[String] = Try {
+    // this is ugly for it is just for our tests, we can live with that
+    val cl = classOf[org.langmeta.semanticdb.Database].getClassLoader.asInstanceOf[URLClassLoader]
+    cl.getURLs
+      .map(_.getFile)
+      .filter(_.matches(pattern))
+      .head
+  }
 
   private lazy val g: Global = {
     val semanticdbPluginPath: String = {
-      val semanticdbPluginPathProperty = "semanticdb-scalac-jar"
+      val propertyName = "semanticdb-scalac-jar"
 
-      val candidate = Option(System.getProperty(semanticdbPluginPathProperty, null)).getOrElse(Try {
-        // this is ugly for it is just for our tests, we can live with that
-        val cl = classOf[org.langmeta.semanticdb.Database].getClassLoader.asInstanceOf[URLClassLoader]
-        cl.getURLs
-          .map(_.getFile)
-          .filter(_.matches(".*/semanticdb-scalac[^jar]*jar$"))
-          .head
-      } match {
-        case Success(file) => file
-        case Failure(e) =>
-          e.printStackTrace(System.err)
+      val candidate = Option(System.getProperty(propertyName, null))
+        .getOrElse {
+          findJar(".*/semanticdb-scalac[^jar]*jar$") match {
+            case Success(file) => file
+            case Failure(e) =>
+              e.printStackTrace(System.err)
 
-          fail("unable to figure out the path of semanticdb-scalac.jar. " +
-            s"Please set it up manually using -D$semanticdbPluginPathProperty", e)
-      })
+              fail("unable to figure out the path of semanticdb-scalac.jar. " +
+                s"Please set it up manually using -D$propertyName", e)
+          }
+        }
 
       assert(new File(candidate).exists())
 
@@ -47,11 +54,19 @@ abstract class SemanticdbTest extends FunSuite with Matchers {
     val args = CommandLineParser.tokenize(options)
 
     val emptySettings = new Settings(error => fail(s"couldn't apply settings because $error"))
-    emptySettings.usejavacp.value = true
     emptySettings.outputDirs.setSingleOutput(workingDir.getCanonicalPath)
 
+    // trying to figure out if we run from intellij or from sbt
+    // FIXME: is there any smarter way to do this?
+    findJar(".*/scala-plugin-runners\\.jar$") match {
+      case Success(_) => emptySettings.usejavacp.value = true // intellij
+      case Failure(_) => emptySettings.embeddedDefaults[SemanticdbTest] // sbt
+    }
+
     val command = new CompilerCommand(args, emptySettings)
-    new Global(command.settings)
+    val reporter = new ConsoleReporter(command.settings)
+
+    new Global(command.settings, reporter)
   }
 
   private lazy val databaseOps: DatabaseOps = new DatabaseOps {
@@ -63,8 +78,6 @@ abstract class SemanticdbTest extends FunSuite with Matchers {
   config.setMode(SemanticdbMode.Slim)
   config.setFailures(FailureMode.Error)
   config.setProfiling(ProfilingMode.Console)
-
-  //  databaseOps.config.setSourceroot(AbsolutePath(workingDir))
   config.setSourceroot(AbsolutePath(workingDir))
 
   def computeSemanticdbFromCode(code: String): Database = {
@@ -78,6 +91,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers {
     Files.write(testFile.toPath, code.getBytes)
 
     try {
+      logger.debug(s"Compiling $testFile with "+g.settings.toString())
+
       new g.Run().compile(List(testFile.getCanonicalPath))
     } catch {
       case e: UncheckedIOException if e.getCause.isInstanceOf[AccessDeniedException] && semanticdbFile.exists() =>
