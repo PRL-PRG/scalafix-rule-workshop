@@ -22,36 +22,43 @@ final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotati
 
 }
 
-final case class AppTerm(term: Term, params: Int, nameEnd: Int)
-final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends CSV.Serializable {
-  lazy val id: String = s"$file:$line:$col"
-
-  // Take end line and cols because function call chains have the same start
-  val line: String = app.term.pos.endLine.toString
-  val col: String = app.term.pos.endColumn.toString
-  val symbol: String = ctx.qualifiedName(app.term)
-  val code: String = app.term.toString
-  val nargs = app.params.toString
+/**
+  * Common interface for function applications
+  */
+abstract class Apply(ctx: SemanticCtx, file: String) extends CSV.Serializable {
+  def code: String
+  def symbol: String
+  def nargs: String
+  def line: String
+  def col: String
 
   override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
   override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", nargs)
 }
 
-final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends CSV.Serializable {
+final case class AppTerm(term: Term, params: Int, nameEnd: Int)
+final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends Apply(ctx, file) {
   lazy val id: String = s"$file:$line:$col"
-
   // Take end line and cols because function call chains have the same start
-  val line: String = synth.position.endLine.toString
-  val col: String = synth.position.endColumn.toString
-  val symbol: String = synth.names(1).symbol.toString
-  val code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
+  def line: String = app.term.pos.endLine.toString
+  def col: String = app.term.pos.endColumn.toString
+  def symbol: String = ctx.qualifiedName(app.term)
+  def code: String = app.term.toString
+  def nargs: String = app.params.toString
+}
 
-  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
-  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", params.toString)
+final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends Apply(ctx, file) {
+  lazy val id: String = s"$file:$line:$col"
+  // Take end line and cols because function call chains have the same start
+  def line: String = synth.position.endLine.toString
+  def col: String = synth.position.endColumn.toString
+  def symbol: String = synth.names(1).symbol.toString
+  def code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
+  def nargs: String = params.toString
 }
 
 
-final case class FunApplyWithImplicitParam(fun: CSV.Serializable, param: CSV.Serializable) extends CSV.Serializable {
+final case class FunApplyWithImplicitParam(fun: Apply, param: ImplicitParam) extends CSV.Serializable {
 
   val from: String = param.id
   val to: String = fun.id
