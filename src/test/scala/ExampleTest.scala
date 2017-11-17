@@ -11,7 +11,7 @@ class ExampleTest extends SemanticdbTest {
       |}
       """.trim.stripMargin, { result =>
 
-    result.funs shouldBe empty
+    result.funs.nonEmpty shouldBe true
 
   })
 
