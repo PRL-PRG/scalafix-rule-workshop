@@ -1,6 +1,8 @@
 class ExampleTest extends SemanticdbTest {
 
-  checkExtraction("""
+  checkExtraction(
+    "Example of a code snippet test",
+    """
       |object ForCompImplicits {
       |  import scala.concurrent.ExecutionContext.Implicits.global
       |  for {

@@ -117,8 +117,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     super.test(name)(fn)
   }
 
-  protected def checkExtraction(code: String, f: ExtractImplicits.Result => Unit): Unit = {
-    test(code) {
+  protected def checkExtraction(name: String, code: String, f: ExtractImplicits.Result => Unit): Unit = {
+    test(name) {
       val db = computeSemanticdbFromCode(code)
       val ctx = SemanticCtx(db)
       val result = ExtractImplicits(ctx)
