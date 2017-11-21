@@ -1,4 +1,6 @@
-import extractor.Apply
+package extraction
+
+import framework.SemanticdbTest
 
 class FunctionApplicationTest extends SemanticdbTest {
 

@@ -1,3 +1,7 @@
+package extraction
+
+import framework.SemanticdbTest
+
 class DeclaredImplicitsTest extends SemanticdbTest {
   checkExtraction(
     "Basic information about declared implicits",

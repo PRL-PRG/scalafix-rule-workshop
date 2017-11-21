@@ -1,3 +1,5 @@
+package framework
+
 import java.io.{File, UncheckedIOException}
 import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}

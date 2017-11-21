@@ -1,4 +1,7 @@
-import extractor.{DeclaredImplicit, ImplicitParam}
+package extraction
+
+import extractor.DeclaredImplicit
+import framework.SemanticdbTest
 
 class FQNTest extends SemanticdbTest {
   checkExtraction(
