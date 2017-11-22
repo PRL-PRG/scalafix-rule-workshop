@@ -47,7 +47,7 @@ class TypeClassTest extends SemanticdbTest {
       | }
       |}
     """.trim.stripMargin, { ctx =>
-    println(1)
+    // TODO: Custom assertions on the context
   })
 
   checkContext(

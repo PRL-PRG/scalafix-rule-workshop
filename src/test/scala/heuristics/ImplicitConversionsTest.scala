@@ -1,7 +1,56 @@
 package heuristics
 
+import extractor.{ExtractImplicits, SemanticCtx}
 import framework.SemanticdbTest
+import org.langmeta.semanticdb.Synthetic
 class ImplicitConversionsTest extends SemanticdbTest {
+
+  /**
+    * Describe a mechanism to extract implicit conversion definitions from the context.
+    * @param ctx
+    */
+  def checkDefinitionFromContext(ctx: SemanticCtx) = {
+    for {
+      sym <- ctx.index.symbols
+      denot <- ctx.denotation(sym.symbol) if denot.isDef && denot.isImplicit
+    } yield (sym, denot)
+    // TODO: Strengthen condition to filter out defs with more than 1 parameter and with non-concrete types
+  }
+
+  /**
+    * Describe a mechanism to extract implicit conversion definitions
+    * using the information we already have.
+    * @param ctx
+    */
+  def checkDefinitionFromExtraction(ctx: SemanticCtx) = {
+    val res = ExtractImplicits(ctx)
+    val implicitDefs = res.implicits
+      .filter(_.kind == "def")
+    // TODO: Strengthen condition to filter out defs with more than 1 parameter and with non-concrete types
+    implicitDefs
+  }
+
+  /**
+    * Define some conditions that all usages of this pattern must use.
+    * For now, the only heuristic is that these are **not** implicit class extensions.
+    * That is, their return type and function names do not cuncide
+    *
+    * @param ctx
+    */
+  def checkUsages(ctx: SemanticCtx) = {
+    // See that the inserted call matches the expected fqn.of.constructor(*) pattern
+    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?\w*)+\(\*\)"""))
+    usages.foreach { usage =>
+      // Check that the return type is similar to the name of the class
+      val symbol = usage.names.find(_.symbol.toString != "_star_.").get
+      val parts = symbol.symbol.toString.split("""(?<=.*)(\(|\))""")
+      val fqfn = parts(0)
+      val fqreturn = parts(2).replace(";.", "").replace("/", ".").substring(1)
+      fqfn should not endWith fqreturn
+    }
+    usages
+  }
+
   checkContext(
     "Simple example with ranges: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html",
     """
@@ -12,7 +61,8 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |  val x = a to b
       |}
     """.trim.stripMargin, { ctx =>
-      // TODO: Custom assertions on the context
+    val usages = checkUsages(ctx)
+    usages.size shouldBe 1
   })
 
   checkContext(
@@ -37,6 +87,12 @@ class ImplicitConversionsTest extends SemanticdbTest {
       | val c3 = (a, b) + c1
       |}
     """.trim.stripMargin, { ctx =>
-      // TODO: Custom assertions on the context
+
+    val defsFromContext = checkDefinitionFromContext(ctx)
+    defsFromContext.size shouldBe 2
+    val defsFromExtraction = checkDefinitionFromExtraction(ctx)
+    defsFromExtraction.size shouldBe 2
+    val usages = checkUsages(ctx)
+    usages.size shouldBe 3
   })
 }
