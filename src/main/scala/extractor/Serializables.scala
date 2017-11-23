@@ -91,7 +91,8 @@ final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: D
     case Some(n) => denot.signature.toString
     case None => name.symbol.toString
   }
+  val nargs: String = denot.members.toString
 
-  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "name", "fqn", "fqtn", "type", "kind")
-  override val csvValues: Seq[String] = Seq(id, path, line, col, plainName, fqn, clazz, typee, kind)
+  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "name", "fqn", "fqtn", "type", "kind", "nargs")
+  override val csvValues: Seq[String] = Seq(id, path, line, col, plainName, fqn, clazz, typee, kind, nargs)
 }

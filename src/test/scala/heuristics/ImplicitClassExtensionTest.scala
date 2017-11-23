@@ -65,7 +65,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     checkDefinition(ctx)
     checkUsage(ctx)
 
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?\w*)+\(\*\)"""))
+    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     // (1) Check that there are no names in the same place as the constant conversion
     val constantUsage = usages.find(_.position.start == 163).get
     val constantSymbols = ctx.names.filter(x =>

@@ -6,18 +6,6 @@ import org.langmeta.semanticdb.Synthetic
 class ImplicitConversionsTest extends SemanticdbTest {
 
   /**
-    * Describe a mechanism to extract implicit conversion definitions from the context.
-    * @param ctx
-    */
-  def checkDefinitionFromContext(ctx: SemanticCtx) = {
-    for {
-      sym <- ctx.index.symbols
-      denot <- ctx.denotation(sym.symbol) if denot.isDef && denot.isImplicit
-    } yield (sym, denot)
-    // TODO: Strengthen condition to filter out defs with more than 1 parameter and with non-concrete types
-  }
-
-  /**
     * Describe a mechanism to extract implicit conversion definitions
     * using the information we already have.
     * @param ctx
@@ -26,7 +14,8 @@ class ImplicitConversionsTest extends SemanticdbTest {
     val res = ExtractImplicits(ctx)
     val implicitDefs = res.implicits
       .filter(_.kind == "def")
-    // TODO: Strengthen condition to filter out defs with more than 1 parameter and with non-concrete types
+      // TODO: Make the tests in DeclaredImplcitisTest work, so that it works when uncommenting this
+      //.filter(_.nargs == "1")
     implicitDefs
   }
 
