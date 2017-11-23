@@ -28,24 +28,25 @@ load_data <- function() {
 }
 
 create_model <- function(proj, funs, params, params_funs) {
-  # convert the ids to simple indexes
+  if (nrow(params_funs) == 0) {
+    return(NULL)
+  }
 
+  # convert the ids to simple indexes
   edges <- data_frame(
     from=match(params_funs$param, params$id),
     to=match(params_funs$fun, funs$id) + nrow(params),
     id=1:nrow(params_funs)
   )
 
-  m_param_nodes <- params %>% transmute(
-    id=1:nrow(params),
-    node_type=NODE_PARAM,
-
-    name=name,
-    fqn=fqn,
-    type=type,
-    fqtn=str_replace(fqtn, "_root_.(.*)#", "\\1"),
-    kind=kind
-  )
+  m_param_nodes <- params %>%
+    mutate(
+      id=1:nrow(params),
+      node_type=NODE_PARAM
+    ) %>%
+    select(
+      id, node_type, everything()
+    )
 
   v_param_nodes <- m_param_nodes %>% transmute(
     id=1:nrow(params),
@@ -65,27 +66,22 @@ create_model <- function(proj, funs, params, params_funs) {
   }
 
   if (any(grepl(".scala$", funs_srcset))) {
+    # TODO: try to match test files
     funs_srcset <- "all"
   }
 
-  m_fun_nodes <- funs %>% transmute(
-    id=nrow(params)+(1:nrow(funs)),
-    node_type=NODE_FUN,
+  m_fun_nodes <- funs %>%
+    mutate(
+      id=nrow(params)+(1:nrow(funs)),
+      node_type=NODE_FUN,
 
-    # FIXME: this is only good for github
-    url=str_c(str_c(proj$url, "blob", proj$version, path, sep="/"), "#L", line),
-    path=path,
-    line=line,
-    col=col,
-    module=funs_module,
-    srcset=funs_srcset,
-    # TODO add code
-    code="", #str_replace_all(code, "\\\\n", "\n"),
-    # TODO: process symbol name
-    name=str_replace(name, fixed("_root_."), ""),
-    nargs=nargs
-  )
-
+      # FIXME: this is only good for github
+      url=str_c(str_c(proj$url, "blob", proj$last_commit, path, sep="/"), "#L", line),
+      module=funs_module,
+      srcset=funs_srcset
+    ) %>% select(
+      id, node_type, url, module, srcset, everything()
+    )
 
   v_fun_nodes <- m_fun_nodes %>% transmute(
     id=nrow(params)+(1:nrow(funs)),
@@ -93,7 +89,7 @@ create_model <- function(proj, funs, params, params_funs) {
 
     group="functions",
     shape="dot",
-    title=str_c('<pre><a target="_blank" href="', url ,'">', path, "</a><br/><br/><code>", name, "</code></pre>"),
+    title=str_c('<pre><a target="_blank" href="', url ,'">', path, "</a><br/><br/><code>", symbol, "</code></pre>"),
     color="lightblue"
   )
 
@@ -210,7 +206,7 @@ server <- function(input, output, session) {
   observe({
     model <- model()
     kind <- if (is.null(model)) {
-      NULL
+      character(0L)
     } else {
       model$nodes %>%
         filter(node_type == NODE_PARAM) %>%
@@ -230,7 +226,7 @@ server <- function(input, output, session) {
   observe({
     model <- model()
     modules <- if (is.null(model)) {
-      NULL
+      character(0L)
     } else {
       model$nodes %>%
         filter(node_type == NODE_FUN) %>%
@@ -250,7 +246,7 @@ server <- function(input, output, session) {
   observe({
     model <- model()
     srcset <- if (is.null(model)) {
-      NULL
+      character(0L)
     } else {
       model$nodes %>%
         filter(node_type == NODE_FUN) %>%
@@ -270,7 +266,7 @@ server <- function(input, output, session) {
   observe({
     model <- model()
     types <- if (is.null(model)) {
-      NULL
+      character(0L)
     } else {
       model$nodes %>%
         filter(node_type == NODE_PARAM) %>%
@@ -286,7 +282,6 @@ server <- function(input, output, session) {
       selected=types
     )
   })
-
 
   graph <- reactive({
     model <- model()
