@@ -36,7 +36,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     */
   def checkUsage(ctx: SemanticCtx): Unit = {
     // See that the inserted call matches the expected fqn.of.constructor(*) pattern
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?\w*)+\(\*\)"""))
+    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     usages should not be empty
     usages.foreach { usage =>
       // Check that the return type is similar to the name of the class

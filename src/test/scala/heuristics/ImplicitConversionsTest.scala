@@ -33,13 +33,13 @@ class ImplicitConversionsTest extends SemanticdbTest {
   /**
     * Define some conditions that all usages of this pattern must use.
     * For now, the only heuristic is that these are **not** implicit class extensions.
-    * That is, their return type and function names do not cuncide
+    * That is, their return type and function names do not coincide
     *
     * @param ctx
     */
   def checkUsages(ctx: SemanticCtx) = {
     // See that the inserted call matches the expected fqn.of.constructor(*) pattern
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?\w*)+\(\*\)"""))
+    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     usages.foreach { usage =>
       // Check that the return type is similar to the name of the class
       val symbol = usage.names.find(_.symbol.toString != "_star_.").get
