@@ -205,8 +205,9 @@ class SingleProjectWalker(rootPath: String) extends TreeWalker {
         }
         .toSeq
         .par
-        .foldLeft(Result(Set(), Seq(), Set(), Set())) {(acc, file) =>
-          mergeResults(acc, SemanticDBFileVisitor(file, f))
+        .map {file => SemanticDBFileVisitor(file, f)}
+        .fold(Result(Set(), Seq(), Set(), Set())) {(acc, partial) =>
+          mergeResults(acc, partial)
         }
     println(" ")
     results
