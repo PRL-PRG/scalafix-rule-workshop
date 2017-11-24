@@ -51,7 +51,7 @@ class FunctionApplicationTest extends SemanticdbTest {
       """.trim.stripMargin, { res =>
       res.funs.size shouldBe 2
       res.funs(0).code shouldEqual res.funs(1).code
-      res.funs(0).symbol shouldEqual res.funs(1).symbol
+      res.funs(0).fqn shouldEqual res.funs(1).fqn
       res.funs(0).id should not equal res.funs(1).id
   })
   
@@ -67,7 +67,7 @@ class FunctionApplicationTest extends SemanticdbTest {
         |}
       """.trim.stripMargin, { res =>
       res.funs.size shouldBe 1
-      res.funs.head.symbol shouldEqual "_root_.a.paramLists.say(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;."
+      res.funs.head.fqn shouldEqual "_root_.a.paramLists.say(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;."
   })
 
 }

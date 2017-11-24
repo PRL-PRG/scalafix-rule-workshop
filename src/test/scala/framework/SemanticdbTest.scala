@@ -93,7 +93,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     Files.write(testFile.toPath, code.getBytes)
 
     try {
-      logger.debug(s"Compiling $testFile with "+g.settings.toString())
+      //logger.debug(s"Compiling $testFile with "+g.settings.toString())
 
       new g.Run().compile(List(testFile.getCanonicalPath))
     } catch {

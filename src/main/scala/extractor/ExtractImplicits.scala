@@ -2,6 +2,7 @@ package extractor
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
 import org.langmeta.inputs.Input
 
 import scala.meta._
@@ -13,6 +14,8 @@ object ExtractImplicits {
      funs: Seq[Apply],
      links: Set[FunApplyWithImplicitParam],
      implicits: Set[DeclaredImplicit])
+
+  final case class LinkPair(param: ImplicitParam, fun: Apply)
 
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
@@ -28,7 +31,7 @@ object ExtractImplicits {
         symbol = name.symbol
         den <- ctx.denotation(symbol) if den.isImplicit
       } yield {
-        syn -> ImplicitParam(ctx, symbol, den)
+        syn -> Serializables.createImplicitParam(ctx, symbol, den)
       }
 
     lazy val syntheticApplies = ctx.index.synthetics.filter(_.names.exists(_.toString() == "apply"))
@@ -36,8 +39,8 @@ object ExtractImplicits {
     lazy val paramsFuns =
       for {
         app <- ctx.tree collect {
-          case x: Term.Apply => AppTerm(x, x.args.size, x.fun.pos.end)
-          case x: Term.Name => AppTerm(x, 0, x.pos.end)
+          case x: Term.Apply => Serializables.AppTerm(x, x.args.size, x.fun.pos.end)
+          case x: Term.Name => Serializables.AppTerm(x, 0, x.pos.end)
         }
         param <- syntheticImplicits collect {
           case (syn, den) if syn.position.end == app.term.pos.end => den
@@ -47,22 +50,23 @@ object ExtractImplicits {
         }
       } yield {
         syntheticApply match {
-          case Some(synth) => FunApplyWithImplicitParam(SyntheticApply(ctx, synth, file, app.params), param)
-          case None => FunApplyWithImplicitParam(FunApply(ctx, app, file), param)
+          case Some(synth) => LinkPair(param, Serializables.createSyntheticApplication(ctx, synth, file, app.params))
+          case None => LinkPair(param, Serializables.createFunctionApplication(ctx, app, file))
         }
       }
 
     val params = paramsFuns.groupBy(_.param).keys.toSet
     val funs = paramsFuns.groupBy(_.fun).keys.toSeq
+    val links = paramsFuns.map(x => Serializables.createLink(x.param, x.fun)).toSet
 
     lazy val declaredImplicits =
       for {
         name <- ctx.index.names if name.isDefinition
         den <- ctx.denotation(name.symbol) if den.isImplicit
       } yield {
-        DeclaredImplicit(ctx, name, den, file)
+        Serializables.createDeclaredImplicit(ctx, name, den, file)
       }
 
-    Result(params, funs, paramsFuns.toSet, declaredImplicits.toSet)
+    Result(params, funs, links, declaredImplicits.toSet)
   }
 }

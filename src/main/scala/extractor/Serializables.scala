@@ -6,95 +6,96 @@ trait ResultElement {
   def id: String
 }
 
-final case class ImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation) extends ResultElement with CSV.Serializable {
-  lazy val id: String = s"${symbol.syntax}"
-  // If there are no names on the denotation, we have an implicit which defines
-  // its own type - Most likely an object
-  val name: String = denot.name.toString
-  val clazz: String = denot.names.headOption match {
-    case Some(n) => n.symbol.toString
-    case None => symbol.toString
+final case class Location(path: String, line: String, col: String) {
+  val sourcelink = s"$path:$line:$col"
+}
+
+object Serializables {
+
+  final case class ImplicitParam(fqn: String, fqtn: String, signature: String, kind: String, plainName: String) extends ResultElement with CSV.Serializable {
+    lazy val id: String = fqn
+    override val csvHeader: Seq[String] = Seq("fqn", "fqfn", "fqparamlist", "fqtn", "type", "kind", "name")
+    override val csvValues: Seq[String] = Seq(fqn, "", "", fqtn, signature, kind, plainName)
   }
-  val typee: String = denot.names.headOption match {
-    case Some(n) => denot.signature.toString
-    case None => name
+
+  def createImplicitParam(ctx: SemanticCtx, symbol: Symbol, denot: Denotation): ImplicitParam = {
+    ImplicitParam(
+      fqn = s"${symbol.syntax}",
+      plainName = denot.name.toString,
+      fqtn = denot.names.headOption match {
+        case Some(n) => n.symbol.toString
+        case None => symbol.toString
+      },
+      // If there are no names on the denotation, we have an implicit which defines
+      // its own type - Most likely an object
+      signature = denot.names.headOption match {
+        case Some(n) => denot.signature.toString
+        case None => denot.name.toString
+      },
+      kind = ctx.getKind(denot)
+    )
   }
-  val kind: String = ctx.getKind(denot)
 
-  override val csvHeader: Seq[String] = Seq("fqn", "fqfn", "fqparamlist", "fqtn", "type", "kind", "name")
-  override val csvValues: Seq[String] = Seq(id, "", "", clazz, typee, kind, name)
-
-}
-
-/**
-  * Common interface for function applications
-  */
-abstract class Apply(ctx: SemanticCtx, file: String) extends ResultElement with  CSV.Serializable {
-  def code: String
-  def symbol: String
-  def nargs: String
-  def line: String
-  def col: String
-
-  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
-  override val csvValues: Seq[String] = Seq(id, file, line, col, code, symbol, "", "", nargs)
-}
-
-final case class AppTerm(term: Term, params: Int, nameEnd: Int)
-final case class FunApply(ctx: SemanticCtx, app: AppTerm, file: String) extends Apply(ctx, file) {
-  lazy val id: String = s"$file:$line:$col"
-  // Take end line and cols because function call chains have the same start
-  def line: String = app.term.pos.endLine.toString
-  def col: String = app.term.pos.endColumn.toString
-  def symbol: String = ctx.qualifiedName(app.term)
-  def code: String = app.term.toString
-  def nargs: String = app.params.toString
-}
-
-final case class SyntheticApply(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int) extends Apply(ctx, file) {
-  lazy val id: String = s"$file:$line:$col"
-  // Take end line and cols because function call chains have the same start
-  def line: String = synth.position.endLine.toString
-  def col: String = synth.position.endColumn.toString
-  def symbol: String = synth.names(1).symbol.toString
-  def code: String = s"apply(${if (params > 0) { "_" + ",_" * (params - 1) }})"
-  def nargs: String = params.toString
-}
-
-
-final case class FunApplyWithImplicitParam(fun: Apply, param: ImplicitParam) extends ResultElement with CSV.Serializable {
-
-  val from: String = param.id
-  val to: String = fun.id
-
-  override val csvHeader: Seq[String] = Seq("from", "to")
-  override val csvValues: Seq[String] = Seq(from, to)
-
-  override def id: String = s"($from, $to)"
-}
-
-final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, file: String) extends ResultElement with CSV.Serializable {
-
-  val path: String = file
-  val line: String = name.position.endLine.toString
-  val col: String = name.position.endColumn.toString
-  lazy val sourcelink: String = s"$path:$line:$col"
-
-  val fqn: String = name.symbol.syntax
-  val plainName: String = denot.name.toString
-  val kind: String = ctx.getKind(denot)
-  // An object will have no names, but just a name fiend defining its own type
-  val clazz: String = denot.names.headOption match {
-    case Some(n) => n.symbol.toString
-    case None => denot.name.toString
+  final case class Apply(location: Location, code: String, fqn: String, nargs: String) extends ResultElement with CSV.Serializable {
+    override lazy val id = location.sourcelink
+    override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "code", "symbol", "fqfn", "fqparamlist", "nargs")
+    override val csvValues: Seq[String] = Seq(id, location.path, location.line, location.col, code, fqn, "", "", nargs)
   }
-  val typee: String = denot.names.headOption match {
-    case Some(n) => denot.signature.toString
-    case None => plainName
+  final case class AppTerm(term: Term, params: Int, nameEnd: Int)
+  def createFunctionApplication(ctx: SemanticCtx, app: AppTerm, file: String): Apply = {
+    Apply(
+      location = Location(file, app.term.pos.endLine.toString, app.term.pos.endColumn.toString),
+      code = app.term.toString,
+      fqn = ctx.qualifiedName(app.term),
+      nargs = app.params.toString
+    )
   }
-  val nargs: String = denot.members.toString
+  def createSyntheticApplication(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int): Apply = {
+    Apply(
+      location = Location(file, synth.position.endLine.toString, synth.position.endColumn.toString),
+      code = s"apply(${
+        if (params > 0) {
+          "_" + ",_" * (params - 1)
+        }
+      })",
+      fqn = synth.names(1).symbol.toString,
+      nargs = params.toString
+    )
+  }
 
-  lazy val id: String = fqn
-  override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "name", "fqn", "fqtn", "type", "kind", "nargs")
-  override val csvValues: Seq[String] = Seq(sourcelink, path, line, col, plainName, fqn, clazz, typee, kind, nargs)
+  final case class FunApplyWithImplicitParam(from: String, to: String) extends ResultElement with CSV.Serializable {
+    override def id: String = s"($from, $to)"
+    override val csvHeader: Seq[String] = Seq("from", "to")
+    override val csvValues: Seq[String] = Seq(from, to)
+  }
+  def createLink(param: ImplicitParam, fun: Apply): FunApplyWithImplicitParam = {
+    FunApplyWithImplicitParam(
+      from = param.id,
+      to = fun.id
+    )
+  }
+
+  final case class DeclaredImplicit(location: Location, fqn: String, plainName: String, kind: String, fqtn: String, signature: String, nargs: String) extends ResultElement with CSV.Serializable {
+    override lazy val id: String = fqn
+    override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "name", "fqn", "fqtn", "type", "kind", "nargs")
+    override val csvValues: Seq[String] = Seq(location.sourcelink, location.path, location.line, location.col, plainName, fqn, fqtn, signature, kind, nargs)
+  }
+  def createDeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: Denotation, path: String): DeclaredImplicit = {
+    DeclaredImplicit(
+      location = Location(path=path, line=name.position.endLine.toString, col=name.position.endColumn.toString),
+      fqn = name.symbol.syntax,
+      plainName = denot.name.toString,
+      kind = ctx.getKind(denot),
+      fqtn = denot.names.headOption match {
+        case Some(n) => n.symbol.toString
+        case None => denot.name.toString
+      },
+      signature = denot.names.headOption match {
+        case Some(n) => denot.signature.toString
+        case None => denot.name.toString
+      },
+      nargs = denot.members.toString
+    )
+  }
+
 }

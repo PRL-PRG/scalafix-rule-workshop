@@ -14,8 +14,8 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     res.implicits.size == 1
     val impl = res.implicits.head
     impl.fqn shouldEqual "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;."
-    impl.clazz shouldEqual "_root_.scala.Predef.String#"
-    impl.typee shouldEqual "(a: String): String"
+    impl.fqtn shouldEqual "_root_.scala.Predef.String#"
+    impl.signature shouldEqual "(a: String): String"
     impl.kind shouldEqual "def"
     impl.nargs shouldEqual "1"
   })
@@ -35,9 +35,9 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     val implicits = res.implicits.toSeq
     val m1 = implicits.find(_.fqn.contains("m1")).get
     val m2 = implicits.find(_.fqn.contains("m2")).get
-    m1.path shouldEqual m2.path
+    m1.location.path shouldEqual m2.location.path
     m1.fqn.replace("m1", "m2") shouldEqual m2.fqn
-    m1.clazz shouldEqual m2.clazz
+    m1.fqtn shouldEqual m2.fqtn
     m1.id should not equal m2.id
   })
   
@@ -53,12 +53,12 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     res.implicits.size shouldBe 2
     val defImp = res.implicits.find(_.fqn.contains("defType")).get
     val valImp = res.implicits.find(_.fqn.contains("valType")).get
-    defImp.typee shouldBe "(a: String): String"
-    valImp.typee shouldBe "String"
+    defImp.signature shouldBe "(a: String): String"
+    valImp.signature shouldBe "String"
   })
   
   checkExtraction(
-    "The typee field of an implicit object is it's unqualified name",
+    "The signature field of an implicit object is it's unqualified name",
     """
     package dI
     object objectTypeInfo {
@@ -68,7 +68,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     }
     """.trim.stripMargin, { res =>
     val objImp = res.implicits.find(_.fqn.contains("objType")).get
-    objImp.typee shouldBe "objType"
+    objImp.signature shouldBe "objType"
   })
 
   checkExtraction(

@@ -1,6 +1,6 @@
 package extraction
 
-import extractor.DeclaredImplicit
+import extractor.Serializables.DeclaredImplicit
 import framework.SemanticdbTest
 
 class FQNTest extends SemanticdbTest {
@@ -45,7 +45,7 @@ class FQNTest extends SemanticdbTest {
     declaredHello.fqn  should endWith(".")
     declaredHello.fqn shouldEqual "_empty_.hashtags.hello."
     res.params.head.id shouldEqual "_empty_.hashtags.hello."
-    res.params.head.clazz shouldEqual "_root_.scala.Predef.String#"
+    res.params.head.fqtn shouldEqual "_root_.scala.Predef.String#"
   })
   
   checkExtraction(

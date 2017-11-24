@@ -1,6 +1,6 @@
 package extraction
 
-import extractor.ImplicitParam
+import extractor.Serializables.ImplicitParam
 import framework.SemanticdbTest
 
 class ImplicitParameterTest extends SemanticdbTest {
@@ -21,10 +21,10 @@ class ImplicitParameterTest extends SemanticdbTest {
     res.params.size shouldBe 1
     val param: ImplicitParam = res.params.head
     param.id shouldEqual "_root_.a.test.msgDeclaration."
-    param.clazz shouldEqual "_root_.scala.Predef.String#"
-    param.typee shouldEqual "String"
+    param.fqtn shouldEqual "_root_.scala.Predef.String#"
+    param.signature shouldEqual "String"
     param.kind shouldEqual "val"
-    param.name shouldEqual "msgDeclaration"
+    param.plainName shouldEqual "msgDeclaration"
   })
   
   checkExtraction(
@@ -41,9 +41,9 @@ class ImplicitParameterTest extends SemanticdbTest {
     res.params.size shouldBe 1
     val param: ImplicitParam = res.params.head
     param.id shouldEqual "_empty_.classesAndTypes.m."
-    param.clazz shouldEqual "_empty_.M#"
-    param.typee shouldEqual "M"
+    param.fqtn shouldEqual "_empty_.M#"
+    param.signature shouldEqual "M"
     param.kind shouldEqual "val"
-    param.name shouldEqual "m"
+    param.plainName shouldEqual "m"
   })
 }
