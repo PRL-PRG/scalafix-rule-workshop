@@ -76,9 +76,6 @@ class ImplicitConversionsTest extends SemanticdbTest {
       | val c3 = (a, b) + c1
       |}
     """.trim.stripMargin, { ctx =>
-
-    val defsFromContext = checkDefinitionFromContext(ctx)
-    defsFromContext.size shouldBe 2
     val defsFromExtraction = checkDefinitionFromExtraction(ctx)
     defsFromExtraction.size shouldBe 2
     val usages = checkUsages(ctx)

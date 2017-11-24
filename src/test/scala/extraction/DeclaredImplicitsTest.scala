@@ -106,7 +106,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  implicit def say3(b: String)(c: Int) = b
       |}
     """.trim.stripMargin, { res =>
-      val definitions = res.implicits.filter(_.kind == "def")
-      definitions.foreach(_.nargs shouldEqual "2")
-    })
+    val definitions = res.implicits.filter(_.kind == "def")
+    definitions.foreach(_.nargs shouldEqual "2")
+  })
 }

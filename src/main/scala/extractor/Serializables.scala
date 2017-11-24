@@ -87,9 +87,10 @@ final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: D
     case Some(n) => n.symbol.toString
     case None => denot.name.toString
   }
+  // An object will have no names, but just a name fiend defining its own type
   val typee: String = denot.names.headOption match {
     case Some(n) => denot.signature.toString
-    case None => name.symbol.toString
+    case None => plainName
   }
   val nargs: String = denot.members.toString
 
