@@ -121,6 +121,7 @@ CREATE TABLE `declared_implicits` (
   `fqtn` text NOT NULL,
   `type` text NOT NULL,
   `kind` tinytext NOT NULL,
+  `nargs` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `declared_implicits_projects_id_fk` (`project`),
   CONSTRAINT `declared_implicits_projects_id_fk` FOREIGN KEY (`project`) REFERENCES `projects` (`id`)
