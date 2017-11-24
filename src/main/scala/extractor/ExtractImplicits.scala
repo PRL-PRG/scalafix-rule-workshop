@@ -57,7 +57,7 @@ object ExtractImplicits {
 
     lazy val declaredImplicits =
       for {
-        name <- ctx.index.names
+        name <- ctx.index.names if name.isDefinition
         den <- ctx.denotation(name.symbol) if den.isImplicit
       } yield {
         DeclaredImplicit(ctx, name, den, file)

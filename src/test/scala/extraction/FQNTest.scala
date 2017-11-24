@@ -39,7 +39,7 @@ class FQNTest extends SemanticdbTest {
       | say()
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 3
+    res.implicits.size shouldBe 2
     val declaredHello = res.implicits.find(_.fqn.contains("hello")).get
     declaredHello.fqn should startWith("_empty_")
     declaredHello.fqn  should endWith(".")
