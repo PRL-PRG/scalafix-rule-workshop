@@ -1,3 +1,7 @@
+package extraction
+
+import framework.SemanticdbTest
+
 class ExampleTest extends SemanticdbTest {
 
   checkExtraction(

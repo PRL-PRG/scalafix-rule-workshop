@@ -1,4 +1,7 @@
+package extraction
+
 import extractor.ImplicitParam
+import framework.SemanticdbTest
 
 class ImplicitParameterTest extends SemanticdbTest {
 
