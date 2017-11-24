@@ -33,7 +33,7 @@ class ClassificationTest extends SemanticdbTest {
   }
 
   checkContext(
-    "From the repo wiki: https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension",
+    "Mixture of implicit conversions",
     """
       |package a
       |object Definition {
@@ -49,6 +49,7 @@ class ClassificationTest extends SemanticdbTest {
       | val x = a to b
       | val y: Int = "User".hello
       |}
+      |// Example from https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension
     """.trim.stripMargin, { ctx =>
     val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     val wrappers = classifyUsages(ctx, usages)

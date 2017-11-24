@@ -41,7 +41,7 @@ class ImplicitConversionsTest extends SemanticdbTest {
   }
 
   checkContext(
-    "Simple example with ranges: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html",
+    "Scala uses implicit conversion for ints in ranges",
     """
       |package conversions
       |object toFunction {
@@ -49,13 +49,14 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |  val b: Int = 12
       |  val x = a to b
       |}
+      |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
     val usages = checkUsages(ctx)
     usages.size shouldBe 1
   })
 
   checkContext(
-    "From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html",
+    "Example with complex numbers",
     """
       |package conversions
       |object ComplexImplicits {
@@ -75,6 +76,7 @@ class ImplicitConversionsTest extends SemanticdbTest {
       | val c2 = a + c1
       | val c3 = (a, b) + c1
       |}
+      |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
     val defsFromExtraction = checkDefinitionFromExtraction(ctx)
     defsFromExtraction.size shouldBe 2

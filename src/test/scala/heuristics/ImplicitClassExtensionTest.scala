@@ -49,7 +49,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
   }
 
   checkContext(
-    "From the repo wiki: https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension",
+    "Symbols inside wrappers are still in the index",
     """
       |package a
       |object Definition {
@@ -61,6 +61,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       | println("World".hello) /* 1 */
       | println(s.hello) /* 2 */
       |}
+      |// From the repo wiki: https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension
     """.trim.stripMargin, { ctx =>
     checkDefinition(ctx)
     checkUsage(ctx)
@@ -85,7 +86,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
 
 
   checkContext(
-    "From the official documentation: https://docs.scala-lang.org/overviews/core/implicit-classes.html",
+    "Example of class extension",
     """
       |package b
       |// Definition
@@ -105,13 +106,14 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       | import Definition._
       | 5 times println("HI")
       |}
+      |//From the official documentation: https://docs.scala-lang.org/overviews/core/implicit-classes.html
     """.trim.stripMargin, { ctx =>
     checkDefinition(ctx)
     checkUsage(ctx)
   })
 
   checkContext(
-    "From aerosolve: com/airbnb/aerosolve/training/pipeline/PipelineTestingUtil.scala",
+    "Tuple extension",
     """
       |package c
       |object Definition {
@@ -123,6 +125,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       | import Definition._
       | (2L, 4L) + (3L, 6L)
       |}
+      |// From aerosolve: com/airbnb/aerosolve/training/pipeline/PipelineTestingUtil.scala
     """.trim.stripMargin, { ctx =>
     checkDefinition(ctx)
     checkUsage(ctx)

@@ -4,7 +4,7 @@ import framework.SemanticdbTest
 
 class TypeClassTest extends SemanticdbTest {
   checkContext(
-    "Example from Li Haoyi's blog: http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html#type-class-implicits",
+    "JsonableExample",
     """
       |package typeclass
       |object JsonTest {
@@ -46,12 +46,13 @@ class TypeClassTest extends SemanticdbTest {
       |   convertToJson(s)
       | }
       |}
+      |// Example from Li Haoyi's blog: http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html#type-class-implicits
     """.trim.stripMargin, { ctx =>
     // TODO: Custom assertions on the context
   })
 
   checkContext(
-    "Example from Daniel Westheide's blog: http://danielwestheide.com/blog/2013/02/06/the-neophytes-guide-to-scala-part-12-type-classes.html",
+    "NumberLike Example",
     """
       |package typeclass
       |object MathTest {
@@ -90,6 +91,7 @@ class TypeClassTest extends SemanticdbTest {
       |   println(Statistics.mean(numbers))
       | }
       |}
+      |// Example from Daniel Westheide's blog: http://danielwestheide.com/blog/2013/02/06/the-neophytes-guide-to-scala-part-12-type-classes.html
     """.trim.stripMargin, { ctx =>
       // TODO: Custom assertions on the context
     })
