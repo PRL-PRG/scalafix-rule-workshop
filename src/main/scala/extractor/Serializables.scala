@@ -78,21 +78,23 @@ final case class DeclaredImplicit(ctx: SemanticCtx, name: ResolvedName, denot: D
   val path: String = file
   val line: String = name.position.endLine.toString
   val col: String = name.position.endColumn.toString
-  lazy val id: String = s"$path:$line:$col"
+  lazy val sourcelink: String = s"$path:$line:$col"
 
   val fqn: String = name.symbol.syntax
   val plainName: String = denot.name.toString
   val kind: String = ctx.getKind(denot)
+  // An object will have no names, but just a name fiend defining its own type
   val clazz: String = denot.names.headOption match {
     case Some(n) => n.symbol.toString
     case None => denot.name.toString
   }
   val typee: String = denot.names.headOption match {
     case Some(n) => denot.signature.toString
-    case None => name.symbol.toString
+    case None => plainName
   }
   val nargs: String = denot.members.toString
 
+  lazy val id: String = fqn
   override val csvHeader: Seq[String] = Seq("sourcelink", "path", "line", "col", "name", "fqn", "fqtn", "type", "kind", "nargs")
-  override val csvValues: Seq[String] = Seq(id, path, line, col, plainName, fqn, clazz, typee, kind, nargs)
+  override val csvValues: Seq[String] = Seq(sourcelink, path, line, col, plainName, fqn, clazz, typee, kind, nargs)
 }

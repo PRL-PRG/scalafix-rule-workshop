@@ -7,7 +7,7 @@ import functools
 import doctest
 
 unknow_kind_pattern = r".*Denotation\(([A-Z]*( \| [A-Z]*)*).*"
-L_notation_pattern = re.compile(r"L([a-zA-Z-_$]*\/)*[a-zA-Z-_$]*;")
+L_notation_pattern = re.compile(r"L([\w\-$]*\/)*[\w\-$]*;")
 
 def remove_leading_root(text):
     '''
@@ -37,6 +37,8 @@ def remove_L_notation(text):
         'java.lang.Object,'
         >>> clean_L_notation_instance("Lorg/scalacheck/util/Pretty;")
         'org.scalacheck.util.Pretty,'
+        >>> clean_L_notation_instance("Lorg/1s2c3a4l_a/_util_/Pretty;")
+        'org.1s2c3a4l_a.util.Pretty,'
         '''
         text = text[1:] if text[0] == "L" else text
         text = text.replace("/", ".").replace(";", ",")
@@ -49,6 +51,10 @@ def remove_L_notation(text):
     '_root_.org.scalacheck.util.Pretty.prettyAny(java.lang.Object)org.scalacheck.util.Pretty.'
     >>> remove_L_notation("_root_.akka.actor.Scheduler#schedule(Lscala/concurrent/duration/FiniteDuration;Lscala/concurrent/duration/FiniteDuration;Lakka/actor/ActorRef;Ljava/lang/Object;Lscala/concurrent/ExecutionContext;Lakka/actor/ActorRef;)Lakka/actor/Cancellable;.")
     '_root_.akka.actor.Scheduler#schedule(scala.concurrent.duration.FiniteDuration,scala.concurrent.duration.FiniteDuration,akka.actor.ActorRef,java.lang.Object,scala.concurrent.ExecutionContext,akka.actor.ActorRef)akka.actor.Cancellable.'
+    >>> remove_L_notation("_root_.a12a.actor.Sched12uler#schedule(Lscala/concurr3nt/duration/FiniteDu2_3ation;Lscala/concurrent/duration/FiniteDuration;Lakka/actor/ActorRef;Ljava/lang/Object;Lscala/concurrent/ExecutionContext;Lakka/actor/ActorRef;)Lakka/actor/Cancellable;.")
+    '_root_.a12a.actor.Sched12uler#schedule(scala.concurr3nt.duration.FiniteDu2_3ation,scala.concurrent.duration.FiniteDuration,akka.actor.ActorRef,java.lang.Object,scala.concurrent.ExecutionContext,akka.actor.ActorRef)akka.actor.Cancellable.'
+    >>> remove_L_notation("scala.collection.generic.GenericTraversableTemplate.unzip(Lscala/Function1;)Lscala/Tuple2;")
+    'scala.collection.GenericTraversableTemplate.unzip(scala.Function1)scala.Tuple2'
     '''
     clean = L_notation_pattern.sub(lambda m: clean_L_notation_instance(m.group(0)), text)
     corner_cases = clean.replace(",)", ")").replace(",.", ".")
@@ -117,6 +123,14 @@ clean_fqn = compose(
     remove_L_notation,
     remove_hashtags
 )
+def clean_fqn_test():
+    '''
+    An empty function to trigger doctest.
+    clean_fqn agglomerates various cleaning functions, which should be comon to all symbols in semanticdb.
+
+    >>> clean_fqn('_root_.fastparse.Api#P(Lscala/Functi_on0;Lsourcecode/Name;)Lfastparse/core/Parser;.')
+    'fastparse.Api.P(scala.Functi_on0,sourcecode.Name)fastparse.core.Parser'
+    '''
 
 def clean_param_row(row):
     row["fqn"] = clean_fqn(row["fqn"])
@@ -144,7 +158,7 @@ def clean_declared_implicits_row(row):
 
 def clean_file(directory, filename, clean_function):
     basepath = os.path.join(directory, filename)
-    filepath = basepath+'.csv'
+    filepath = basepath + '.csv'
     if not os.path.exists(filepath):
         print("File %s not found. Skipping" % filepath)
         return

@@ -72,14 +72,14 @@ class DeclaredImplicitsTest extends SemanticdbTest {
   })
 
   checkExtraction(
-    "A def with an implicit parameter should not be in implicits",
+    "Only the definition of an implicit is registered as a declared implicit",
     """
       |package dI
       |object defWithImplicits {
       |  def say(implicit a: String) = a
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 1
+    res.implicits.size shouldBe 1 // As opposed to 2, for the reference to `a` in the body of `say`
   })
 
   checkExtraction(
@@ -106,7 +106,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  implicit def say3(b: String)(c: Int) = b
       |}
     """.trim.stripMargin, { res =>
-      val definitions = res.implicits.filter(_.kind == "def")
-      definitions.foreach(_.nargs shouldEqual "2")
-    })
+    val definitions = res.implicits.filter(_.kind == "def")
+    definitions.foreach(_.nargs shouldEqual "2")
+  })
 }
