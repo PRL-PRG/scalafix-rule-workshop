@@ -1,6 +1,6 @@
 package extraction
 
-import extractor.Serializables.DeclaredImplicit
+import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
 import framework.SemanticdbTest
 
 class FQNTest extends SemanticdbTest {
@@ -40,12 +40,39 @@ class FQNTest extends SemanticdbTest {
       |}
     """.trim.stripMargin, { res =>
     res.implicits.size shouldBe 2
-    val declaredHello = res.implicits.find(_.fqn.contains("hello")).get
-    declaredHello.fqn should startWith("_empty_")
-    declaredHello.fqn  should endWith(".")
-    declaredHello.fqn shouldEqual "_empty_.hashtags.hello."
-    res.params.head.id shouldEqual "_empty_.hashtags.hello."
-    res.params.head.fqtn shouldEqual "_root_.scala.Predef.String#"
+    res.normalizedImplicits should contain only (
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_empty_.hashtags.hello.",
+        plainName = "hello",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "String",
+        kind = "val",
+        nargs = "-1"
+      ),
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.(word)",
+        plainName = "word",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "String",
+        kind = "param",
+        nargs = "-1"
+      )
+    )
+    res.params should contain only ImplicitParam(
+      fqn = "_empty_.hashtags.hello.",
+      fqtn = "_root_.scala.Predef.String#",
+      signature = "String",
+      kind = "val",
+      plainName = "hello"
+    )
+    res.normalizedFuns should contain only Apply(
+      location = dummyLocation,
+      fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.",
+      code = "say()",
+      nargs = "0"
+    )
   })
   
   checkExtraction(

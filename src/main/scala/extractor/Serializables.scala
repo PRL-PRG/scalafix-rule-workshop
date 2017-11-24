@@ -94,7 +94,9 @@ object Serializables {
         case Some(n) => denot.signature.toString
         case None => denot.name.toString
       },
-      nargs = denot.members.toString
+      nargs =
+        if (ctx.getKind(denot) == "def") denot.members.toString
+        else "-1"
     )
   }
 

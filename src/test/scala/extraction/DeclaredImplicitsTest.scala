@@ -1,5 +1,6 @@
 package extraction
 
+import extractor.Serializables.DeclaredImplicit
 import framework.SemanticdbTest
 
 class DeclaredImplicitsTest extends SemanticdbTest {
@@ -11,13 +12,19 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit def m(a: String): String = "3"
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size == 1
-    val impl = res.implicits.head
-    impl.fqn shouldEqual "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;."
-    impl.fqtn shouldEqual "_root_.scala.Predef.String#"
-    impl.signature shouldEqual "(a: String): String"
-    impl.kind shouldEqual "def"
-    impl.nargs shouldEqual "1"
+    res.normalizedImplicits should contain only DeclaredImplicit(
+      location = dummyLocation,
+      fqn = "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;.",
+      plainName = "m",
+      fqtn = "_root_.scala.Predef.String#",
+      signature = "(a: String): String",
+      kind = "def",
+      nargs = "1"
+    )
+
+    res.funs shouldBe empty
+    res.links shouldBe empty
+    res.params shouldBe empty
   })
 
   checkExtraction(
@@ -31,18 +38,36 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit val msgDeclaration: String = "World"
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 2
-    val implicits = res.implicits.toSeq
-    val m1 = implicits.find(_.fqn.contains("m1")).get
-    val m2 = implicits.find(_.fqn.contains("m2")).get
-    m1.location.path shouldEqual m2.location.path
-    m1.fqn.replace("m1", "m2") shouldEqual m2.fqn
-    m1.fqtn shouldEqual m2.fqtn
-    m1.id should not equal m2.id
+    res.normalizedImplicits should contain only (
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_root_.dI.m1.msgDeclaration.",
+        plainName = "msgDeclaration",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "String",
+        kind = "val",
+        nargs = "-1"
+      ),
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_root_.dI.m2.msgDeclaration.",
+        plainName = "msgDeclaration",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "String",
+        kind = "val",
+        nargs = "-1"
+      )
+    )
+
+    res.funs shouldBe empty
+    res.links shouldBe empty
+    res.params shouldBe empty
+
+    res.implicits.groupBy(_.id).keys.toSet.size shouldBe 2
   })
   
   checkExtraction(
-    "The typee field indicates the type signature as expressed in the code",
+    "The signature field indicates the type signature as expressed in the code",
     """
       |package dI
       |object typeInfo {
@@ -50,11 +75,31 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit val valType = "3"
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 2
-    val defImp = res.implicits.find(_.fqn.contains("defType")).get
-    val valImp = res.implicits.find(_.fqn.contains("valType")).get
-    defImp.signature shouldBe "(a: String): String"
-    valImp.signature shouldBe "String"
+    res.normalizedImplicits should contain only (
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_root_.dI.typeInfo.defType(Ljava/lang/String;)Ljava/lang/String;.",
+        plainName = "defType",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "(a: String): String",
+        kind = "def",
+        nargs = "List()"
+      ),
+      DeclaredImplicit(
+        location = dummyLocation,
+        fqn = "_root_.dI.typeInfo.valType.",
+        plainName = "valType",
+        fqtn = "_root_.java.lang.String#",
+        signature = "String",
+        kind = "val",
+        nargs = "-1"
+      )
+    )
+
+    res.funs shouldBe empty
+    res.links shouldBe empty
+    res.params shouldBe empty
+
   })
   
   checkExtraction(
@@ -67,6 +112,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
      }
     }
     """.trim.stripMargin, { res =>
+
     val objImp = res.implicits.find(_.fqn.contains("objType")).get
     objImp.signature shouldBe "objType"
   })

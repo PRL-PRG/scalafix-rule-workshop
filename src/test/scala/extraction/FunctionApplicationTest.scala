@@ -1,5 +1,6 @@
 package extraction
 
+import extractor.Serializables.Apply
 import framework.SemanticdbTest
 
 class FunctionApplicationTest extends SemanticdbTest {
