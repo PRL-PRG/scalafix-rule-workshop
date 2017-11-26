@@ -1,16 +1,12 @@
 package extractor
 
 import java.nio.file.{Files, Path}
-import java.util
-import java.util.concurrent.{ConcurrentLinkedQueue, CopyOnWriteArrayList}
 
-import extractor.ExtractImplicits.Result
 import org.langmeta.internal.io.PathIO
+import org.langmeta.internal.semanticdb.{schema => s}
 
-import scala.collection.{immutable, mutable}
 import scala.meta._
 import scala.util.control.NonFatal
-import org.langmeta.internal.semanticdb.{schema => s}
 
 
 case class SemanticCtx(database: Database) {
@@ -132,8 +128,8 @@ case class SemanticCtx(database: Database) {
   }
 }
 
-object SemanticDBFileVisitor {
-  def apply[T](filePath: Path, f: SemanticCtx => Result): Result = {
+object SemanticDBFileVisitor extends ((Path, (SemanticCtx => Result)) => Result) {
+  def apply(filePath: Path, f: SemanticCtx => Result): Result = {
       try {
         val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
         val mdb = sdb.toDb(None)
@@ -151,8 +147,8 @@ object SemanticDBFileVisitor {
   }
 }
 
-abstract class TreeWalker {
-  def run[T](f: SemanticCtx => Result): Result
+trait TreeWalker extends ((SemanticCtx => Result) => Result) {
+  def apply(f: SemanticCtx => Result): Result
   def deleteOldFiles(projectPath: AbsolutePath): Unit = {
     val files = Files
       .walk(projectPath.toNIO)
@@ -192,7 +188,7 @@ abstract class TreeWalker {
 class SingleProjectWalker(rootPath: String) extends TreeWalker {
   val root = AbsolutePath(rootPath)
   println(s"Analyzing ${rootPath}")
-  def run[T](f: SemanticCtx => Result): Result = {
+  def apply(f: SemanticCtx => Result): Result = {
     import scala.collection.JavaConverters._
     deleteOldFiles(root)
     val results = Files

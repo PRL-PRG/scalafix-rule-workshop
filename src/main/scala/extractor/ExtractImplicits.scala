@@ -7,16 +7,17 @@ import org.langmeta.inputs.Input
 
 import scala.meta._
 
-object ExtractImplicits {
 
-  final case class Result(
-     params: Set[ImplicitParam],
-     funs: Seq[Apply],
-     links: Set[FunApplyWithImplicitParam],
-     implicits: Set[DeclaredImplicit])
-  object Result {
-    val Empty = Result(Set(), Seq(), Set(), Set())
-  }
+final case class Result(
+   params: Set[ImplicitParam],
+   funs: Seq[Apply],
+   links: Set[FunApplyWithImplicitParam],
+   implicits: Set[DeclaredImplicit])
+object Result {
+  val Empty = Result(Set(), Seq(), Set(), Set())
+}
+
+object ExtractImplicits extends (SemanticCtx => Result) {
 
   final case class LinkPair(param: ImplicitParam, fun: Apply)
 

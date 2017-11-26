@@ -5,9 +5,8 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import extractor.ExtractImplicits.Result
-import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
-import extractor.{ExtractImplicits, Location, SemanticCtx}
+import extractor.Serializables.{Apply, DeclaredImplicit}
+import extractor.{ExtractImplicits, Location, Result, SemanticCtx}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}
@@ -130,7 +129,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
 
-  protected def checkExtraction(name: String, code: String, f: ExtractImplicits.Result => Unit): Unit = {
+  protected def checkExtraction(name: String, code: String, f: Result => Unit): Unit = {
     test(name) {
       val db = computeSemanticdbFromCode(code)
       val ctx = SemanticCtx(db)

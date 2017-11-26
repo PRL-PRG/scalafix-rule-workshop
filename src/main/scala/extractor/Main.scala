@@ -12,7 +12,7 @@ object Main {
       case Some(conf) => {
         println(s"Root: ${conf.root}, Multiple projects: ${conf.multidir}")
         val walker = new SingleProjectWalker(conf.root)
-        val results = walker.run(ExtractImplicits.apply)
+        val results = walker(ExtractImplicits)
         CSV.dumpFiles(conf.root, results)
       }
       case None => {

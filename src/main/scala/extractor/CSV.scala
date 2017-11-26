@@ -1,9 +1,6 @@
 package extractor
 
 import java.nio.file.{Files, Paths, StandardOpenOption}
-import java.util.concurrent.ConcurrentLinkedQueue
-
-import extractor.ExtractImplicits.Result
 
 object CSV {
 
