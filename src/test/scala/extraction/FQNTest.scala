@@ -1,5 +1,6 @@
 package extraction
 
+import extractor.Location
 import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
 import framework.SemanticdbTest
 
@@ -42,7 +43,7 @@ class FQNTest extends SemanticdbTest {
     res.implicits.size shouldBe 2
     res.normalizedImplicits should contain only (
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_empty_.hashtags.hello.",
         plainName = "hello",
         fqtn = "_root_.scala.Predef.String#",
@@ -51,7 +52,7 @@ class FQNTest extends SemanticdbTest {
         nargs = "-1"
       ),
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.(word)",
         plainName = "word",
         fqtn = "_root_.scala.Predef.String#",
@@ -68,7 +69,7 @@ class FQNTest extends SemanticdbTest {
       plainName = "hello"
     )
     res.normalizedFuns should contain only Apply(
-      location = dummyLocation,
+      location = Location.Empty,
       fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.",
       code = "say()",
       nargs = "0"

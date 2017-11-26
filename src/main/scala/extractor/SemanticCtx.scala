@@ -146,7 +146,7 @@ object SemanticDBFileVisitor {
           val st = e.getStackTrace
           e.setStackTrace(st.take(10))
           e.printStackTrace()
-          Result(Set(), Seq(), Set(), Set())
+          Result.Empty
       }
   }
 }
@@ -206,7 +206,7 @@ class SingleProjectWalker(rootPath: String) extends TreeWalker {
         .toSeq
         .par
         .map {file => SemanticDBFileVisitor(file, f)}
-        .fold(Result(Set(), Seq(), Set(), Set())) {(acc, partial) =>
+        .fold(Result.Empty) {(acc, partial) =>
           mergeResults(acc, partial)
         }
     println(" ")

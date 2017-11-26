@@ -139,13 +139,11 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       f(result)
     }
   }
-
-  val dummyLocation = Location("dummy/path.scala", "-1", "-1")
   implicit class NormalizedResult(that: Result) {
-    def normalizedImplicits: Set[DeclaredImplicit] = that.implicits.map(_.copy(location = dummyLocation))
+    def normalizedImplicits: Set[DeclaredImplicit] = that.implicits.map(_.copy(location = Location.Empty))
     // Note that when using normalized funs we cannot make assertions over the links,
     // Because the links are tied to the position of the application.
-    def normalizedFuns: Seq[Apply] = that.funs.map(_.copy(location = dummyLocation))
+    def normalizedFuns: Seq[Apply] = that.funs.map(_.copy(location = Location.Empty))
   }
 
 }

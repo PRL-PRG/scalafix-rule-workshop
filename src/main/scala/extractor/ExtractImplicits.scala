@@ -14,6 +14,9 @@ object ExtractImplicits {
      funs: Seq[Apply],
      links: Set[FunApplyWithImplicitParam],
      implicits: Set[DeclaredImplicit])
+  object Result {
+    val Empty = Result(Set(), Seq(), Set(), Set())
+  }
 
   final case class LinkPair(param: ImplicitParam, fun: Apply)
 

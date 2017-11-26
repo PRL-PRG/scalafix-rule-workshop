@@ -1,5 +1,6 @@
 package extraction
 
+import extractor.Location
 import extractor.Serializables.DeclaredImplicit
 import framework.SemanticdbTest
 
@@ -13,7 +14,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |}
     """.trim.stripMargin, { res =>
     res.normalizedImplicits should contain only DeclaredImplicit(
-      location = dummyLocation,
+      location = Location.Empty,
       fqn = "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;.",
       plainName = "m",
       fqtn = "_root_.scala.Predef.String#",
@@ -40,7 +41,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     """.trim.stripMargin, { res =>
     res.normalizedImplicits should contain only (
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_root_.dI.m1.msgDeclaration.",
         plainName = "msgDeclaration",
         fqtn = "_root_.scala.Predef.String#",
@@ -49,7 +50,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
         nargs = "-1"
       ),
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_root_.dI.m2.msgDeclaration.",
         plainName = "msgDeclaration",
         fqtn = "_root_.scala.Predef.String#",
@@ -77,7 +78,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     """.trim.stripMargin, { res =>
     res.normalizedImplicits should contain only (
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_root_.dI.typeInfo.defType(Ljava/lang/String;)Ljava/lang/String;.",
         plainName = "defType",
         fqtn = "_root_.scala.Predef.String#",
@@ -86,7 +87,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
         nargs = "List()"
       ),
       DeclaredImplicit(
-        location = dummyLocation,
+        location = Location.Empty,
         fqn = "_root_.dI.typeInfo.valType.",
         plainName = "valType",
         fqtn = "_root_.java.lang.String#",

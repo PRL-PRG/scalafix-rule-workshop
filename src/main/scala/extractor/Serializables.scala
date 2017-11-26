@@ -9,6 +9,9 @@ trait ResultElement {
 final case class Location(path: String, line: String, col: String) {
   val sourcelink = s"$path:$line:$col"
 }
+object Location {
+  val Empty = Location("dummy/path.semanticdb", "-1", "-1")
+}
 
 object Serializables {
 
