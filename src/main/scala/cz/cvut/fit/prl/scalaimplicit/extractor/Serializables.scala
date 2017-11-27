@@ -56,11 +56,7 @@ object Serializables {
   def createSyntheticApplication(ctx: SemanticCtx, synth: Synthetic, file: String, params: Int): Apply = {
     Apply(
       location = Location(file, synth.position.endLine.toString, synth.position.endColumn.toString),
-      code = s"apply(${
-        if (params > 0) {
-          "_" + ",_" * (params - 1)
-        }
-      })",
+      code = s"apply(${Seq.fill(params)("_").mkString(", ")})",
       fqn = synth.names(1).symbol.toString,
       nargs = params.toString
     )
