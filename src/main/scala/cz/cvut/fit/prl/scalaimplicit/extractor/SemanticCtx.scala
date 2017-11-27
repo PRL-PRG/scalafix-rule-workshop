@@ -203,9 +203,7 @@ class SingleProjectWalker(rootPath: String) extends TreeWalker with LazyLogging 
         .toSeq
         .par
         .map {file => SemanticDBFileVisitor(file, f)}
-        .fold(Result.Empty) {(acc, partial) =>
-          mergeResults(acc, partial)
-        }
+        .fold(Result.Empty)(mergeResults)
     results
   }
 }
