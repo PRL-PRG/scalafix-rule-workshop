@@ -2,6 +2,7 @@ package extractor
 
 import java.nio.file.{Files, Path}
 
+import com.typesafe.scalalogging.LazyLogging
 import org.langmeta.internal.io.PathIO
 import org.langmeta.internal.semanticdb.{schema => s}
 
@@ -9,7 +10,7 @@ import scala.meta._
 import scala.util.control.NonFatal
 
 
-case class SemanticCtx(database: Database) {
+case class SemanticCtx(database: Database) extends LazyLogging {
   def input = database.documents.head.input
   val file: String = input match {
     case Input.VirtualFile(path, _) => path
@@ -80,7 +81,7 @@ case class SemanticCtx(database: Database) {
         symbol(fun).getOrElse(qualifiedName(fun.op)).toString
       }
       case other => {
-        Console.withOut(Console.err) { println(s"[error] Function type unknown: ${other.structure}") }
+        Console.withOut(Console.err) { logger.debug(s"[error] Function type unknown: ${other.structure}") }
         throw new RuntimeException()
       }
     }
@@ -128,14 +129,14 @@ case class SemanticCtx(database: Database) {
   }
 }
 
-object SemanticDBFileVisitor extends ((Path, (SemanticCtx => Result)) => Result) {
+object SemanticDBFileVisitor extends ((Path, (SemanticCtx => Result)) => Result) with LazyLogging {
   def apply(filePath: Path, f: SemanticCtx => Result): Result = {
       try {
         val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
         val mdb = sdb.toDb(None)
         val ctx = SemanticCtx(mdb)
         val res = f(ctx)
-        print(".")
+        logger.debug(s"Processing $filePath")
         res
       } catch {
         case NonFatal(e) =>
@@ -185,9 +186,9 @@ trait TreeWalker extends ((SemanticCtx => Result) => Result) {
   }
 }
 
-class SingleProjectWalker(rootPath: String) extends TreeWalker {
+class SingleProjectWalker(rootPath: String) extends TreeWalker with LazyLogging {
   val root = AbsolutePath(rootPath)
-  println(s"Analyzing ${rootPath}")
+  logger.debug(s"Analyzing ${rootPath}")
   def apply(f: SemanticCtx => Result): Result = {
     import scala.collection.JavaConverters._
     deleteOldFiles(root)
@@ -205,7 +206,6 @@ class SingleProjectWalker(rootPath: String) extends TreeWalker {
         .fold(Result.Empty) {(acc, partial) =>
           mergeResults(acc, partial)
         }
-    println(" ")
     results
   }
 }
