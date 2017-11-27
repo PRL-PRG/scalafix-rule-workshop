@@ -190,7 +190,7 @@ class SingleProjectWalker(rootPath: String) extends TreeWalker with LazyLogging 
   val root = AbsolutePath(rootPath)
   logger.debug(s"Analyzing ${rootPath}")
   def apply(f: SemanticCtx => Result): Result = {
-    import scala.collection.JavaConverters._
+    import scala.collection.JavaConverters.asScalaIteratorConverter
     deleteOldFiles(root)
     val results = Files
         .walk(root.toNIO)
