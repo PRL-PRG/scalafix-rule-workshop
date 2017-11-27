@@ -55,8 +55,8 @@ class ClassificationTest extends SemanticdbTest {
       val usages = ctx.index.synthetics
         .filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
       val wrappers = classifyUsages(ctx, usages)
-      wrappers.extensions.size shouldBe 2
-      wrappers.conversions.size shouldBe 2
+      wrappers.extensions should have size 2
+      wrappers.conversions should have size 2
     }
   )
 

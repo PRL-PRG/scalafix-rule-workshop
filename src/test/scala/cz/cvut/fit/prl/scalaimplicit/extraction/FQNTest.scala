@@ -17,7 +17,7 @@ class FQNTest extends SemanticdbTest {
       | implicit val hello: String = "Hello"
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.size shouldBe 1
+      res.implicits should have size 1
       res.implicits.head.fqn should startWith("_root_")
       res.implicits.head.fqn should endWith(".")
     }
@@ -30,7 +30,7 @@ class FQNTest extends SemanticdbTest {
       | implicit val hello: String = "Hello"
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.size shouldBe 1
+      res.implicits should have size 1
       res.implicits.head.fqn should startWith("_empty_")
       res.implicits.head.fqn should endWith(".")
     }
@@ -45,7 +45,7 @@ class FQNTest extends SemanticdbTest {
       | say()
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.size shouldBe 2
+      res.implicits should have size 2
       res.normalizedImplicits should contain only (
         DeclaredImplicit(
           location = Location.Empty,
@@ -91,8 +91,8 @@ class FQNTest extends SemanticdbTest {
       | implicit def m(a: String): String = "3"
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.size shouldBe 1
-      res.implicits.head.fqn shouldEqual "_root_.FQN.Lnotation.m(Ljava/lang/String;)Ljava/lang/String;."
+      res.implicits
+        .map(_.fqn) should contain only "_root_.FQN.Lnotation.m(Ljava/lang/String;)Ljava/lang/String;."
     }
   )
 
@@ -111,18 +111,16 @@ class FQNTest extends SemanticdbTest {
       | implicit def mBo(a: Boolean): Boolean = a
       |}
     """.trim.stripMargin, { res =>
-      def find(n: String): DeclaredImplicit = {
-        res.implicits.find(_.fqn.contains(n)).get
-      }
-      res.implicits.size shouldBe 8
-      find("mI").fqn shouldEqual "_root_.FQN.Inotation.mI(I)I."
-      find("mC").fqn shouldEqual "_root_.FQN.Inotation.mC(C)C."
-      find("mL").fqn shouldEqual "_root_.FQN.Inotation.mL(J)J."
-      find("mS").fqn shouldEqual "_root_.FQN.Inotation.mS(S)S."
-      find("mF").fqn shouldEqual "_root_.FQN.Inotation.mF(F)F."
-      find("mD").fqn shouldEqual "_root_.FQN.Inotation.mD(D)D."
-      find("mBy").fqn shouldEqual "_root_.FQN.Inotation.mBy(B)B."
-      find("mBo").fqn shouldEqual "_root_.FQN.Inotation.mBo(Z)Z."
+      res.implicits.map(_.fqn) should contain only (
+        "_root_.FQN.Inotation.mI(I)I.",
+        "_root_.FQN.Inotation.mC(C)C.",
+        "_root_.FQN.Inotation.mL(J)J.",
+        "_root_.FQN.Inotation.mS(S)S.",
+        "_root_.FQN.Inotation.mF(F)F.",
+        "_root_.FQN.Inotation.mD(D)D.",
+        "_root_.FQN.Inotation.mBy(B)B.",
+        "_root_.FQN.Inotation.mBo(Z)Z."
+      )
     }
   )
 }

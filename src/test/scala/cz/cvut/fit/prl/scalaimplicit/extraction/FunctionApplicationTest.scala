@@ -1,13 +1,13 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
+import cz.cvut.fit.prl.scalaimplicit.extractor.Location
 import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.Apply
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class FunctionApplicationTest extends SemanticdbTest {
 
   checkExtraction(
-    "A function's nargs field does not count its implicit parameters, " +
-      "regardless of whether they are passed explicitly",
+    "A function's nargs field does not count its implicit parameters",
     """
       |object implicitParameterCount {
       | implicit val msgDeclaration: String = "World"
@@ -19,12 +19,22 @@ class FunctionApplicationTest extends SemanticdbTest {
       | message1Arg("Hello")
       |}
     """.trim.stripMargin, { res =>
-      res.funs.size shouldBe 2
-      res.funs.find(_.code == "message0Args()").get.nargs shouldEqual "0"
-      res.funs
-        .find(_.code == "message1Arg(\"Hello\")")
-        .get
-        .nargs shouldEqual "1"
+      res.normalizedFuns should contain only (
+        Apply(
+          location = Location.Empty,
+          fqn =
+            "_empty_.implicitParameterCount.message0Args(Ljava/lang/String;)Ljava/lang/String;.",
+          code = "message0Args()",
+          nargs = "0"
+        ),
+        Apply(
+          location = Location.Empty,
+          fqn =
+            "_empty_.implicitParameterCount.message1Arg(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;.",
+          code = "message1Arg(\"Hello\")",
+          nargs = "1"
+        )
+      )
     }
   )
 
@@ -41,7 +51,7 @@ class FunctionApplicationTest extends SemanticdbTest {
       | say("Hello")("World")
       |}
     """.trim.stripMargin, { res =>
-      res.funs.size shouldBe 1
+      res.funs should have size 1
     }
   )
 
@@ -55,10 +65,13 @@ class FunctionApplicationTest extends SemanticdbTest {
         | m()
         |}
       """.trim.stripMargin, { res =>
-      res.funs.size shouldBe 2
-      res.funs(0).code shouldEqual res.funs(1).code
-      res.funs(0).fqn shouldEqual res.funs(1).fqn
-      res.funs(0).id should not equal res.funs(1).id
+      res.normalizedFuns should contain only Apply(
+        location = Location.Empty,
+        fqn = "_empty_.distinctIds.m(Ljava/lang/String;)Ljava/lang/String;.",
+        code = "m()",
+        nargs = "0"
+      )
+      res.funs.map(_.id).distinct should have size 2
     }
   )
 
@@ -73,8 +86,9 @@ class FunctionApplicationTest extends SemanticdbTest {
         | say("Hello")
         |}
       """.trim.stripMargin, { res =>
-      res.funs.size shouldBe 1
-      res.funs.head.fqn shouldEqual "_root_.a.paramLists.say(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;."
+      res.funs should have size 1
+      res.funs
+        .map(_.fqn) should contain only "_root_.a.paramLists.say(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;."
     }
   )
 

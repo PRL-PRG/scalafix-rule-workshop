@@ -65,7 +65,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       res.links shouldBe empty
       res.params shouldBe empty
 
-      res.implicits.groupBy(_.id).keys.toSet.size shouldBe 2
+      res.implicits.groupBy(_.id).keys.toSet should have size 2
     }
   )
 
@@ -117,8 +117,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
      }
     }
     """.trim.stripMargin, { res =>
-      val objImp = res.implicits.find(_.fqn.contains("objType")).get
-      objImp.signature shouldBe "objType"
+      res.implicits.map(_.signature) should contain only "objType"
     }
   )
 
@@ -130,7 +129,8 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  def say(implicit a: String) = a
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.size shouldBe 1 // As opposed to 2, for the reference to `a` in the body of `say`
+      res.implicits should have size 1
+    // As opposed to 2, for the reference to `a` in the body of `say`
     }
   )
 
@@ -145,7 +145,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | }
       |}
     """.trim.stripMargin, { res =>
-      res.implicits.foreach(_.nargs == "-1")
+      res.implicits.map(_.nargs).toSet should contain only "-1"
     }
   )
 
@@ -159,8 +159,10 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  implicit def say3(b: String)(c: Int) = b
       |}
     """.trim.stripMargin, { res =>
-      val definitions = res.implicits.filter(_.kind == "def")
-      definitions.foreach(_.nargs shouldEqual "2")
+      res.implicits
+        .filter(_.kind == "def")
+        .map(_.nargs)
+        .toSet should contain only "2"
     }
   )
 }

@@ -53,7 +53,7 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
       val usages = checkUsages(ctx)
-      usages.size shouldBe 1
+      usages should have size 1
     }
   )
 
@@ -81,9 +81,9 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
       val defsFromExtraction = checkDefinitionFromExtraction(ctx)
-      defsFromExtraction.size shouldBe 2
+      defsFromExtraction should have size 2
       val usages = checkUsages(ctx)
-      usages.size shouldBe 3
+      usages should have size 3
     }
   )
 }
