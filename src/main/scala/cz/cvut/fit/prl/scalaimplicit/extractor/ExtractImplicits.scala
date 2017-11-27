@@ -1,8 +1,6 @@
-package extractor
+package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
-import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
 import org.langmeta.inputs.Input
 
 import scala.meta._

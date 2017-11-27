@@ -1,11 +1,7 @@
-package extractor
+package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import java.nio.file.{Files, Paths}
-import java.text.SimpleDateFormat
-import java.util.Date
-
-import cli._
 import com.typesafe.scalalogging.LazyLogging
+import cz.cvut.fit.prl.scalaimplicit.cli._
 
 object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {

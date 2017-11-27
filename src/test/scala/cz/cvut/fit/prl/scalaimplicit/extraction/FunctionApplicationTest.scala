@@ -1,7 +1,7 @@
-package extraction
+package cz.cvut.fit.prl.scalaimplicit.extraction
 
-import extractor.Serializables.Apply
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.Apply
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class FunctionApplicationTest extends SemanticdbTest {
 

@@ -1,8 +1,8 @@
-package extraction
+package cz.cvut.fit.prl.scalaimplicit.extraction
 
-import extractor.Location
-import extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.extractor.Location
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit, ImplicitParam}
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class FQNTest extends SemanticdbTest {
   checkExtraction(

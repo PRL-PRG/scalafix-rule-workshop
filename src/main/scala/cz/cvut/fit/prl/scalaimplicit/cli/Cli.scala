@@ -1,4 +1,4 @@
-package cli
+package cz.cvut.fit.prl.scalaimplicit.cli
 
 import scopt._
 import java.nio.file.{Paths, Files}

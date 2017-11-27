@@ -1,6 +1,6 @@
-package extraction
+package cz.cvut.fit.prl.scalaimplicit.extraction
 
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class ExampleTest extends SemanticdbTest {
 

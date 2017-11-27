@@ -1,6 +1,6 @@
-package heuristics
+package cz.cvut.fit.prl.scalaimplicit.heuristics
 
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class TypeClassTest extends SemanticdbTest {
   checkContext(

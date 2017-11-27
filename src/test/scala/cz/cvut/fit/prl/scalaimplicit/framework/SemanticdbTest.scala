@@ -1,12 +1,12 @@
-package framework
+package cz.cvut.fit.prl.scalaimplicit.framework
 
 import java.io.{File, UncheckedIOException}
 import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import extractor.Serializables.{Apply, DeclaredImplicit}
-import extractor.{ExtractImplicits, Location, Result, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit}
+import cz.cvut.fit.prl.scalaimplicit.extractor.{ExtractImplicits, Location, Result, SemanticCtx}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}

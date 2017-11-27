@@ -1,4 +1,4 @@
-package extractor
+package cz.cvut.fit.prl.scalaimplicit.extractor
 
 import java.nio.file.{Files, Path}
 

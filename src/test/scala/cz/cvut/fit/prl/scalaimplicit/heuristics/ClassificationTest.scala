@@ -1,7 +1,7 @@
-package heuristics
+package cz.cvut.fit.prl.scalaimplicit.heuristics
 
-import extractor.SemanticCtx
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.extractor.SemanticCtx
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 import org.langmeta.semanticdb.Synthetic
 
 class ClassificationTest extends SemanticdbTest {

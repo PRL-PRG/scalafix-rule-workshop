@@ -1,7 +1,7 @@
-package extraction
+package cz.cvut.fit.prl.scalaimplicit.extraction
 
-import extractor.Serializables.ImplicitParam
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.ImplicitParam
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class ImplicitParameterTest extends SemanticdbTest {
 

@@ -1,7 +1,7 @@
-package heuristics
+package cz.cvut.fit.prl.scalaimplicit.heuristics
 
-import extractor.{ExtractImplicits, SemanticCtx}
-import framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.extractor.{ExtractImplicits, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 import org.langmeta.semanticdb.{ResolvedName, Synthetic}
 
 class ImplicitClassExtensionTest extends SemanticdbTest {
@@ -10,7 +10,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     * Define a method to identify the definition of the
     * Implicit class extension pattern.
     *
-    * This can be done after extraction in an R script since, as it is shown,
+    * This can be done after cz.cvut.fit.prl.scalaimplicit.extraction in an R script since, as it is shown,
     * we already have the necessary data.
     * @param ctx
     */
