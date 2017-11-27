@@ -11,6 +11,11 @@ class ClassificationTest extends SemanticdbTest {
   /**
     * A function that tries to classify the usage of a wrapper function, in either
     * a class extension, an implicit conversion, or other.
+    *
+    * The intention of this function is to provide an example algorithm that could
+    * be reimplemented in R later, thus the lack of scala-specific constructs like
+    * case class matching.
+    *
     * @param wrapperFunctions
     * @return
     */

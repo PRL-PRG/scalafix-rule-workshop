@@ -29,6 +29,11 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       case _ => ""
     }
 
+    /**
+      * Implicit parameters are inserted by the compiler.
+      * This captures all implicits inserted,
+      * to be matched later with function applications.
+      */
     lazy val syntheticImplicits =
       for {
         syn <- ctx.index.synthetics
@@ -39,11 +44,38 @@ object ExtractImplicits extends (SemanticCtx => Result) {
         syn -> Serializables.createImplicitParam(ctx, symbol, den)
       }
 
-    lazy val syntheticApplies =
-      ctx.index.synthetics.filter(_.names.exists(_.toString() == "apply"))
+    /**
+      * Filter for the synthetic function applications.
+      * Captures all "apply()" functions inserted by the compiler.
+      * @param elem Synthetic to test
+      * @return true iff the synthetic has apply in the name
+      */
+    def hasApplyInTheName(elem: Synthetic): Boolean = {
+      elem.names.exists(_.toString() == "apply")
+    }
 
+    lazy val syntheticApplications =
+      ctx.index.synthetics.filter(hasApplyInTheName)
+
+    /**
+      * Capture function applications, both in source and inserted by the compiler,
+      * and match them with the implicit parameters captured earlier.
+      */
     lazy val paramsFuns =
       for {
+
+        /**
+          * We capture both Names and Applies that appear in-tree, since both represent function applications.
+          *
+          * In semanticdb notation, a Term.Name is the name part of a call.
+          * In function chains, it may happen that we have only Term.Names (and not Term.Applies)
+          * for individual functions in the chain. Thus, it is not sufficient to match Term.Applies.
+          *
+          * e.g.: https://astexplorer.net/#/gist/3246f2f332f71e73e4e0da969e8eed22/latest
+          *
+          * This first filter matches every call, both the outer Applies and the inner Names.
+          * Later filters leave out those calls without implicit parameters.
+          */
         app <- ctx.tree collect {
           case x: Term.Apply =>
             Serializables.AppTerm(x, x.args.size, x.fun.pos.end)
@@ -52,7 +84,7 @@ object ExtractImplicits extends (SemanticCtx => Result) {
         param <- syntheticImplicits collect {
           case (syn, den) if syn.position.end == app.term.pos.end => den
         }
-        syntheticApply = syntheticApplies find { x =>
+        syntheticApply = syntheticApplications find { x =>
           x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
         }
       } yield {
@@ -74,6 +106,11 @@ object ExtractImplicits extends (SemanticCtx => Result) {
     val links =
       paramsFuns.map(x => Serializables.createLink(x.param, x.fun)).toSet
 
+    /**
+      * Collection of declaration of implicits in a file.
+      * Accounts for all declarations with the implicit keyword,
+      * be it parameters, vals, defs, objects...
+      */
     lazy val declaredImplicits =
       for {
         name <- ctx.index.names if name.isDefinition

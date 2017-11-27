@@ -10,7 +10,7 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     * Define a method to identify the definition of the
     * Implicit class extension pattern.
     *
-    * This can be done after cz.cvut.fit.prl.scalaimplicit.extraction in an R script since, as it is shown,
+    * This can be done after extraction in an R script since, as it is shown,
     * we already have the necessary data.
     * @param ctx
     */
@@ -49,6 +49,14 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     }
   }
 
+  def namesInSamePlace(ctx: SemanticCtx,
+                       usage: Synthetic): Iterable[ResolvedName] = {
+    ctx.names.filter(
+      x =>
+        x.position.start == usage.position.start ||
+          x.position.end == usage.position.end)
+  }
+
   checkContext(
     "Symbols inside wrappers are still in the index",
     """
@@ -71,19 +79,11 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
         .filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
       // (1) Check that there are no names in the same place as the constant conversion
       val constantUsage = usages.find(_.position.start == 163).get
-      val constantSymbols = ctx.names.filter(
-        x =>
-          x.position.start == constantUsage.position.start ||
-            x.position.end == constantUsage.position.end)
-      constantSymbols shouldBe empty
+      namesInSamePlace(ctx, constantUsage) shouldBe empty
 
       // (2) Check that there are some names in the same place as the variable conversion
       val variableUsage = usages.find(_.position.start == 195).get
-      val variableSymbols = ctx.names.filter(
-        x =>
-          x.position.start == variableUsage.position.start ||
-            x.position.end == variableUsage.position.end)
-      variableSymbols should not be empty
+      namesInSamePlace(ctx, variableUsage) should not be empty
     }
   )
 
