@@ -6,15 +6,16 @@ import org.langmeta.semanticdb.Synthetic
 
 class ClassificationTest extends SemanticdbTest {
 
-
   case class Wrappers(extensions: Seq[Synthetic], conversions: Seq[Synthetic])
+
   /**
     * A function that tries to classify the usage of a wrapper function, in either
     * a class extension, an implicit conversion, or other.
     * @param wrapperFunctions
     * @return
     */
-  def classifyUsages(ctx: SemanticCtx, wrapperFunctions: Seq[Synthetic]): Wrappers = {
+  def classifyUsages(ctx: SemanticCtx,
+                     wrapperFunctions: Seq[Synthetic]): Wrappers = {
     def isClassExtension(syn: Synthetic): Boolean = {
       val symbol = syn.names.find(_.symbol.toString != "_star_.").get
       val parts = symbol.symbol.toString.split("""(?<=.*)(\(|\))""")
@@ -51,10 +52,12 @@ class ClassificationTest extends SemanticdbTest {
       |}
       |// Example from https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension
     """.trim.stripMargin, { ctx =>
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
-    val wrappers = classifyUsages(ctx, usages)
-    wrappers.extensions.size shouldBe 2
-    wrappers.conversions.size shouldBe 2
-  })
+      val usages = ctx.index.synthetics
+        .filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
+      val wrappers = classifyUsages(ctx, usages)
+      wrappers.extensions.size shouldBe 2
+      wrappers.conversions.size shouldBe 2
+    }
+  )
 
 }

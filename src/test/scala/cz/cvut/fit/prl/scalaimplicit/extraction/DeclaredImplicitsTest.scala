@@ -13,20 +13,21 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit def m(a: String): String = "3"
       |}
     """.trim.stripMargin, { res =>
-    res.normalizedImplicits should contain only DeclaredImplicit(
-      location = Location.Empty,
-      fqn = "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;.",
-      plainName = "m",
-      fqtn = "_root_.scala.Predef.String#",
-      signature = "(a: String): String",
-      kind = "def",
-      nargs = "1"
-    )
+      res.normalizedImplicits should contain only DeclaredImplicit(
+        location = Location.Empty,
+        fqn = "_root_.dI.basicInfo.m(Ljava/lang/String;)Ljava/lang/String;.",
+        plainName = "m",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "(a: String): String",
+        kind = "def",
+        nargs = "1"
+      )
 
-    res.funs shouldBe empty
-    res.links shouldBe empty
-    res.params shouldBe empty
-  })
+      res.funs shouldBe empty
+      res.links shouldBe empty
+      res.params shouldBe empty
+    }
+  )
 
   checkExtraction(
     "Two declared implicits with identical code have different ids",
@@ -39,34 +40,35 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit val msgDeclaration: String = "World"
       |}
     """.trim.stripMargin, { res =>
-    res.normalizedImplicits should contain only (
-      DeclaredImplicit(
-        location = Location.Empty,
-        fqn = "_root_.dI.m1.msgDeclaration.",
-        plainName = "msgDeclaration",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "String",
-        kind = "val",
-        nargs = "-1"
-      ),
-      DeclaredImplicit(
-        location = Location.Empty,
-        fqn = "_root_.dI.m2.msgDeclaration.",
-        plainName = "msgDeclaration",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "String",
-        kind = "val",
-        nargs = "-1"
+      res.normalizedImplicits should contain only (
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn = "_root_.dI.m1.msgDeclaration.",
+          plainName = "msgDeclaration",
+          fqtn = "_root_.scala.Predef.String#",
+          signature = "String",
+          kind = "val",
+          nargs = "-1"
+        ),
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn = "_root_.dI.m2.msgDeclaration.",
+          plainName = "msgDeclaration",
+          fqtn = "_root_.scala.Predef.String#",
+          signature = "String",
+          kind = "val",
+          nargs = "-1"
+        )
       )
-    )
 
-    res.funs shouldBe empty
-    res.links shouldBe empty
-    res.params shouldBe empty
+      res.funs shouldBe empty
+      res.links shouldBe empty
+      res.params shouldBe empty
 
-    res.implicits.groupBy(_.id).keys.toSet.size shouldBe 2
-  })
-  
+      res.implicits.groupBy(_.id).keys.toSet.size shouldBe 2
+    }
+  )
+
   checkExtraction(
     "The signature field indicates the type signature as expressed in the code",
     """
@@ -76,33 +78,35 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | implicit val valType = "3"
       |}
     """.trim.stripMargin, { res =>
-    res.normalizedImplicits should contain only (
-      DeclaredImplicit(
-        location = Location.Empty,
-        fqn = "_root_.dI.typeInfo.defType(Ljava/lang/String;)Ljava/lang/String;.",
-        plainName = "defType",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "(a: String): String",
-        kind = "def",
-        nargs = "List()"
-      ),
-      DeclaredImplicit(
-        location = Location.Empty,
-        fqn = "_root_.dI.typeInfo.valType.",
-        plainName = "valType",
-        fqtn = "_root_.java.lang.String#",
-        signature = "String",
-        kind = "val",
-        nargs = "-1"
+      res.normalizedImplicits should contain only (
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn =
+            "_root_.dI.typeInfo.defType(Ljava/lang/String;)Ljava/lang/String;.",
+          plainName = "defType",
+          fqtn = "_root_.scala.Predef.String#",
+          signature = "(a: String): String",
+          kind = "def",
+          nargs = "List()"
+        ),
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn = "_root_.dI.typeInfo.valType.",
+          plainName = "valType",
+          fqtn = "_root_.java.lang.String#",
+          signature = "String",
+          kind = "val",
+          nargs = "-1"
+        )
       )
-    )
 
-    res.funs shouldBe empty
-    res.links shouldBe empty
-    res.params shouldBe empty
+      res.funs shouldBe empty
+      res.links shouldBe empty
+      res.params shouldBe empty
 
-  })
-  
+    }
+  )
+
   checkExtraction(
     "The signature field of an implicit object is it's unqualified name",
     """
@@ -113,10 +117,10 @@ class DeclaredImplicitsTest extends SemanticdbTest {
      }
     }
     """.trim.stripMargin, { res =>
-
-    val objImp = res.implicits.find(_.fqn.contains("objType")).get
-    objImp.signature shouldBe "objType"
-  })
+      val objImp = res.implicits.find(_.fqn.contains("objType")).get
+      objImp.signature shouldBe "objType"
+    }
+  )
 
   checkExtraction(
     "Only the definition of an implicit is registered as a declared implicit",
@@ -126,8 +130,9 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  def say(implicit a: String) = a
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 1 // As opposed to 2, for the reference to `a` in the body of `say`
-  })
+      res.implicits.size shouldBe 1 // As opposed to 2, for the reference to `a` in the body of `say`
+    }
+  )
 
   checkExtraction(
     "A declared implicit with a kind different to def has -1 nargs",
@@ -140,8 +145,9 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       | }
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.foreach(_.nargs == "-1")
-  })
+      res.implicits.foreach(_.nargs == "-1")
+    }
+  )
 
   checkExtraction(
     "A declared implicit def has nargs equal to the number of non-implicit args",
@@ -153,7 +159,8 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |  implicit def say3(b: String)(c: Int) = b
       |}
     """.trim.stripMargin, { res =>
-    val definitions = res.implicits.filter(_.kind == "def")
-    definitions.foreach(_.nargs shouldEqual "2")
-  })
+      val definitions = res.implicits.filter(_.kind == "def")
+      definitions.foreach(_.nargs shouldEqual "2")
+    }
+  )
 }

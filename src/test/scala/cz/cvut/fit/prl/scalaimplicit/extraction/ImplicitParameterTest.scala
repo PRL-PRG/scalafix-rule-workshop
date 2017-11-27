@@ -18,15 +18,16 @@ class ImplicitParameterTest extends SemanticdbTest {
       | message()
       |}
     """.trim.stripMargin, { res =>
-    res.params should contain only ImplicitParam(
-      fqn = "_root_.a.test.msgDeclaration.",
-      fqtn = "_root_.scala.Predef.String#",
-      signature = "String",
-      kind = "val",
-      plainName = "msgDeclaration"
-    )
-  })
-  
+      res.params should contain only ImplicitParam(
+        fqn = "_root_.a.test.msgDeclaration.",
+        fqtn = "_root_.scala.Predef.String#",
+        signature = "String",
+        kind = "val",
+        plainName = "msgDeclaration"
+      )
+    }
+  )
+
   checkExtraction(
     "Class and type names always coincide",
     """
@@ -38,12 +39,13 @@ class ImplicitParameterTest extends SemanticdbTest {
       | say
       |}
     """.trim.stripMargin, { res =>
-    res.params should contain only ImplicitParam(
-      fqn = "_empty_.classesAndTypes.m.",
-      fqtn =  "_empty_.M#",
-      signature = "M",
-      kind = "val",
-      plainName = "m"
-    )
-  })
+      res.params should contain only ImplicitParam(
+        fqn = "_empty_.classesAndTypes.m.",
+        fqtn = "_empty_.M#",
+        signature = "M",
+        kind = "val",
+        plainName = "m"
+      )
+    }
+  )
 }

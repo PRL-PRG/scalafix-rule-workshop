@@ -1,7 +1,11 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.Location
-import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit, ImplicitParam}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
+  Apply,
+  DeclaredImplicit,
+  ImplicitParam
+}
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class FQNTest extends SemanticdbTest {
@@ -13,10 +17,11 @@ class FQNTest extends SemanticdbTest {
       | implicit val hello: String = "Hello"
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 1
-    res.implicits.head.fqn should startWith("_root_")
-    res.implicits.head.fqn should endWith(".")
-  })
+      res.implicits.size shouldBe 1
+      res.implicits.head.fqn should startWith("_root_")
+      res.implicits.head.fqn should endWith(".")
+    }
+  )
 
   checkExtraction(
     "The fqn of something in no package starts with _empty_ and ends with a dot",
@@ -25,11 +30,11 @@ class FQNTest extends SemanticdbTest {
       | implicit val hello: String = "Hello"
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 1
-    res.implicits.head.fqn should startWith("_empty_")
-    res.implicits.head.fqn should endWith(".")
-  })
-
+      res.implicits.size shouldBe 1
+      res.implicits.head.fqn should startWith("_empty_")
+      res.implicits.head.fqn should endWith(".")
+    }
+  )
 
   checkExtraction(
     "Fq type names have a hashtag (#) at the end",
@@ -40,42 +45,44 @@ class FQNTest extends SemanticdbTest {
       | say()
       |}
     """.trim.stripMargin, { res =>
-    res.implicits.size shouldBe 2
-    res.normalizedImplicits should contain only (
-      DeclaredImplicit(
-        location = Location.Empty,
+      res.implicits.size shouldBe 2
+      res.normalizedImplicits should contain only (
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn = "_empty_.hashtags.hello.",
+          plainName = "hello",
+          fqtn = "_root_.scala.Predef.String#",
+          signature = "String",
+          kind = "val",
+          nargs = "-1"
+        ),
+        DeclaredImplicit(
+          location = Location.Empty,
+          fqn =
+            "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.(word)",
+          plainName = "word",
+          fqtn = "_root_.scala.Predef.String#",
+          signature = "String",
+          kind = "param",
+          nargs = "-1"
+        )
+      )
+      res.params should contain only ImplicitParam(
         fqn = "_empty_.hashtags.hello.",
-        plainName = "hello",
         fqtn = "_root_.scala.Predef.String#",
         signature = "String",
         kind = "val",
-        nargs = "-1"
-      ),
-      DeclaredImplicit(
-        location = Location.Empty,
-        fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.(word)",
-        plainName = "word",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "String",
-        kind = "param",
-        nargs = "-1"
+        plainName = "hello"
       )
-    )
-    res.params should contain only ImplicitParam(
-      fqn = "_empty_.hashtags.hello.",
-      fqtn = "_root_.scala.Predef.String#",
-      signature = "String",
-      kind = "val",
-      plainName = "hello"
-    )
-    res.normalizedFuns should contain only Apply(
-      location = Location.Empty,
-      fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.",
-      code = "say()",
-      nargs = "0"
-    )
-  })
-  
+      res.normalizedFuns should contain only Apply(
+        location = Location.Empty,
+        fqn = "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.",
+        code = "say()",
+        nargs = "0"
+      )
+    }
+  )
+
   checkExtraction(
     "Lpath/to/class; notation is used as a type name in non-primitives in def signatures",
     """
@@ -86,7 +93,8 @@ class FQNTest extends SemanticdbTest {
     """.trim.stripMargin, { res =>
       res.implicits.size shouldBe 1
       res.implicits.head.fqn shouldEqual "_root_.FQN.Lnotation.m(Ljava/lang/String;)Ljava/lang/String;."
-  })
+    }
+  )
 
   checkExtraction(
     "The initial is used as a type name in primitives in def signatures (except Long and Boolean)",
@@ -115,5 +123,6 @@ class FQNTest extends SemanticdbTest {
       find("mD").fqn shouldEqual "_root_.FQN.Inotation.mD(D)D."
       find("mBy").fqn shouldEqual "_root_.FQN.Inotation.mBy(B)B."
       find("mBo").fqn shouldEqual "_root_.FQN.Inotation.mBo(Z)Z."
-   })
+    }
+  )
 }

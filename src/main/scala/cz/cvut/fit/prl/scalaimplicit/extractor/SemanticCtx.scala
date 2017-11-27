@@ -9,7 +9,6 @@ import org.langmeta.internal.semanticdb.{schema => s}
 import scala.meta._
 import scala.util.control.NonFatal
 
-
 case class SemanticCtx(database: Database) extends LazyLogging {
   def input = database.documents.head.input
   val file: String = input match {
@@ -43,8 +42,8 @@ case class SemanticCtx(database: Database) extends LazyLogging {
       // workaround for https://github.com/scalameta/scalameta/issues/1083
       val pos =
         if (syntax.startsWith("(") &&
-          syntax.endsWith(")") &&
-          syntax != name.value)
+            syntax.endsWith(")") &&
+            syntax != name.value)
           Position.Range(name.pos.input, name.pos.start + 1, name.pos.end - 1)
         else name.pos
       symbol(pos)
@@ -81,33 +80,35 @@ case class SemanticCtx(database: Database) extends LazyLogging {
         symbol(fun).getOrElse(qualifiedName(fun.op)).toString
       }
       case other => {
-        Console.withOut(Console.err) { logger.debug(s"[error] Function type unknown: ${other.structure}") }
+        Console.withOut(Console.err) {
+          logger.debug(s"[error] Function type unknown: ${other.structure}")
+        }
         throw new RuntimeException()
       }
     }
   }
 
   def getKind(denot: Denotation): String = {
-      var kind: String = denot match {
-        case x if x.isVal => "val"
-        case x if x.isVar => "var"
-        case x if x.isDef => "def"
-        case x if x.isTrait => "trait"
-        case x if x.isMacro => "macro"
-        case x if x.isObject => "object"
-        case x if x.isVal && x.isLazy => "lazy val"
-        case x if x.isClass && !x.isCase => "class"
-        case x if x.isClass && x.isCase => "case class"
-        case x if x.isParam => "param"
-        case x if x.isPackage => "package"
-        case x if x.isPackageObject => "package object"
-        case x => s"<unknown: ${x.structure}>"
-      }
-      //if (denot.isImplicit) kind = s"implicit $kind"
-      if (denot.isFinal) kind = s"final $kind"
-      if (denot.isLazy) kind = s"lazy $kind"
-      if (denot.isAbstract) kind = s"abstract $kind"
-      kind
+    var kind: String = denot match {
+      case x if x.isVal => "val"
+      case x if x.isVar => "var"
+      case x if x.isDef => "def"
+      case x if x.isTrait => "trait"
+      case x if x.isMacro => "macro"
+      case x if x.isObject => "object"
+      case x if x.isVal && x.isLazy => "lazy val"
+      case x if x.isClass && !x.isCase => "class"
+      case x if x.isClass && x.isCase => "case class"
+      case x if x.isParam => "param"
+      case x if x.isPackage => "package"
+      case x if x.isPackageObject => "package object"
+      case x => s"<unknown: ${x.structure}>"
+    }
+    //if (denot.isImplicit) kind = s"implicit $kind"
+    if (denot.isFinal) kind = s"final $kind"
+    if (denot.isLazy) kind = s"lazy $kind"
+    if (denot.isAbstract) kind = s"abstract $kind"
+    kind
   }
 
   def getTypeKind(denot: Denotation): String = {
@@ -129,22 +130,24 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   }
 }
 
-object SemanticDBFileVisitor extends ((Path, (SemanticCtx => Result)) => Result) with LazyLogging {
+object SemanticDBFileVisitor
+    extends ((Path, (SemanticCtx => Result)) => Result)
+    with LazyLogging {
   def apply(filePath: Path, f: SemanticCtx => Result): Result = {
-      try {
-        val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
-        val mdb = sdb.toDb(None)
-        val ctx = SemanticCtx(mdb)
-        val res = f(ctx)
-        logger.debug(s"Processing $filePath")
-        res
-      } catch {
-        case NonFatal(e) =>
-          val st = e.getStackTrace
-          e.setStackTrace(st.take(10))
-          e.printStackTrace()
-          Result.Empty
-      }
+    try {
+      val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
+      val mdb = sdb.toDb(None)
+      val ctx = SemanticCtx(mdb)
+      val res = f(ctx)
+      logger.debug(s"Processing $filePath")
+      res
+    } catch {
+      case NonFatal(e) =>
+        val st = e.getStackTrace
+        e.setStackTrace(st.take(10))
+        e.printStackTrace()
+        Result.Empty
+    }
   }
 }
 
@@ -155,13 +158,14 @@ trait TreeWalker extends ((SemanticCtx => Result) => Result) {
       .walk(projectPath.toNIO)
       .filter { file =>
         Files.isRegularFile(file) &&
-          PathIO.extension(file) == "csv" &&
-          file.getFileName.toString != "project.csv"
+        PathIO.extension(file) == "csv" &&
+        file.getFileName.toString != "project.csv"
       }
-    files.forEach{file =>
+    files.forEach { file =>
       Files.delete(file)
     }
   }
+
   /**
     * Function that, given two Results, it returns a Result that contains all the non-duplicate elements of both parameters.
     *
@@ -173,7 +177,7 @@ trait TreeWalker extends ((SemanticCtx => Result) => Result) {
     def mergeById[A <: ResultElement](one: Set[A], other: Set[A]): Set[A] = {
       (one ++ other)
         .groupBy(_.id)
-        .map{case (_, v) => v.head}
+        .map { case (_, v) => v.head }
         .toSet
     }
 
@@ -186,24 +190,28 @@ trait TreeWalker extends ((SemanticCtx => Result) => Result) {
   }
 }
 
-class SingleProjectWalker(rootPath: String) extends TreeWalker with LazyLogging {
+class SingleProjectWalker(rootPath: String)
+    extends TreeWalker
+    with LazyLogging {
   val root = AbsolutePath(rootPath)
   logger.debug(s"Analyzing ${rootPath}")
   def apply(f: SemanticCtx => Result): Result = {
     import scala.collection.JavaConverters.asScalaIteratorConverter
     deleteOldFiles(root)
     val results = Files
-        .walk(root.toNIO)
-        .iterator()
-        .asScala
-        .filter { file =>
-          Files.isRegularFile(file) &&
-            PathIO.extension(file) == "semanticdb"
-        }
-        .toSeq
-        .par
-        .map {file => SemanticDBFileVisitor(file, f)}
-        .fold(Result.Empty)(mergeResults)
+      .walk(root.toNIO)
+      .iterator()
+      .asScala
+      .filter { file =>
+        Files.isRegularFile(file) &&
+        PathIO.extension(file) == "semanticdb"
+      }
+      .toSeq
+      .par
+      .map { file =>
+        SemanticDBFileVisitor(file, f)
+      }
+      .fold(Result.Empty)(mergeResults)
     results
   }
 }

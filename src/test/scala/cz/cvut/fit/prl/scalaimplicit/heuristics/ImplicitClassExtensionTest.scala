@@ -36,7 +36,8 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
     */
   def checkUsage(ctx: SemanticCtx): Unit = {
     // See that the inserted call matches the expected fqn.of.constructor(*) pattern
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
+    val usages =
+      ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     usages should not be empty
     usages.foreach { usage =>
       // Check that the return type is similar to the name of the class
@@ -63,27 +64,28 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       |}
       |// From the repo wiki: https://github.com/PRL-PRG/scalafix-rule-workshop/wiki/Patterns:-Implicit-Class-Extension
     """.trim.stripMargin, { ctx =>
-    checkDefinition(ctx)
-    checkUsage(ctx)
+      checkDefinition(ctx)
+      checkUsage(ctx)
 
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
-    // (1) Check that there are no names in the same place as the constant conversion
-    val constantUsage = usages.find(_.position.start == 163).get
-    val constantSymbols = ctx.names.filter(x =>
-      x.position.start == constantUsage.position.start ||
-        x.position.end == constantUsage.position.end
-    )
-    constantSymbols shouldBe empty
+      val usages = ctx.index.synthetics
+        .filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
+      // (1) Check that there are no names in the same place as the constant conversion
+      val constantUsage = usages.find(_.position.start == 163).get
+      val constantSymbols = ctx.names.filter(
+        x =>
+          x.position.start == constantUsage.position.start ||
+            x.position.end == constantUsage.position.end)
+      constantSymbols shouldBe empty
 
-    // (2) Check that there are some names in the same place as the variable conversion
-    val variableUsage = usages.find(_.position.start == 195).get
-    val variableSymbols = ctx.names.filter(x =>
-      x.position.start == variableUsage.position.start ||
-        x.position.end == variableUsage.position.end
-    )
-    variableSymbols should not be empty
-  })
-
+      // (2) Check that there are some names in the same place as the variable conversion
+      val variableUsage = usages.find(_.position.start == 195).get
+      val variableSymbols = ctx.names.filter(
+        x =>
+          x.position.start == variableUsage.position.start ||
+            x.position.end == variableUsage.position.end)
+      variableSymbols should not be empty
+    }
+  )
 
   checkContext(
     "Example of class extension",
@@ -108,9 +110,10 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       |}
       |//From the official documentation: https://docs.scala-lang.org/overviews/core/implicit-classes.html
     """.trim.stripMargin, { ctx =>
-    checkDefinition(ctx)
-    checkUsage(ctx)
-  })
+      checkDefinition(ctx)
+      checkUsage(ctx)
+    }
+  )
 
   checkContext(
     "Tuple extension",
@@ -127,8 +130,9 @@ class ImplicitClassExtensionTest extends SemanticdbTest {
       |}
       |// From aerosolve: com/airbnb/aerosolve/training/pipeline/PipelineTestingUtil.scala
     """.trim.stripMargin, { ctx =>
-    checkDefinition(ctx)
-    checkUsage(ctx)
-  })
+      checkDefinition(ctx)
+      checkUsage(ctx)
+    }
+  )
 
 }

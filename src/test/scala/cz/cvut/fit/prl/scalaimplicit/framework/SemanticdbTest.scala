@@ -5,27 +5,41 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit}
-import cz.cvut.fit.prl.scalaimplicit.extractor.{ExtractImplicits, Location, Result, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
+  Apply,
+  DeclaredImplicit
+}
+import cz.cvut.fit.prl.scalaimplicit.extractor.{
+  ExtractImplicits,
+  Location,
+  Result,
+  SemanticCtx
+}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.compat.Platform.EOL
-import scala.meta.internal.semanticdb.{DatabaseOps, FailureMode, ProfilingMode, SemanticdbMode}
+import scala.meta.internal.semanticdb.{
+  DatabaseOps,
+  FailureMode,
+  ProfilingMode,
+  SemanticdbMode
+}
 import scala.meta.io.AbsolutePath
 import scala.tools.cmd.CommandLineParser
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.{CompilerCommand, Global, Settings}
 import scala.util.{Failure, Success, Try}
 
-
 abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
-  private val workingDir = File.createTempFile("semanticdb-test", "").getParentFile
+  private val workingDir =
+    File.createTempFile("semanticdb-test", "").getParentFile
 
   private def findJar(pattern: String): Try[String] = Try {
     // this is ugly for it is just for our tests, we can live with that
-    val cl = classOf[org.langmeta.semanticdb.Database].getClassLoader.asInstanceOf[URLClassLoader]
+    val cl = classOf[org.langmeta.semanticdb.Database].getClassLoader
+      .asInstanceOf[URLClassLoader]
     cl.getURLs
       .map(_.getFile)
       .filter(_.matches(pattern))
@@ -44,7 +58,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
               e.printStackTrace(System.err)
 
               fail("unable to figure out the path of semanticdb-scalac.jar. " +
-                s"Please set it up manually using -D$propertyName", e)
+                     s"Please set it up manually using -D$propertyName",
+                   e)
           }
         }
 
@@ -53,10 +68,12 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       candidate
     }
 
-    val options = s"-Xplugin:$semanticdbPluginPath -Yrangepos -Xplugin-require:semanticdb"
+    val options =
+      s"-Xplugin:$semanticdbPluginPath -Yrangepos -Xplugin-require:semanticdb"
     val args = CommandLineParser.tokenize(options)
 
-    val emptySettings = new Settings(error => fail(s"couldn't apply settings because $error"))
+    val emptySettings = new Settings(
+      error => fail(s"couldn't apply settings because $error"))
     emptySettings.outputDirs.setSingleOutput(workingDir.getCanonicalPath)
 
     // trying to figure out if we run from intellij or from sbt
@@ -85,11 +102,14 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
 
   def computeSemanticdbFromCode(code: String): Database = {
     val testFile = File.createTempFile("semanticdb-test-", ".scala")
-    val semanticdbFile = new File(workingDir, testFile.getName.replaceFirst("\\.scala$", ".semanticdb"))
+    val semanticdbFile = new File(
+      workingDir,
+      testFile.getName.replaceFirst("\\.scala$", ".semanticdb"))
 
     // we have set up the compiler to use the working dir
     // if this does not hold, we won't find the semanticsdb file
-    assert(testFile.getParentFile.getCanonicalPath == workingDir.getCanonicalPath)
+    assert(
+      testFile.getParentFile.getCanonicalPath == workingDir.getCanonicalPath)
 
     Files.write(testFile.toPath, code.getBytes)
 
@@ -98,16 +118,19 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
 
       new g.Run().compile(List(testFile.getCanonicalPath))
     } catch {
-      case e: UncheckedIOException if e.getCause.isInstanceOf[AccessDeniedException] && semanticdbFile.exists() =>
-        // there is a bug in scalameta trying to access files it should not
-        // ignore it if it generated file
+      case e: UncheckedIOException
+          if e.getCause
+            .isInstanceOf[AccessDeniedException] && semanticdbFile.exists() =>
+      // there is a bug in scalameta trying to access files it should not
+      // ignore it if it generated file
       case e: Throwable => fail(s"Unable to compile", e)
     } finally {
       assert(testFile.delete())
     }
 
     if (!semanticdbFile.exists()) {
-      fail(s"Unable to find semanticdb file - expected at `${semanticdbFile.getCanonicalPath}'")
+      fail(
+        s"Unable to find semanticdb file - expected at `${semanticdbFile.getCanonicalPath}'")
     }
 
     val sdb = s.Database.parseFrom(Files.readAllBytes(semanticdbFile.toPath))
@@ -120,7 +143,9 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     super.test(name)(fn)
   }
 
-  protected def checkContext(name: String, code: String, f: SemanticCtx => Unit): Unit = {
+  protected def checkContext(name: String,
+                             code: String,
+                             f: SemanticCtx => Unit): Unit = {
     test(name) {
       val db = computeSemanticdbFromCode(code)
       val ctx = SemanticCtx(db)
@@ -129,7 +154,9 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
 
-  protected def checkExtraction(name: String, code: String, f: Result => Unit): Unit = {
+  protected def checkExtraction(name: String,
+                                code: String,
+                                f: Result => Unit): Unit = {
     test(name) {
       val db = computeSemanticdbFromCode(code)
       val ctx = SemanticCtx(db)
@@ -139,10 +166,12 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
   implicit class NormalizedResult(that: Result) {
-    def normalizedImplicits: Set[DeclaredImplicit] = that.implicits.map(_.copy(location = Location.Empty))
+    def normalizedImplicits: Set[DeclaredImplicit] =
+      that.implicits.map(_.copy(location = Location.Empty))
     // Note that when using normalized funs we cannot make assertions over the links,
     // Because the links are tied to the position of the application.
-    def normalizedFuns: Seq[Apply] = that.funs.map(_.copy(location = Location.Empty))
+    def normalizedFuns: Seq[Apply] =
+      that.funs.map(_.copy(location = Location.Empty))
   }
 
 }

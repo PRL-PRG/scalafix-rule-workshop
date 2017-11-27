@@ -48,8 +48,9 @@ class TypeClassTest extends SemanticdbTest {
       |}
       |// Example from Li Haoyi's blog: http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html#type-class-implicits
     """.trim.stripMargin, { ctx =>
-    // TODO: Custom assertions on the context
-  })
+      // TODO: Custom assertions on the context
+    }
+  )
 
   checkContext(
     "NumberLike Example",
@@ -94,7 +95,7 @@ class TypeClassTest extends SemanticdbTest {
       |// Example from Daniel Westheide's blog: http://danielwestheide.com/blog/2013/02/06/the-neophytes-guide-to-scala-part-12-type-classes.html
     """.trim.stripMargin, { ctx =>
       // TODO: Custom assertions on the context
-    })
-
+    }
+  )
 
 }

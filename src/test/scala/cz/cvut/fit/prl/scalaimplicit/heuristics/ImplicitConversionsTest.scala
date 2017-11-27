@@ -14,8 +14,8 @@ class ImplicitConversionsTest extends SemanticdbTest {
     val res = ExtractImplicits(ctx)
     val implicitDefs = res.implicits
       .filter(_.kind == "def")
-      // TODO: Make the tests in DeclaredImplcitisTest work, so that it works when uncommenting this
-      //.filter(_.nargs == "1")
+    // TODO: Make the tests in DeclaredImplcitisTest work, so that it works when uncommenting this
+    //.filter(_.nargs == "1")
     implicitDefs
   }
 
@@ -28,7 +28,8 @@ class ImplicitConversionsTest extends SemanticdbTest {
     */
   def checkUsages(ctx: SemanticCtx) = {
     // See that the inserted call matches the expected fqn.of.constructor(*) pattern
-    val usages = ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
+    val usages =
+      ctx.index.synthetics.filter(_.text.matches("""(\.?[\[\w\]]*)+\(\*\)"""))
     usages.foreach { usage =>
       // Check that the return type is similar to the name of the class
       val symbol = usage.names.find(_.symbol.toString != "_star_.").get
@@ -51,9 +52,10 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |}
       |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
-    val usages = checkUsages(ctx)
-    usages.size shouldBe 1
-  })
+      val usages = checkUsages(ctx)
+      usages.size shouldBe 1
+    }
+  )
 
   checkContext(
     "Example with complex numbers",
@@ -78,9 +80,10 @@ class ImplicitConversionsTest extends SemanticdbTest {
       |}
       |// From a blog: http://tomjefferys.blogspot.cz/2011/11/implicit-conversions-in-scala.html
     """.trim.stripMargin, { ctx =>
-    val defsFromExtraction = checkDefinitionFromExtraction(ctx)
-    defsFromExtraction.size shouldBe 2
-    val usages = checkUsages(ctx)
-    usages.size shouldBe 3
-  })
+      val defsFromExtraction = checkDefinitionFromExtraction(ctx)
+      defsFromExtraction.size shouldBe 2
+      val usages = checkUsages(ctx)
+      usages.size shouldBe 3
+    }
+  )
 }

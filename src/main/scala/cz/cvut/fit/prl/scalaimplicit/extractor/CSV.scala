@@ -23,13 +23,14 @@ object CSV {
           "\n"
 
       if (Files.exists(Paths.get(path))) {
-        Files.write(Paths.get(path), s"$values".getBytes, StandardOpenOption.APPEND)
+        Files.write(Paths.get(path),
+                    s"$values".getBytes,
+                    StandardOpenOption.APPEND)
       } else {
         Files.write(Paths.get(path), s"$header\n$values".getBytes)
       }
     }
   }
-
 
   def dumpFiles(projectPath: String, results: Result) = {
     CSV.writeCSV(results.params, s"$projectPath/params.csv")
