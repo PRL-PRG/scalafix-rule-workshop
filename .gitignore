@@ -2,4 +2,10 @@ target/
 *.class
 *.log
 .idea
+*.csv
+__pycache__
+.vscode
 temp
+.ensime
+*.pyc
+test_repos

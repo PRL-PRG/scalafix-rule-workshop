@@ -1,29 +1,16 @@
-lazy val V = _root_.scalafix.Versions
-// Use a scala version supported by scalafix.
-scalaVersion in ThisBuild := V.scala212
-
-lazy val rules = project.settings(
-  libraryDependencies += "ch.epfl.scala" %% "scalafix-core" % V.version
+name := "implicit-collector"
+version := "0.1"
+scalaVersion := "2.12.4"
+libraryDependencies ++= Seq(
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+  "org.scalameta" %% "testkit" % "2.1.2",
+  "org.scalameta" % "semanticdb-scalac_2.12.4" % "2.1.2",
+  "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+  "com.github.scopt" % "scopt_2.12" % "3.7.0",
+  "org.scalactic" %% "scalactic" % "3.0.4",
+  "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 )
 
-lazy val input = project.settings(
-  scalafixSourceroot := sourceDirectory.in(Compile).value
-)
-
-lazy val output = project
-
-lazy val tests = project
-  .settings(
-    libraryDependencies += "ch.epfl.scala" % "scalafix-testkit" % V.version % Test cross CrossVersion.full,
-    buildInfoPackage := "fix",
-    buildInfoKeys := Seq[BuildInfoKey](
-      "inputSourceroot" ->
-        sourceDirectory.in(input, Compile).value,
-      "outputSourceroot" ->
-        sourceDirectory.in(output, Compile).value,
-      "inputClassdirectory" ->
-        classDirectory.in(input, Compile).value
-    )
-  )
-  .dependsOn(input, rules)
-  .enablePlugins(BuildInfoPlugin)
+scalacOptions += "-Yno-adapted-args"
+assemblyJarName in assembly := "implicit-collector.jar"
