@@ -12,6 +12,5 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 )
 
-
 scalacOptions += "-Yno-adapted-args"
 assemblyJarName in assembly := "implicit-collector.jar"
