@@ -34,7 +34,7 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       * This captures all implicits inserted,
       * to be matched later with function applications.
       */
-    lazy val syntheticImplicits: Map[Int, ImplicitParam] = Map((for {
+    val syntheticImplicits: Map[Int, ImplicitParam] = Map((for {
       syn <- ctx.index.synthetics
       name <- syn.names
       symbol = name.symbol
@@ -53,14 +53,14 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       elem.names.exists(_.toString() == "apply")
     }
 
-    lazy val syntheticApplications =
+    val syntheticApplications =
       ctx.index.synthetics.filter(hasApplyInTheName)
 
     /**
       * Capture function applications, both in source and inserted by the compiler,
       * and match them with the implicit parameters captured earlier.
       */
-    lazy val paramsFuns =
+    val paramsFuns =
       for {
 
         /**
@@ -106,7 +106,7 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       * Accounts for all declarations with the implicit keyword,
       * be it parameters, vals, defs, objects...
       */
-    lazy val declaredImplicits =
+    val declaredImplicits =
       for {
         name <- ctx.index.names if name.isDefinition
         den <- ctx.denotation(name.symbol) if den.isImplicit
