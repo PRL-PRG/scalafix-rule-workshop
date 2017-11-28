@@ -8,15 +8,18 @@ import doctest
 
 unknow_kind_pattern = r".*Denotation\(([A-Z]*( \| [A-Z]*)*).*"
 L_notation_pattern = re.compile(r"L([\w\-$]*\/)*[\w\-$]*;")
+removable_hashtag_pattern = re.compile(r"#[^\w\-$]")
 
 def remove_leading_root(text):
     '''
-    Removes leading _root_. in semanticdb symbols
+    Removes leading _root_. or _empty_. in semanticdb symbols
 
     >>> remove_leading_root("_root_.implicits.ComplexArgument#WriterLike.WriterStringInt.")
     'implicits.ComplexArgument#WriterLike.WriterStringInt.'
+    >>> remove_leading_root("_empty_.implicits.ComplexArgument#WriterLike.WriterStringInt.")
+    'implicits.ComplexArgument#WriterLike.WriterStringInt.'
     '''
-    return text.replace("_root_.", "")
+    return text.replace("_root_.", "").replace("_empty_.", "")
 
 def remove_trailing_dot(text):
     '''
@@ -25,8 +28,7 @@ def remove_trailing_dot(text):
     >>> remove_trailing_dot("_root_.implicits.ComplexArgument#WriterLike.WriterStringInt.")
     '_root_.implicits.ComplexArgument#WriterLike.WriterStringInt'
     '''
-    return text[:-1] if text[-1] == '.' else text
-
+    return text[:-1] if (len(text) > 0 and text[-1]) == '.' else text
 
 def remove_L_notation(text):
     def clean_L_notation_instance(text):
@@ -58,7 +60,7 @@ def remove_L_notation(text):
     '''
     clean = L_notation_pattern.sub(lambda m: clean_L_notation_instance(m.group(0)), text)
     corner_cases = clean.replace(",)", ")").replace(",.", ".")
-    no_trail = corner_cases[:-1] if corner_cases[-1] == "," else corner_cases
+    no_trail = corner_cases[:-1] if (len(corner_cases) > 0 and corner_cases[-1] == ",") else corner_cases
     return no_trail
 
 def remove_hashtags(text):
@@ -67,14 +69,21 @@ def remove_hashtags(text):
     - A trailing hashtag can appear in the end of a fully qualified name,
         for example in extracting the name of a class.
         This must be removed, since it's not part of the fqn of the class.
+    - The same happens for hastags just before type parameters.
     - Other hastags in fqns reamrk that whatever is on their right hand side
         is a private member of the left hand side. Since this is not important for now,
         it can be substituted with dots to unify how we represent fqns.
 
     >>> remove_hashtags("_root_.lila.db.dsl#$id(Ljava/lang/Object;Lreactivemongo/bson/BSONWriter;)Lreactivemongo/bson/BSONDocument;.")
     '_root_.lila.db.dsl.$id(Ljava/lang/Object;Lreactivemongo/bson/BSONWriter;)Lreactivemongo/bson/BSONDocument;.'
+    >>> remove_hashtags("[T, R] => (x: _root_.scala.Tuple2#[_root_.scala.concurrent.Future#[T], _root_.scala.concurrent.Future#[R]])(implicit executionContext: _root_.scala.concurrent.ExecutionContext#): _empty_.PipeableFuture#[T, R]")
+    '[T, R] => (x: _root_.scala.Tuple2[_root_.scala.concurrent.Future[T], _root_.scala.concurrent.Future[R]])(implicit executionContext: _root_.scala.concurrent.ExecutionContext): _empty_.PipeableFuture[T, R]'
+    >>> remove_hashtags("fastparse.utils.ElemSetHelper.CharBitSetHelper")
+    'fastparse.utils.ElemSetHelper.CharBitSetHelper'
     '''
-    return (text if text[-1] != "#" else text[:-1]).replace("#", ".")
+    trimmed = (text if (len(text) > 0 and text[-1] != "#") else text[:-1])
+    clean = removable_hashtag_pattern.sub(lambda m: m.group(0).replace("#", ""), trimmed)
+    return clean.replace("#", ".")
 
 def replace_unknown_kinds(text):
     '''
@@ -86,6 +95,15 @@ def replace_unknown_kinds(text):
     '''
     match = re.search(unknow_kind_pattern, text)
     return match.group(1) if match else text
+
+def remove_arrow(text):
+    '''
+    Remove the arrow of type parameters.
+
+    >>> remove_arrow('[A] => (m: A): _root_.scala.Predef.String#')
+    '[A](m: A): _root_.scala.Predef.String#'
+    '''
+    return text.replace(" => ", "")
 
 def extract_function_name(text):
     '''
@@ -103,6 +121,22 @@ def extract_function_name(text):
     index = text.find('(')
     return text[:index] if index != -1 else text
 
+
+def extract_plain_name(text):
+    '''
+    This function extracts the plain name of an entry from a fqn.
+    We define the plain name as the text between the last '(' and the
+    last dot before that '('.
+    If no '(' is found, it returns text from the last dot.
+
+    >>> extract_plain_name("com.twitter.algebird.Monad.operators(java.lang.Objectcom.twitter.algebird.Monad)com.twitter.algebird.MonadOperators.[M]")
+    'operators'
+    >>> extract_plain_name("_root_.org.scalacheck.util.Pretty.prettyAny")
+    'prettyAny'
+    '''
+    text_before_paren = extract_function_name(text)
+    return text_before_paren[text_before_paren.rfind('.') + 1:]
+
 def extract_parameter_list(text):
     '''
     The reverse of extract_function_name, it returns everything after the first '(' found,
@@ -118,10 +152,10 @@ def compose(*fs):
     return functools.reduce(lambda f, g: lambda x: f(g(x)), fs, lambda x: x)
 
 clean_fqn = compose(
-    remove_leading_root,
-    remove_trailing_dot,
+    remove_hashtags,
     remove_L_notation,
-    remove_hashtags
+    remove_trailing_dot,
+    remove_leading_root
 )
 def clean_fqn_test():
     '''
@@ -132,11 +166,28 @@ def clean_fqn_test():
     'fastparse.Api.P(scala.Functi_on0,sourcecode.Name)fastparse.core.Parser'
     '''
 
+clean_signature = compose(
+    remove_arrow,
+    remove_hashtags,
+    remove_L_notation,
+    remove_trailing_dot,
+    remove_leading_root
+)
+def clean_signature_test():
+    '''
+    An empty function to trigger doctest.
+    clean_signature agglomerates various cleaning functions to clean the resolved type name from semanticdb.
+
+    >>> clean_signature('[T, R] => (x: _root_.scala.Tuple2#[_root_.scala.concurrent.Future#[T], _root_.scala.concurrent.Future#[R]])(implicit executionContext: _root_.scala.concurrent.ExecutionContext#): _empty_.PipeableFuture#[T, R]')
+    '[T, R](x: scala.Tuple2[scala.concurrent.Future[T], scala.concurrent.Future[R]])(implicit executionContext: scala.concurrent.ExecutionContext): PipeableFuture[T, R]'
+    '''
+
 def clean_param_row(row):
     row["fqn"] = clean_fqn(row["fqn"])
     row["fqfn"] = extract_function_name(row["fqn"])
+    row["name"] = extract_plain_name(row["fqn"])
     row["fqparamlist"] = extract_parameter_list(row["fqn"])
-    row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
+    row["signature"] = clean_signature(row["signature"])
     row["kind"] = replace_unknown_kinds(row["kind"])
     return row
 
@@ -152,8 +203,9 @@ def clean_links_row(row):
 
 def clean_declared_implicits_row(row):
     row["fqn"] = clean_fqn(row["fqn"])
+    row["name"] = extract_plain_name(row["fqn"])
     row["kind"] = replace_unknown_kinds(row["kind"])
-    row["fqtn"] = extract_function_name(clean_fqn(row["fqtn"]))
+    row["signature"] = clean_signature(row["signature"])
     return row
 
 def clean_file(directory, filename, clean_function):

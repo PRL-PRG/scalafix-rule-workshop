@@ -20,10 +20,8 @@ class ImplicitParameterTest extends SemanticdbTest {
     """.trim.stripMargin, { res =>
       res.params should contain only ImplicitParam(
         fqn = "_root_.a.test.msgDeclaration.",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "String",
+        signature = "_root_.scala.Predef.String#",
         kind = "val",
-        plainName = "msgDeclaration"
       )
     }
   )
@@ -41,11 +39,10 @@ class ImplicitParameterTest extends SemanticdbTest {
     """.trim.stripMargin, { res =>
       res.params should contain only ImplicitParam(
         fqn = "_empty_.classesAndTypes.m.",
-        fqtn = "_empty_.M#",
-        signature = "M",
-        kind = "val",
-        plainName = "m"
+        signature = "_empty_.M#",
+        kind = "val"
       )
     }
   )
+
 }

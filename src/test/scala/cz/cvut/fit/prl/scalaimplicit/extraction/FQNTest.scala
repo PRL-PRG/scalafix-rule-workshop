@@ -50,9 +50,7 @@ class FQNTest extends SemanticdbTest {
         DeclaredImplicit(
           location = Location.Empty,
           fqn = "_empty_.hashtags.hello.",
-          plainName = "hello",
-          fqtn = "_root_.scala.Predef.String#",
-          signature = "String",
+          signature = "_root_.scala.Predef.String#",
           kind = "val",
           nargs = "-1"
         ),
@@ -60,19 +58,15 @@ class FQNTest extends SemanticdbTest {
           location = Location.Empty,
           fqn =
             "_empty_.hashtags.say(Ljava/lang/String;)Ljava/lang/String;.(word)",
-          plainName = "word",
-          fqtn = "_root_.scala.Predef.String#",
-          signature = "String",
+          signature = "_root_.scala.Predef.String#",
           kind = "param",
           nargs = "-1"
         )
       )
       res.params should contain only ImplicitParam(
         fqn = "_empty_.hashtags.hello.",
-        fqtn = "_root_.scala.Predef.String#",
-        signature = "String",
+        signature = "_root_.scala.Predef.String#",
         kind = "val",
-        plainName = "hello"
       )
       res.normalizedFuns should contain only Apply(
         location = Location.Empty,

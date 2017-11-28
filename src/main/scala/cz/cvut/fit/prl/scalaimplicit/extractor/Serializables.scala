@@ -14,19 +14,31 @@ object Location {
 }
 
 object Serializables {
+  def resolve(denotation: Denotation, symbol: Symbol): String = {
+    def substitute(current: (String, Int), rn: ResolvedName) = {
+      val (s, offset) = current
+      val substituted = s.substring(0, rn.position.start + offset) + // all before symbol
+        rn.symbol + // resolved name
+        s.substring(rn.position.end + offset, s.length) // all after symbol
 
-  final case class ImplicitParam(fqn: String,
-                                 fqtn: String,
-                                 signature: String,
-                                 kind: String,
-                                 plainName: String)
+      (substituted,
+       offset + rn.symbol.toString.length - (rn.position.end - rn.position.start))
+    }
+
+    denotation.names
+      .filter(_.symbol.productElement(0) != symbol) // discard the local type references (e.g. T => ...#.[T];)
+      .foldLeft((denotation.signature, 0))(substitute)
+      ._1
+  }
+
+  final case class ImplicitParam(fqn: String, signature: String, kind: String)
       extends ResultElement
       with CSV.Serializable {
     lazy val id: String = fqn
     override val csvHeader: Seq[String] =
-      Seq("fqn", "fqfn", "fqparamlist", "fqtn", "type", "kind", "name")
+      Seq("fqn", "name", "fqfn", "fqparamlist", "signature", "kind")
     override val csvValues: Seq[String] =
-      Seq(fqn, "", "", fqtn, signature, kind, plainName)
+      Seq(fqn, "", "", "", signature, kind)
   }
 
   def createImplicitParam(ctx: SemanticCtx,
@@ -34,17 +46,7 @@ object Serializables {
                           denot: Denotation): ImplicitParam = {
     ImplicitParam(
       fqn = s"${symbol.syntax}",
-      plainName = denot.name.toString,
-      fqtn = denot.names.headOption match {
-        case Some(n) => n.symbol.toString
-        case None => symbol.toString
-      },
-      // If there are no names on the denotation, we have an implicit which defines
-      // its own type - Most likely an object
-      signature = denot.names.headOption match {
-        case Some(n) => denot.signature.toString
-        case None => denot.name.toString
-      },
+      signature = resolve(denot, symbol),
       kind = ctx.getKind(denot)
     )
   }
@@ -118,31 +120,28 @@ object Serializables {
 
   final case class DeclaredImplicit(location: Location,
                                     fqn: String,
-                                    plainName: String,
                                     kind: String,
-                                    fqtn: String,
                                     signature: String,
                                     nargs: String)
       extends ResultElement
       with CSV.Serializable {
     override lazy val id: String = fqn
-    override val csvHeader: Seq[String] = Seq("sourcelink",
-                                              "path",
-                                              "line",
-                                              "col",
-                                              "name",
-                                              "fqn",
-                                              "fqtn",
-                                              "type",
-                                              "kind",
-                                              "nargs")
+    override val csvHeader: Seq[String] =
+      Seq("sourcelink",
+          "path",
+          "line",
+          "col",
+          "fqn",
+          "name",
+          "signature",
+          "kind",
+          "nargs")
     override val csvValues: Seq[String] = Seq(location.sourcelink,
                                               location.path,
                                               location.line,
                                               location.col,
-                                              plainName,
                                               fqn,
-                                              fqtn,
+                                              "",
                                               signature,
                                               kind,
                                               nargs)
@@ -156,16 +155,8 @@ object Serializables {
                           line = name.position.endLine.toString,
                           col = name.position.endColumn.toString),
       fqn = name.symbol.syntax,
-      plainName = denot.name.toString,
       kind = ctx.getKind(denot),
-      fqtn = denot.names.headOption match {
-        case Some(n) => n.symbol.toString
-        case None => denot.name.toString
-      },
-      signature = denot.names.headOption match {
-        case Some(n) => denot.signature.toString
-        case None => denot.name.toString
-      },
+      signature = resolve(denot, name.symbol),
       nargs =
         if (ctx.getKind(denot) == "def") denot.members.toString
         else "-1"
