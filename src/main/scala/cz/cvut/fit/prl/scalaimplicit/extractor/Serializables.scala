@@ -78,9 +78,9 @@ object Serializables {
                                               nargs)
   }
   final case class AppTerm(term: Term, params: Int, nameEnd: Int)
-  def createFunctionApplication(ctx: SemanticCtx,
-                                app: AppTerm,
-                                file: String): Apply = {
+  def createFunctionApply(ctx: SemanticCtx,
+                          app: AppTerm,
+                          file: String): Apply = {
     Apply(
       location = Location(file,
                           app.term.pos.endLine.toString,
@@ -90,10 +90,10 @@ object Serializables {
       nargs = app.params.toString
     )
   }
-  def createSyntheticApplication(ctx: SemanticCtx,
-                                 synth: Synthetic,
-                                 file: String,
-                                 params: Int): Apply = {
+  def createSyntheticApply(ctx: SemanticCtx,
+                           synth: Synthetic,
+                           file: String,
+                           params: Int): Apply = {
     Apply(
       location = Location(file,
                           synth.position.endLine.toString,

@@ -34,15 +34,14 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       * This captures all implicits inserted,
       * to be matched later with function applications.
       */
-    lazy val syntheticImplicits =
-      for {
-        syn <- ctx.index.synthetics
-        name <- syn.names
-        symbol = name.symbol
-        den <- ctx.denotation(symbol) if den.isImplicit
-      } yield {
-        syn -> Serializables.createImplicitParam(ctx, symbol, den)
-      }
+    lazy val syntheticImplicits: Map[Int, ImplicitParam] = Map((for {
+      syn <- ctx.index.synthetics
+      name <- syn.names
+      symbol = name.symbol
+      den <- ctx.denotation(symbol) if den.isImplicit
+    } yield {
+      syn.position.end -> Serializables.createImplicitParam(ctx, symbol, den)
+    }): _*)
 
     /**
       * Filter for the synthetic function applications.
@@ -81,24 +80,20 @@ object ExtractImplicits extends (SemanticCtx => Result) {
             Serializables.AppTerm(x, x.args.size, x.fun.pos.end)
           case x: Term.Name => Serializables.AppTerm(x, 0, x.pos.end)
         }
-        param <- syntheticImplicits collect {
-          case (syn, den) if syn.position.end == app.term.pos.end => den
-        }
-        syntheticApply = syntheticApplications find { x =>
-          x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
-        }
+        param <- syntheticImplicits.filter(_._1 == app.term.pos.end).values
       } yield {
-        syntheticApply match {
-          case Some(synth) =>
-            LinkPair(param,
-                     Serializables.createSyntheticApplication(ctx,
-                                                              synth,
-                                                              file,
-                                                              app.params))
-          case None =>
-            LinkPair(param,
-                     Serializables.createFunctionApplication(ctx, app, file))
-        }
+        syntheticApplications
+          .find { x =>
+            x.position.end >= app.term.pos.start && x.position.end <= app.term.pos.end
+          }
+          .map { x =>
+            LinkPair(
+              param,
+              Serializables.createSyntheticApply(ctx, x, file, app.params))
+          }
+          .getOrElse(
+            LinkPair(param, Serializables.createFunctionApply(ctx, app, file)))
+
       }
 
     val params = paramsFuns.groupBy(_.param).keys.toSet
