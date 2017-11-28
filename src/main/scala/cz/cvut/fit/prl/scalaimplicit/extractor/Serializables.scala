@@ -6,11 +6,11 @@ trait ResultElement {
   def id: String
 }
 
-final case class Location(path: String, line: String, col: String) {
+final case class Location(path: String, line: Int, col: Int) {
   val sourcelink = s"$path:$line:$col"
 }
 object Location {
-  val Empty = Location("dummy/path.semanticdb", "-1", "-1")
+  val Empty = Location("dummy/path.semanticdb", -1, -1)
 }
 
 object Serializables {
@@ -69,8 +69,8 @@ object Serializables {
                                               "nargs")
     override val csvValues: Seq[String] = Seq(id,
                                               location.path,
-                                              location.line,
-                                              location.col,
+                                              location.line.toString,
+                                              location.col.toString,
                                               code,
                                               fqn,
                                               "",
@@ -82,9 +82,7 @@ object Serializables {
                           app: AppTerm,
                           file: String): Apply = {
     Apply(
-      location = Location(file,
-                          app.term.pos.endLine.toString,
-                          app.term.pos.endColumn.toString),
+      location = Location(file, app.term.pos.endLine, app.term.pos.endColumn),
       code = app.term.toString,
       fqn = ctx.qualifiedName(app.term),
       nargs = app.params.toString
@@ -95,9 +93,8 @@ object Serializables {
                            file: String,
                            params: Int): Apply = {
     Apply(
-      location = Location(file,
-                          synth.position.endLine.toString,
-                          synth.position.endColumn.toString),
+      location =
+        Location(file, synth.position.endLine, synth.position.endColumn),
       code = s"apply(${Seq.fill(params)("_").mkString(", ")})",
       fqn = synth.names(1).symbol.toString,
       nargs = params.toString
@@ -138,8 +135,8 @@ object Serializables {
           "nargs")
     override val csvValues: Seq[String] = Seq(location.sourcelink,
                                               location.path,
-                                              location.line,
-                                              location.col,
+                                              location.line.toString,
+                                              location.col.toString,
                                               fqn,
                                               "",
                                               signature,
@@ -152,8 +149,8 @@ object Serializables {
                              path: String): DeclaredImplicit = {
     DeclaredImplicit(
       location = Location(path = path,
-                          line = name.position.endLine.toString,
-                          col = name.position.endColumn.toString),
+                          line = name.position.endLine,
+                          col = name.position.endColumn),
       fqn = name.symbol.syntax,
       kind = ctx.getKind(denot),
       signature = resolve(denot, name.symbol),
