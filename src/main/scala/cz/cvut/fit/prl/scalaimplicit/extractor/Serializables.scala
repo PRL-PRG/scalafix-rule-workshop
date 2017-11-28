@@ -36,9 +36,9 @@ object Serializables {
       with CSV.Serializable {
     lazy val id: String = fqn
     override val csvHeader: Seq[String] =
-      Seq("fqn", "name", "fqfn", "fqparamlist", "signature", "kind")
+      Seq("fqn", "name", "signature", "kind")
     override val csvValues: Seq[String] =
-      Seq(fqn, "", "", "", signature, kind)
+      Seq(fqn, "", signature, kind)
   }
 
   def createImplicitParam(ctx: SemanticCtx,
@@ -58,23 +58,14 @@ object Serializables {
       extends ResultElement
       with CSV.Serializable {
     override lazy val id = location.sourcelink
-    override val csvHeader: Seq[String] = Seq("sourcelink",
-                                              "path",
-                                              "line",
-                                              "col",
-                                              "code",
-                                              "symbol",
-                                              "fqfn",
-                                              "fqparamlist",
-                                              "nargs")
+    override val csvHeader: Seq[String] =
+      Seq("sourcelink", "path", "line", "col", "code", "symbol", "nargs")
     override val csvValues: Seq[String] = Seq(id,
                                               location.path,
                                               location.line.toString,
                                               location.col.toString,
                                               code,
                                               fqn,
-                                              "",
-                                              "",
                                               nargs)
   }
   final case class AppTerm(term: Term, params: Int, nameEnd: Int)

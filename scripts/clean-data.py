@@ -105,7 +105,7 @@ def remove_arrow(text):
     '''
     return text.replace(" => ", "")
 
-def extract_function_name(text):
+def extract_full_name(text):
     '''
     For some fields that can be functions (such as the fqns of implicit parameters),
     we are only interested in the name of the function being passed, not the parameter list.
@@ -113,9 +113,9 @@ def extract_function_name(text):
     This function extracts the name of a function by returning everything before the first '('.
     If no '(' is found, it returns the original string.
 
-    >>> extract_function_name("com.twitter.algebird.Monad.operators(java.lang.Objectcom.twitter.algebird.Monad)com.twitter.algebird.MonadOperators.[M]")
+    >>> extract_full_name("com.twitter.algebird.Monad.operators(java.lang.Objectcom.twitter.algebird.Monad)com.twitter.algebird.MonadOperators.[M]")
     'com.twitter.algebird.Monad.operators'
-    >>> extract_function_name("_root_.org.scalacheck.util.Pretty.prettyAny")
+    >>> extract_full_name("_root_.org.scalacheck.util.Pretty.prettyAny")
     '_root_.org.scalacheck.util.Pretty.prettyAny'
     '''
     index = text.find('(')
@@ -134,28 +134,17 @@ def extract_plain_name(text):
     >>> extract_plain_name("_root_.org.scalacheck.util.Pretty.prettyAny")
     'prettyAny'
     '''
-    text_before_paren = extract_function_name(text)
+    text_before_paren = extract_full_name(text)
     return text_before_paren[text_before_paren.rfind('.') + 1:]
-
-def extract_parameter_list(text):
-    '''
-    The reverse of extract_function_name, it returns everything after the first '(' found,
-    or the empty string if it is not found.
-
-    >>> extract_parameter_list("com.twitter.algebird.Monad.operators(java.lang.Objectcom.twitter.algebird.Monad)com.twitter.algebird.MonadOperators.[M]")
-    '(java.lang.Objectcom.twitter.algebird.Monad)com.twitter.algebird.MonadOperators.[M]'
-    '''
-    index = text.find('(')
-    return text[index:] if index != -1 else ""
 
 def compose(*fs):
     return functools.reduce(lambda f, g: lambda x: f(g(x)), fs, lambda x: x)
 
 clean_fqn = compose(
     remove_hashtags,
-    remove_L_notation,
     remove_trailing_dot,
-    remove_leading_root
+    remove_leading_root,
+    extract_full_name
 )
 def clean_fqn_test():
     '''
@@ -163,7 +152,7 @@ def clean_fqn_test():
     clean_fqn agglomerates various cleaning functions, which should be comon to all symbols in semanticdb.
 
     >>> clean_fqn('_root_.fastparse.Api#P(Lscala/Functi_on0;Lsourcecode/Name;)Lfastparse/core/Parser;.')
-    'fastparse.Api.P(scala.Functi_on0,sourcecode.Name)fastparse.core.Parser'
+    'fastparse.Api.P'
     '''
 
 clean_signature = compose(
@@ -184,17 +173,13 @@ def clean_signature_test():
 
 def clean_param_row(row):
     row["fqn"] = clean_fqn(row["fqn"])
-    row["fqfn"] = extract_function_name(row["fqn"])
     row["name"] = extract_plain_name(row["fqn"])
-    row["fqparamlist"] = extract_parameter_list(row["fqn"])
     row["signature"] = clean_signature(row["signature"])
     row["kind"] = replace_unknown_kinds(row["kind"])
     return row
 
 def clean_funs_row(row):
     row["symbol"] = clean_fqn(row["symbol"])
-    row["fqfn"] = extract_function_name(row["symbol"])
-    row["fqparamlist"] = extract_parameter_list(row["symbol"])
     return row
 
 def clean_links_row(row):
