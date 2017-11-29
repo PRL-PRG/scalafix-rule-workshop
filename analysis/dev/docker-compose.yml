@@ -1,0 +1,29 @@
+version: '3'
+services:
+  mysql:
+    image: mysql
+    ports:
+      - 9918:3306
+    volumes:
+      - "db-data:/var/lib/mysql"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_DATABASE: scala
+      MYSQL_USER: scala
+      MYSQL_PASSWORD: scala
+  
+  rstudio:
+    image: fikovnik/rstudio
+    ports:
+      - 8789:8787
+    volumes:
+      - "../../:/home/rstudio"
+    links:
+      - mysql
+    environment:
+      USERID: "${USERID-1000}"
+      GROUPID: "${GROUPID-1000}"
+      ROOT: "TRUE"
+
+volumes:
+  db-data:
