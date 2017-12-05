@@ -1,5 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
+import cz.cvut.fit.prl.scalaimplicit.extractor.Representation.TopLevelElem
 import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
   Apply,
   DeclaredImplicit,
@@ -25,8 +26,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _) => path.toString
-      case _ => ""
+      case Input.File(path, _)        => path.toString
+      case _                          => ""
     }
 
     /**
@@ -115,5 +116,97 @@ object ExtractImplicits extends (SemanticCtx => Result) {
       }
 
     Result(params, funs, links, declaredImplicits.toSet)
+  }
+}
+
+object Queries {
+  def syntheticsWithImplicits(ctx: SemanticCtx): Seq[Synthetic] =
+    ctx.index.synthetics.filter(_.text.contains("("))
+
+  case class SyntheticBreakdown(synthetic: Synthetic,
+                                app: Option[ResolvedName],
+                                params: Seq[ResolvedName],
+                                typeParams: Seq[ResolvedName])
+  def breakdownSynthetic(synth: Synthetic): SyntheticBreakdown = {
+
+    /**
+      * Returns true if a given resolved name is a resolved type.
+      * The discriminator is that type symbols end in hashtag (#),
+      * as shown here: https://goo.gl/Z6mXdN
+      * '''Note that not all type parameters belong to the application. e.g.:'''
+      *  "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))"
+      *  will have 3 type params, "Seq" and "Student" for the application,
+      *  and an extra "Student" for seq2json
+      * @param rn
+      * @return
+      */
+    def isType(rn: ResolvedName): Boolean = rn.symbol.syntax.endsWith("#")
+
+    /**
+      * The opposite of isType, a term or method ends with a dot.
+      * Refer to the link in isType for proof.
+      * @param rn
+      * @return
+      */
+    def isTermOrMethod(rn: ResolvedName): Boolean =
+      rn.symbol.syntax.endsWith(".") && !rn.symbol.syntax.startsWith("_star_")
+
+    /**
+      * We define plain name as everything in the text of a synthetic between the last dot (or hashtag)
+      * and the first opening bracket, paren or the end of the string.
+      * For example, the plain names of the following are:
+      *  - "*.withFilter[A, Iterable[A]\](*)(some.package.B)" => withFilter
+      *  - "test.this.JsonWriter(*)" => JsonWriter
+      *  - "*.apply" => apply
+      * We strip the star prefix so that parameter list names ("*(param.One,param.Two)") will be ""
+      */
+    val plainName: String =
+      synth.text.stripPrefix("*").split("""[\[\(]""")(0).split("""[#\.]""").last
+
+    /**
+      * A conversion is a method that has the same plain name as the synthetic it served.
+      * This method serves to identify which name of an implicit conversion synthetic
+      * is the method being called.
+      * It's symbol will have the form "_root_.to.package.Conversion(L/param)L/ret", and
+      * productElement(1) corresponds to the jvmSignature (according to this: https://goo.gl/Z6mXdN).
+      * In this case, for example, productElement(1) would be "Conversion(L/param)L/ret", and
+      * "Conversion" should coincide with the plainName
+      * @param rn
+      * @return
+      */
+    def isConversion(rn: ResolvedName): Boolean =
+      isTermOrMethod(rn) && rn.symbol
+        .productElement(1)
+        .toString
+        .startsWith(plainName)
+
+    /**
+      * Every term or method that is not a conversion in a synthetic
+      * is part of the implicit parameter list. The rest are type parameters.
+      * '''Note that not all parameters belong to the application. e.g.:'''
+      *  "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))"
+      *  will have 2 params, "seq2json" and "Student2Json"
+      * @param rn
+      * @return
+      */
+    def isParameter(rn: ResolvedName): Boolean =
+      isTermOrMethod(rn) && !isConversion(rn)
+
+    SyntheticBreakdown(
+      synthetic = synth,
+      app = synth.names.find(isConversion),
+      params = synth.names.filter(isParameter),
+      typeParams = synth.names.filter(isType)
+    )
+  }
+
+}
+
+object Extract extends (SemanticCtx => Seq[TopLevelElem]) {
+  def apply(ctx: SemanticCtx): Seq[TopLevelElem] = {
+    val implicits = Queries.syntheticsWithImplicits(ctx)
+    val breakDowns = implicits.map(Queries.breakdownSynthetic)
+    println(breakDowns)
+    Seq()
   }
 }

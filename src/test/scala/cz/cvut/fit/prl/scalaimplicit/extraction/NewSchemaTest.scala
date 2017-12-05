@@ -1,12 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.Representation._
-import cz.cvut.fit.prl.scalaimplicit.extractor.SemanticCtx
+import cz.cvut.fit.prl.scalaimplicit.extractor.{Extract, SemanticCtx}
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class NewSchemaTest extends SemanticdbTest {
-
-  def Extract(ctx: SemanticCtx): Seq[TopLevelElem] = Seq()
 
   checkContext(
     "",
@@ -99,6 +97,22 @@ class NewSchemaTest extends SemanticdbTest {
       val res = Extract(ctx)
       res should contain only (call, decl)
       println(res)
+    }
+  )
+
+  checkContext(
+    "Heyo",
+    """
+      |object t {
+      | case class A()
+      | case class B()
+      | implicit def b2a(b: B): A = new A()
+      | def a(i: B)(implicit conv: B => A): A = conv(i)
+      | val mb = new B()
+      | a(mb)
+      |}
+    """.trim.stripMargin, { ctx =>
+      println(ctx)
     }
   )
 
