@@ -50,49 +50,56 @@ class NewSchemaTest extends SemanticdbTest {
         name = "test.this.JsonWriter",
         kind = "implicit class",
         isImplicit = true,
-        signature = Some(Signature(
-          typeParams = Seq(Type(
-            name = "T",
-            constraints = Some(": JsonConverter")
-          )),
-          parameterLists = Seq(
-            DeclaredParameterList(
-              isImplicit = false,
-              params = Seq(DeclaredParameter(
-                name = "",
-                tipe = Type("T")
-              ))
+        signature = Some(
+          Signature(
+            typeParams = Seq(
+              Type(
+                name = "T",
+                constraints = Some(": JsonConverter")
+              )),
+            parameterLists = Seq(
+              DeclaredParameterList(
+                isImplicit = false,
+                params = Seq(
+                  DeclaredParameter(
+                    name = "",
+                    tipe = Type("T")
+                  ))
+              ),
+              DeclaredParameterList(
+                isImplicit = true,
+                params = Seq(
+                  DeclaredParameter(
+                    name = "evidence",
+                    tipe = Type(
+                      name = "T",
+                      constraints = Some(": JsonConverter")
+                    )
+                  ))
+              )
             ),
-            DeclaredParameterList(
-              isImplicit = true,
-              params = Seq(DeclaredParameter(
-                name = "evidence",
-                tipe = Type(
-                  name = "T",
-                  constraints = Some(": JsonConverter")
-                )
-              ))
+            returnType = Type(
+              name = "JsonWriter",
+              parameters = Seq(Type("T"))
             )
-          ),
-          returnType = Type(
-            name = "JsonWriter",
-            parameters = Seq(Type("T"))
-          )
-        ))
+          ))
       )
       val call = CallSite(
         location = Location.Empty,
         name = "test.this.JsonWriter",
-        code = "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))",
+        code =
+          "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))",
         isSynthetic = true,
         declaration = decl,
-        typeArguments = Seq(Type(
-          name = "Seq",
-          parameters = Seq(Type("Student"))
-        )),
-        implicitArguments = Seq(ImplicitArgument(
-          name = "test.this.seq2json"
-        ))
+        typeArguments = Seq(
+          Type(
+            name = "Seq",
+            parameters = Seq(Type("Student"))
+          )),
+        implicitArguments = Seq(
+          ImplicitArgument(
+            name = "test.this.seq2json"
+          ))
       )
       val res = Extract(ctx)
       res should contain only (call, decl)
@@ -112,6 +119,25 @@ class NewSchemaTest extends SemanticdbTest {
       | a(mb)
       |}
     """.trim.stripMargin, { ctx =>
+      println(ctx)
+    }
+  )
+
+  checkContext(
+    "Deep-nested calls",
+    """
+      |object nested {
+      | case class A()
+      | case class B()
+      | case class C()
+      | implicit def a2b(a: A): B = new B()
+      | implicit def b2c(b: B): C = new C()
+      | implicit def a2c(a: A)(implicit b: A => B, c: B => C): C = c(b(a))
+      | val ma = new A()
+      | val mc: C = ma
+      |}
+    """.trim.stripMargin, { ctx =>
+      val res = Extract(ctx)
       println(ctx)
     }
   )

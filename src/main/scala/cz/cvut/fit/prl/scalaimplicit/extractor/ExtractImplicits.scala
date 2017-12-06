@@ -204,9 +204,12 @@ object Queries {
 
 object Extract extends (SemanticCtx => Seq[TopLevelElem]) {
   def apply(ctx: SemanticCtx): Seq[TopLevelElem] = {
+    val context = new ReflectiveCtx(ctx.database)
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakdownSynthetic)
-    println(breakDowns)
+    val syntheticApplications = breakDowns.filter(_.app.isDefined)
+    val declarations = syntheticApplications.map(x => context.signature(x.app.get.symbol))
+    println(declarations)
     Seq()
   }
 }

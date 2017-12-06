@@ -3,6 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.extractor
 import java.nio.file.{Files, Path}
 
 import com.typesafe.scalalogging.LazyLogging
+import cz.cvut.fit.prl.scalaimplicit.extractor.Representation.Declaration
 import org.langmeta.internal.io.PathIO
 import org.langmeta.internal.semanticdb.{schema => s}
 
@@ -13,8 +14,8 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   def input = database.documents.head.input
   val file: String = input match {
     case Input.VirtualFile(path, _) => path
-    case Input.File(path, _) => path.toString
-    case _ => ""
+    case Input.File(path, _)        => path.toString
+    case _                          => ""
   }
 
   private lazy val _denots: Map[Symbol, Denotation] = {
@@ -47,11 +48,11 @@ case class SemanticCtx(database: Database) extends LazyLogging {
           Position.Range(name.pos.input, name.pos.start + 1, name.pos.end - 1)
         else name.pos
       symbol(pos)
-    case Importee.Rename(name, _) => symbol(name)
-    case Importee.Name(name) => symbol(name)
+    case Importee.Rename(name, _)       => symbol(name)
+    case Importee.Name(name)            => symbol(name)
     case Term.Select(_, name @ Name(_)) => symbol(name)
     case Type.Select(_, name @ Name(_)) => symbol(name)
-    case _ => symbol(tree.pos)
+    case _                              => symbol(tree.pos)
   }
   def denotation(symbol: Symbol): Option[Denotation] =
     _denots.get(symbol)
@@ -90,19 +91,19 @@ case class SemanticCtx(database: Database) extends LazyLogging {
 
   def getKind(denot: Denotation): String = {
     var kind: String = denot match {
-      case x if x.isVal => "val"
-      case x if x.isVar => "var"
-      case x if x.isDef => "def"
-      case x if x.isTrait => "trait"
-      case x if x.isMacro => "macro"
-      case x if x.isObject => "object"
-      case x if x.isVal && x.isLazy => "lazy val"
+      case x if x.isVal                => "val"
+      case x if x.isVar                => "var"
+      case x if x.isDef                => "def"
+      case x if x.isTrait              => "trait"
+      case x if x.isMacro              => "macro"
+      case x if x.isObject             => "object"
+      case x if x.isVal && x.isLazy    => "lazy val"
       case x if x.isClass && !x.isCase => "class"
-      case x if x.isClass && x.isCase => "case class"
-      case x if x.isParam => "param"
-      case x if x.isPackage => "package"
-      case x if x.isPackageObject => "package object"
-      case x => s"<unknown: ${x.structure}>"
+      case x if x.isClass && x.isCase  => "case class"
+      case x if x.isParam              => "param"
+      case x if x.isPackage            => "package"
+      case x if x.isPackageObject      => "package object"
+      case x                           => s"<unknown: ${x.structure}>"
     }
     //if (denot.isImplicit) kind = s"implicit $kind"
     if (denot.isFinal) kind = s"final $kind"
@@ -115,11 +116,11 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     denot match {
       case den => {
         var kind: String = den match {
-          case x if x.isClass && x.isCase => "case class"
+          case x if x.isClass && x.isCase  => "case class"
           case x if x.isClass && !x.isCase => "class"
-          case x if x.isObject => "object"
-          case x if x.isTrait => "trait"
-          case _ => ""
+          case x if x.isObject             => "object"
+          case x if x.isTrait              => "trait"
+          case _                           => ""
         }
         if (den.isImplicit) kind = s"implicit $kind"
         if (den.isFinal) kind = s"final $kind"
@@ -127,6 +128,52 @@ case class SemanticCtx(database: Database) extends LazyLogging {
         kind
       }
     }
+  }
+}
+
+class ReflectiveCtx(db: Database) extends SemanticCtx(db) {
+  val _universe = scala.reflect.runtime.universe
+  val _mirror = _universe.runtimeMirror(this.getClass.getClassLoader)
+
+  /**
+    * Extract a scala-reflect compatible fqn.
+    * Eliminate superfluous prefixes and parameter lists.
+    * @param symbol
+    * @return
+    */
+  def fqn(symbol: Symbol): String = {
+    symbol.syntax
+      .stripPrefix("_empty_.")
+      .stripPrefix("_root_.")
+      .split("""\(""")
+      .head
+  }
+
+  /**
+    * Iterate through the parts of the fqn, starting from the root
+    * package, in order to get the last symbol.
+    * @param fqn
+    * @return
+    */
+  def scalaSymbol(fqn: String): Option[_universe.Symbol] = {
+    fqn
+      .split("""[#\.]""")
+      .foldLeft[Option[_universe.Symbol]](Some(_mirror.RootPackage.moduleClass)) {
+        (parent, namePart) =>
+          parent match {
+            case Some(p) => {
+              println(s"Finding $namePart in ${p.name}")
+              p.typeSignature.decls.find(_.name.toString == namePart)
+            }
+            case None => None
+          }
+      }
+  }
+
+  def signature(symbol: Symbol): String = {
+    val name = fqn(symbol)
+    val reflectSymbol = scalaSymbol(name)
+    reflectSymbol.toString
   }
 }
 
