@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.extractor
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.cli._
+import cz.cvut.fit.prl.scalaimplicit.extractor.runners.SingleProjectWalker
 
 object Main extends LazyLogging {
   def main(args: Array[String]): Unit = {

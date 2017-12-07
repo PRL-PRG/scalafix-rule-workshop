@@ -1,7 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.Representation._
-import cz.cvut.fit.prl.scalaimplicit.extractor.{ReflectExtract, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation._
+import cz.cvut.fit.prl.scalaimplicit.extractor.ReflectExtract
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class NewSchemaTest extends SemanticdbTest {

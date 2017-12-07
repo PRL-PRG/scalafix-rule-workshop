@@ -1,11 +1,15 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.Representation.TopLevelElem
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
 import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
   Apply,
   DeclaredImplicit,
   FunApplyWithImplicitParam,
   ImplicitParam
+}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
 }
 import org.langmeta.inputs.Input
 
@@ -239,7 +243,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     val syntheticApplications = breakDowns.filter(_.app.isDefined)
 
     val reflectSymbols = breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
-    reflectSymbols.map(println)
+    //reflectSymbols.map(println)
     Seq()
   }
 }

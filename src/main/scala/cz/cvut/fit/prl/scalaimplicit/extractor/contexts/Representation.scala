@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.extractor
+package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
 
 /**
   * Module to hold the internal representation of extracted information

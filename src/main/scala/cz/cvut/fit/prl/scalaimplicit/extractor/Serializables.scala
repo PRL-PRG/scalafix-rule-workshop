@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.SemanticCtx
+
 import scala.meta._
 
 trait ResultElement {

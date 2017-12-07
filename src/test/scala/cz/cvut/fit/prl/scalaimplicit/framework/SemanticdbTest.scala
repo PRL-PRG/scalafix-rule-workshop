@@ -10,6 +10,10 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
   DeclaredImplicit
 }
 import cz.cvut.fit.prl.scalaimplicit.extractor._
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
+}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}

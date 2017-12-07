@@ -1,6 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.heuristics
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.{ExtractImplicits, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.ExtractImplicits
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 import org.langmeta.semanticdb.Synthetic
 class ImplicitConversionsTest extends SemanticdbTest {

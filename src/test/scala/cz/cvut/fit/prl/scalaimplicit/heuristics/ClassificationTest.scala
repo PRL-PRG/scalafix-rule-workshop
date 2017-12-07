@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.heuristics
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.SemanticCtx
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 import org.langmeta.semanticdb.Synthetic
 
