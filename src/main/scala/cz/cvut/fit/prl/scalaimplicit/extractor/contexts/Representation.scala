@@ -4,25 +4,22 @@ package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
   * Module to hold the internal representation of extracted information
   */
 object Representation {
-  case class Location(file: String, line: Int, col: Int)
-  object Location {
-    val Empty = Location("empty.scala", -1, -1)
-  }
 
   trait TopLevelElem {
     def name: String
   }
 
+  case class Location(file: String, line: Int, col: Int)
   case class Type(name: String,
                   constraints: Option[String] = None,
                   parameters: Seq[Type] = Seq())
 
   case class Declaration(name: String,
                          kind: String,
-                         location: Location,
+                         location: Option[Location],
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
-                         parent: Option[Parent] = None)
+                         parents: Seq[Parent] = Seq())
       extends TopLevelElem
   case class Signature(typeParams: Seq[Type],
                        parameterLists: Seq[DeclaredParameterList],
@@ -36,7 +33,7 @@ object Representation {
 
   case class CallSite(name: String,
                       code: String,
-                      location: Location,
+                      location: Option[Location],
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
