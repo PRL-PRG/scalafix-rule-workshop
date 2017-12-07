@@ -1,12 +1,12 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.Representation._
-import cz.cvut.fit.prl.scalaimplicit.extractor.{Extract, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.{ReflectExtract, SemanticCtx}
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class NewSchemaTest extends SemanticdbTest {
 
-  checkContext(
+  checkReflContext(
     "",
     """
       |object test {
@@ -101,13 +101,13 @@ class NewSchemaTest extends SemanticdbTest {
             name = "test.this.seq2json"
           ))
       )
-      val res = Extract(ctx)
+      val res = ReflectExtract(ctx)
       res should contain only (call, decl)
-      println(res)
+      println("End")
     }
   )
 
-  checkContext(
+  checkReflContext(
     "Heyo",
     """
       |object t {
@@ -119,11 +119,11 @@ class NewSchemaTest extends SemanticdbTest {
       | a(mb)
       |}
     """.trim.stripMargin, { ctx =>
-      println(ctx)
+      println("End")
     }
   )
 
-  checkContext(
+  checkReflContext(
     "Deep-nested calls",
     """
       |object nested {
@@ -137,8 +137,8 @@ class NewSchemaTest extends SemanticdbTest {
       | val mc: C = ma
       |}
     """.trim.stripMargin, { ctx =>
-      val res = Extract(ctx)
-      println(ctx)
+      val res = ReflectExtract(ctx)
+      println("End")
     }
   )
 

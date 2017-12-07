@@ -5,27 +5,14 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
-  Apply,
-  DeclaredImplicit
-}
-import cz.cvut.fit.prl.scalaimplicit.extractor.{
-  ExtractImplicits,
-  Location,
-  Result,
-  SemanticCtx
-}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit}
+import cz.cvut.fit.prl.scalaimplicit.extractor._
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.compat.Platform.EOL
-import scala.meta.internal.semanticdb.{
-  DatabaseOps,
-  FailureMode,
-  ProfilingMode,
-  SemanticdbMode
-}
+import scala.meta.internal.semanticdb.{DatabaseOps, FailureMode, ProfilingMode, SemanticdbMode}
 import scala.meta.io.AbsolutePath
 import scala.tools.cmd.CommandLineParser
 import scala.tools.nsc.reporters.ConsoleReporter
@@ -149,6 +136,18 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     test(name) {
       val db = computeSemanticdbFromCode(code)
       val ctx = SemanticCtx(db)
+
+      f(ctx)
+    }
+  }
+
+  protected def checkReflContext(name: String,
+                               code: String,
+                               f: ReflectiveCtx => Unit): Unit = {
+    test(name) {
+      val db = computeSemanticdbFromCode(code)
+      val loader = new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL), this.getClass.getClassLoader)
+      val ctx = new ReflectiveCtx(loader, db)
 
       f(ctx)
     }

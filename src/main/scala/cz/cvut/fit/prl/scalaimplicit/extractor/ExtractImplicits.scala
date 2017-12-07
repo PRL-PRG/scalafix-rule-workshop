@@ -202,14 +202,12 @@ object Queries {
 
 }
 
-object Extract extends (SemanticCtx => Seq[TopLevelElem]) {
-  def apply(ctx: SemanticCtx): Seq[TopLevelElem] = {
-    val context = new ReflectiveCtx(ctx.database)
+object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
+  def apply(ctx: ReflectiveCtx): Seq[TopLevelElem] = {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakdownSynthetic)
     val syntheticApplications = breakDowns.filter(_.app.isDefined)
-    val declarations = syntheticApplications.map(x => context.signature(x.app.get.symbol))
-    println(declarations)
+    val declarations = syntheticApplications.map(x => ctx.signature(x.app.get.symbol))
     Seq()
   }
 }
