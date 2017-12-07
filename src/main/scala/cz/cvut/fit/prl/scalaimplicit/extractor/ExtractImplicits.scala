@@ -201,8 +201,7 @@ object Queries {
   }
 
   import scala.reflect.runtime.{universe => u}
-  case class ReflectiveBreakdown(synthetic: Synthetic,
-                                 app: Option[Set[u.Symbol]],
+  case class ReflectiveBreakdown(app: Option[Set[u.Symbol]],
                                  params: Seq[Set[u.Symbol]],
                                  typeParams: Seq[Set[u.Symbol]])
 
@@ -217,7 +216,6 @@ object Queries {
       ctx: ReflectiveCtx,
       breakdown: SyntheticBreakdown): ReflectiveBreakdown = {
     ReflectiveBreakdown(
-      synthetic = breakdown.synthetic,
       app = breakdown.app match {
         case Some(a) => Some(ctx.fetchReflectSymbol(a.symbol))
         case _       => None

@@ -145,6 +145,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
                                code: String,
                                f: ReflectiveCtx => Unit): Unit = {
     test(name) {
+      // FIXME Perhaps computesemanticdbFromCode could return the path of the compiled sources
       val db = computeSemanticdbFromCode(code)
       val loader = new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL), this.getClass.getClassLoader)
       val ctx = new ReflectiveCtx(loader, db)

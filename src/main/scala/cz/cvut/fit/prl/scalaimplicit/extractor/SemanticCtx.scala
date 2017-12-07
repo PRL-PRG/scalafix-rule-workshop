@@ -138,14 +138,16 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
 
   /**
     * Fetch the possible scala.reflect representations of a scala.meta Symbol
-    * @param symbol The scalameta.Symbol whose representation we want
-    * @return
+    * @param symbol The scala.meta.Symbol whose representation we want
+    * @return A set of possible symbols with the same name as `symbol`
     */
   def fetchReflectSymbol(symbol: Symbol): Set[u.Symbol] = {
 
     /**
       * Extract a scala-reflect compatible fqn from a symbol.
-      * Similar to wholeFqn, but returns a ReflectLoadable
+      * `searchWoleSymbol` will be true when we need to
+      * statically load the whole symbol ''in addition'' to
+      * searching in the members of the owner
       * @param symbol
       * @return
       */
@@ -167,9 +169,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
           .toString
           .split("""\(""")
           .head
-      val isType = name.endsWith("#")
+      val isType = name.endsWith("#") // In scalameta, symbols that end in # are type names
       val tryWhole = isType
-      // In scalameta, symbols that end in # are type names
       ReflectLoadable(owner,
                       name
                         .stripSuffix("#")
@@ -188,7 +189,6 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       * FIXME: Exception-based flow control is obviously bad, we should look for a better way.
       */
     object SymbolSearch extends (ReflectLoadable => Set[u.Symbol]) {
-      // Search from a loadable
       def apply(loadable: ReflectLoadable): Set[u.Symbol] = {
         val candidates = (classMembers(loadable.owner) ++
           moduleMembers(loadable.owner) ++
@@ -216,20 +216,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
           case _: ScalaReflectionException => None
         }
       }
-      def classMembers(symbol: String): Seq[u.Symbol] = {
-        loadClass(symbol).getOrElse(u.NoSymbol).typeSignature.members.toSeq
-      }
       def loadModule(symbol: String): Option[u.ModuleSymbol] = {
         try {
           Some(_mirror.staticModule(symbol))
         } catch {
           case _: ScalaReflectionException => None
-        }
-      }
-      def moduleMembers(symbol: String): Seq[u.Symbol] = {
-        loadModule(symbol) match {
-          case Some(s) => s.moduleClass.info.members.toSeq
-          case None    => Seq()
         }
       }
       def loadPackage(symbol: String): Option[u.ModuleSymbol] = {
@@ -240,6 +231,16 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
           case _: Throwable => None
         }
       }
+
+      def classMembers(symbol: String): Seq[u.Symbol] = {
+        loadClass(symbol).getOrElse(u.NoSymbol).typeSignature.members.toSeq
+      }
+      def moduleMembers(symbol: String): Seq[u.Symbol] = {
+        loadModule(symbol) match {
+          case Some(s) => s.moduleClass.info.members.toSeq
+          case None    => Seq()
+        }
+      }
       def packageMembers(symbol: String): Seq[u.Symbol] = {
         loadPackage(symbol) match {
           case Some(s) => s.moduleClass.info.members.toSeq
@@ -248,22 +249,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       }
     }
 
-    def loadableSearch(loadable: ReflectLoadable): Set[u.Symbol] = {
-      val candidates = SymbolSearch(loadable)
-      assert(candidates.nonEmpty,
-             s"We were unable to find anything matching $loadable")
-      candidates.toSet
-    }
-
     val loadable = splitFqn(symbol)
-    loadableSearch(loadable)
-  }
-
-  def signature(metaSymbol: Symbol): String = {
-    val reflectSymbol = fetchReflectSymbol(metaSymbol)
-    logger.debug(
-      s"Reflective symbol lookup result: ${metaSymbol.syntax} -> ${reflectSymbol.toString}")
-    reflectSymbol.toString
+    val candidates = SymbolSearch(loadable)
+    assert(candidates.nonEmpty,
+           s"We were unable to find anything matching $loadable")
+    candidates
   }
 }
 
