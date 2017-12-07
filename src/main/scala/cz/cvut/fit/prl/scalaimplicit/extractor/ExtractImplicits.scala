@@ -202,9 +202,9 @@ object Queries {
 
   import scala.reflect.runtime.{universe => u}
   case class ReflectiveBreakdown(synthetic: Synthetic,
-                                 app: Option[u.Symbol],
-                                 params: Seq[u.Symbol],
-                                 typeParams: Seq[u.Symbol])
+                                 app: Option[Set[u.Symbol]],
+                                 params: Seq[Set[u.Symbol]],
+                                 typeParams: Seq[Set[u.Symbol]])
 
   /**
     * Query the context to fetch the reflective symbols of every relevant
@@ -235,9 +235,9 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakdownSynthetic)
     val syntheticApplications = breakDowns.filter(_.app.isDefined)
-    val declarations =
-      syntheticApplications.map(x => ctx.signature(x.app.get.symbol))
+
     val reflectSymbols = breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
+    reflectSymbols.map(println)
     Seq()
   }
 }

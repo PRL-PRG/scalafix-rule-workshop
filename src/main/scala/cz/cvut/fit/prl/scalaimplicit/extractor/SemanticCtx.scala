@@ -137,50 +137,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
   val _mirror = u.runtimeMirror(loader)
 
   /**
-    * Iterate through the parts of the fqn, starting from the root
-    * package, in order to get the last symbol.
+    * Fetch the possible scala.reflect representations of a scala.meta Symbol
     * @param symbol The scalameta.Symbol whose representation we want
     * @return
     */
-  def fetchReflectSymbol(symbol: Symbol): u.Symbol = {
-
-    /**
-      * Parse the scalameta fqns into reflection-compatible fqns, by
-      *  - Removing the parameter list ("_root_.my.fun(I)I" => "_root_.my.fun")
-      *  - Removing trailing dots and hashtags
-      * @param symbol
-      * @return
-      */
-    def wholeFqn(symbol: Symbol): String =
-      symbol.syntax.split("""\(""").head.stripSuffix("#").stripSuffix(".")
-
-    /**
-      * We iterate through members: https://goo.gl/FvVABR,
-      * returning all possible symbols that fit the fqn.
-      * Note that this method is not suitable if the symbol has not been
-      * loaded at least once before:
-      * https://gist.github.com/blorente/77dd0a279ffd6b27d8d234e4424b6cda#getting-a-symbol-from-an-fqn
-      * @param parent Symbol whose members we want to analyze
-      * @param name Name of the member we are looking for
-      * @return
-      */
-    def searchMember(parent: u.Symbol, memberNames: Seq[u.Name]): u.Symbol = {
-      assert(parent != u.NoSymbol,
-             s"Parent is empty with $memberNames left to search")
-      if (memberNames.isEmpty) parent
-      else {
-        logger.debug(s"Searching ${memberNames.head} in $parent")
-        // Recursively search for the new name
-        searchMember(
-          parent match {
-            case p if p.isModule || p.isPackage =>
-              p.asModule.moduleClass.info.member(memberNames.head)
-            case p => p.typeSignature.member(memberNames.head)
-          },
-          memberNames.tail
-        )
-      }
-    }
+  def fetchReflectSymbol(symbol: Symbol): Set[u.Symbol] = {
 
     /**
       * Extract a scala-reflect compatible fqn from a symbol.
@@ -188,95 +149,114 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       * @param symbol
       * @return
       */
-    case class ReflectLoadable(owner: String, term: u.TermName)
+    case class ReflectLoadable(owner: String,
+                               term: String,
+                               searchWholeSymbol: Boolean)
     def splitFqn(symbol: Symbol): ReflectLoadable = {
-      ReflectLoadable(
+      val owner =
         symbol
           .productElement(0)
           .toString
           .stripPrefix("_empty_.")
           .stripPrefix("_root_.")
           .stripSuffix(".")
-          .stripSuffix("#"),
-        u.TermName(
-          symbol
-            .productElement(1)
-            .toString
-            .split("""\(""")
-            .head
-            .stripSuffix("#") // Strip trailing #s for scala meta type names in type parameters
-        )
-      )
+          .stripSuffix("#")
+      val name =
+        symbol
+          .productElement(1)
+          .toString
+          .split("""\(""")
+          .head
+      val isType = name.endsWith("#")
+      val tryWhole = isType
+      // In scalameta, symbols that end in # are type names
+      ReflectLoadable(owner,
+                      name
+                        .stripSuffix("#")
+                        .stripSuffix("."),
+                      tryWhole)
     }
 
     /**
       * Given an owner and a term name to search, search for it with the mirror.
       * scala.reflect does not have a way to tell whether an fqn is a package, module or class.
-      * Therefore, we have to try to load `pack` as each of those. https://goo.gl/MzBoJF
+      * Therefore, we have to try to load a symbol as each of those. https://goo.gl/MzBoJF
       *
       * It also may be that `name` is not there when we load something as a class, but
       * it appears when whe load it as a module (or vice versa).
       * Therefore, we have to keep looking if we don't find it at first.
-      * FIXME: Exception-base flow control is obviously bad, we should look for a better way.
-      * @param loadable Instance containing the owner and the term name to search
-      * @return
+      * FIXME: Exception-based flow control is obviously bad, we should look for a better way.
       */
-    def exceptionSearch(loadable: ReflectLoadable): u.Symbol = {
-      def lookInClass: u.Symbol = {
-        _mirror.staticClass(loadable.owner).typeSignature.member(loadable.term)
-      }
-      def lookInModule: u.Symbol = {
-        _mirror
-          .staticModule(loadable.owner)
-          .moduleClass
-          .info
-          .member(loadable.term)
-      }
-      def lookInPackage: u.Symbol = {
-        _mirror
-          .staticPackage(loadable.owner)
-          .moduleClass
-          .info
-          .member(loadable.term)
+    object SymbolSearch extends (ReflectLoadable => Set[u.Symbol]) {
+      // Search from a loadable
+      def apply(loadable: ReflectLoadable): Set[u.Symbol] = {
+        val candidates = (classMembers(loadable.owner) ++
+          moduleMembers(loadable.owner) ++
+          packageMembers(loadable.owner))
+          .filter(_.name.toString == loadable.term)
+          .toSet
+        if (loadable.searchWholeSymbol)
+          candidates ++ getSymbol(s"${loadable.owner}.${loadable.term}")
+        else candidates
       }
 
-      var ret: u.Symbol = u.NoSymbol
-      ret = try { lookInClass } catch {
-        case _: ScalaReflectionException =>
-          logger.debug(s"${loadable.owner} is not a class")
-          u.NoSymbol
+      // Get a single symbol from an fqn
+      private def getSymbol(fqn: String): Set[u.Symbol] = {
+        val s =
+          loadClass(fqn).getOrElse(
+            loadModule(fqn).getOrElse(loadPackage(fqn).getOrElse(u.NoSymbol)))
+        if (s == u.NoSymbol) Set()
+        else Set(s)
       }
-      if (ret == u.NoSymbol) {
-        ret = try { lookInModule } catch {
-          case _: ScalaReflectionException =>
-            logger.debug(s"${loadable.owner} is not a module")
-            u.NoSymbol
-        }
-        if (ret == u.NoSymbol) {
-          ret = try { lookInPackage } catch {
-            case _: ScalaReflectionException =>
-              logger.debug(s"${loadable.owner} is not a package")
-              u.NoSymbol
-          }
+
+      def loadClass(symbol: String): Option[u.ClassSymbol] = {
+        try {
+          Some(_mirror.staticClass(symbol))
+        } catch {
+          case _: ScalaReflectionException => None
         }
       }
-      assert(
-        ret != u.NoSymbol,
-        s"We were able to load the package ${loadable.owner}, but unable to find ${loadable.term.toString}")
-      ret
+      def classMembers(symbol: String): Seq[u.Symbol] = {
+        loadClass(symbol).getOrElse(u.NoSymbol).typeSignature.members.toSeq
+      }
+      def loadModule(symbol: String): Option[u.ModuleSymbol] = {
+        try {
+          Some(_mirror.staticModule(symbol))
+        } catch {
+          case _: ScalaReflectionException => None
+        }
+      }
+      def moduleMembers(symbol: String): Seq[u.Symbol] = {
+        loadModule(symbol) match {
+          case Some(s) => s.moduleClass.info.members.toSeq
+          case None    => Seq()
+        }
+      }
+      def loadPackage(symbol: String): Option[u.ModuleSymbol] = {
+        try {
+          Some(_mirror.staticPackage(symbol))
+        } catch {
+          // FIXME This is an umbrella to catch both ScalaReflectionException and java ReflectionError
+          case _: Throwable => None
+        }
+      }
+      def packageMembers(symbol: String): Seq[u.Symbol] = {
+        loadPackage(symbol) match {
+          case Some(s) => s.moduleClass.info.members.toSeq
+          case None    => Seq()
+        }
+      }
     }
 
-    exceptionSearch(splitFqn(symbol))
-    /*FIXME: If we find a way to bypass the guesswork on reflection (https://goo.gl/MzBoJF),
-            we may want to use searchMember instead of exceptionSearch
-    val names = wholeFqn(symbol).split("""[\.#]""").map(x => u.TermName(x))
-    val res = names.head match {
-      case u.TermName("_root_") =>
-        searchMember(_mirror.RootPackage, names.tail)
-      case u.TermName("_empty_") =>
-        searchMember(_mirror.EmptyPackage, names.tail)
+    def loadableSearch(loadable: ReflectLoadable): Set[u.Symbol] = {
+      val candidates = SymbolSearch(loadable)
+      assert(candidates.nonEmpty,
+             s"We were unable to find anything matching $loadable")
+      candidates.toSet
     }
-   */
+
+    val loadable = splitFqn(symbol)
+    loadableSearch(loadable)
   }
 
   def signature(metaSymbol: Symbol): String = {
