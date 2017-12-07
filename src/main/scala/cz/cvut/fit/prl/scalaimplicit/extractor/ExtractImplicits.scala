@@ -26,8 +26,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _)        => path.toString
-      case _                          => ""
+      case Input.File(path, _) => path.toString
+      case _ => ""
     }
 
     /**
@@ -161,7 +161,11 @@ object Queries {
       * We strip the star prefix so that parameter list names ("*(param.One,param.Two)") will be ""
       */
     val plainName: String =
-      synth.text.stripPrefix("*").split("""[\[\(]""")(0).split("""[#\.]""").last
+      synth.text
+        .stripPrefix("*")
+        .split("""[\[\(]""")(0)
+        .split("""[#\.]""")
+        .last
 
     /**
       * A conversion is a method that has the same plain name as the synthetic it served.
@@ -218,7 +222,7 @@ object Queries {
     ReflectiveBreakdown(
       app = breakdown.app match {
         case Some(a) => Some(ctx.fetchReflectSymbol(a.symbol))
-        case _       => None
+        case _ => None
       },
       params = breakdown.params.map(x => ctx.fetchReflectSymbol(x.symbol)),
       typeParams =

@@ -22,7 +22,8 @@ object Representation {
                          location: Location,
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
-                         parent: Option[Parent] = None) extends TopLevelElem
+                         parent: Option[Parent] = None)
+      extends TopLevelElem
   case class Signature(typeParams: Seq[Type],
                        parameterLists: Seq[DeclaredParameterList],
                        returnType: Type)
@@ -39,6 +40,7 @@ object Representation {
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
-                      implicitArguments: Seq[ImplicitArgument]) extends TopLevelElem
+                      implicitArguments: Seq[ImplicitArgument])
+      extends TopLevelElem
   case class ImplicitArgument(name: String)
 }
