@@ -200,6 +200,34 @@ object Queries {
     )
   }
 
+  import scala.reflect.runtime.{universe => u}
+  case class ReflectiveBreakdown(synthetic: Synthetic,
+                                 app: Option[u.Symbol],
+                                 params: Seq[u.Symbol],
+                                 typeParams: Seq[u.Symbol])
+
+  /**
+    * Query the context to fetch the reflective symbols of every relevant
+    * resolved name in the synthetic
+    * @param ctx
+    * @param breakdown
+    * @return
+    */
+  def getReflectiveSymbols(
+      ctx: ReflectiveCtx,
+      breakdown: SyntheticBreakdown): ReflectiveBreakdown = {
+    ReflectiveBreakdown(
+      synthetic = breakdown.synthetic,
+      app = breakdown.app match {
+        case Some(a) => Some(ctx.fetchReflectSymbol(a.symbol))
+        case _       => None
+      },
+      params = breakdown.params.map(x => ctx.fetchReflectSymbol(x.symbol)),
+      typeParams =
+        breakdown.typeParams.map(x => ctx.fetchReflectSymbol(x.symbol))
+    )
+  }
+
 }
 
 object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
@@ -207,7 +235,9 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakdownSynthetic)
     val syntheticApplications = breakDowns.filter(_.app.isDefined)
-    val declarations = syntheticApplications.map(x => ctx.signature(x.app.get.symbol))
+    val declarations =
+      syntheticApplications.map(x => ctx.signature(x.app.get.symbol))
+    val reflectSymbols = breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
     Seq()
   }
 }

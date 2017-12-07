@@ -133,8 +133,8 @@ case class SemanticCtx(database: Database) extends LazyLogging {
 }
 
 class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
-  val _universe = scala.reflect.runtime.universe
-  val _mirror = _universe.runtimeMirror(loader)
+  import scala.reflect.runtime.{universe => u}
+  val _mirror = u.runtimeMirror(loader)
 
   /**
     * Iterate through the parts of the fqn, starting from the root
@@ -142,7 +142,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
     * @param symbol The scalameta.Symbol whose representation we want
     * @return
     */
-  def fetchReflectSymbol(symbol: Symbol): _universe.Symbol = {
+  def fetchReflectSymbol(symbol: Symbol): u.Symbol = {
 
     /**
       * Parse the scalameta fqns into reflection-compatible fqns, by
@@ -164,9 +164,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       * @param name Name of the member we are looking for
       * @return
       */
-    def searchMember(parent: _universe.Symbol,
-                     memberNames: Seq[_universe.Name]): _universe.Symbol = {
-      assert(parent != _universe.NoSymbol,
+    def searchMember(parent: u.Symbol, memberNames: Seq[u.Name]): u.Symbol = {
+      assert(parent != u.NoSymbol,
              s"Parent is empty with $memberNames left to search")
       if (memberNames.isEmpty) parent
       else {
@@ -185,11 +184,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
 
     /**
       * Extract a scala-reflect compatible fqn from a symbol.
-      * Similar to wholeFqn, but returns a
+      * Similar to wholeFqn, but returns a ReflectLoadable
       * @param symbol
       * @return
       */
-    case class ReflectLoadable(owner: String, term: _universe.TermName)
+    case class ReflectLoadable(owner: String, term: u.TermName)
     def splitFqn(symbol: Symbol): ReflectLoadable = {
       ReflectLoadable(
         symbol
@@ -199,8 +198,14 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
           .stripPrefix("_root_.")
           .stripSuffix(".")
           .stripSuffix("#"),
-        _universe.TermName(
-          symbol.productElement(1).toString.split("""\(""").head)
+        u.TermName(
+          symbol
+            .productElement(1)
+            .toString
+            .split("""\(""")
+            .head
+            .stripSuffix("#") // Strip trailing #s for scala meta type names in type parameters
+        )
       )
     }
 
@@ -216,18 +221,18 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       * @param loadable Instance containing the owner and the term name to search
       * @return
       */
-    def exceptionSearch(loadable: ReflectLoadable): _universe.Symbol = {
-      def lookInClass: _universe.Symbol = {
+    def exceptionSearch(loadable: ReflectLoadable): u.Symbol = {
+      def lookInClass: u.Symbol = {
         _mirror.staticClass(loadable.owner).typeSignature.member(loadable.term)
       }
-      def lookInModule: _universe.Symbol = {
+      def lookInModule: u.Symbol = {
         _mirror
           .staticModule(loadable.owner)
           .moduleClass
           .info
           .member(loadable.term)
       }
-      def lookInPackage: _universe.Symbol = {
+      def lookInPackage: u.Symbol = {
         _mirror
           .staticPackage(loadable.owner)
           .moduleClass
@@ -235,28 +240,28 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
           .member(loadable.term)
       }
 
-      var ret: _universe.Symbol = _universe.NoSymbol
+      var ret: u.Symbol = u.NoSymbol
       ret = try { lookInClass } catch {
         case _: ScalaReflectionException =>
           logger.debug(s"${loadable.owner} is not a class")
-          _universe.NoSymbol
+          u.NoSymbol
       }
-      if (ret == _universe.NoSymbol) {
+      if (ret == u.NoSymbol) {
         ret = try { lookInModule } catch {
           case _: ScalaReflectionException =>
             logger.debug(s"${loadable.owner} is not a module")
-            _universe.NoSymbol
+            u.NoSymbol
         }
-        if (ret == _universe.NoSymbol) {
+        if (ret == u.NoSymbol) {
           ret = try { lookInPackage } catch {
             case _: ScalaReflectionException =>
               logger.debug(s"${loadable.owner} is not a package")
-              _universe.NoSymbol
+              u.NoSymbol
           }
         }
       }
       assert(
-        ret != _universe.NoSymbol,
+        ret != u.NoSymbol,
         s"We were able to load the package ${loadable.owner}, but unable to find ${loadable.term.toString}")
       ret
     }
@@ -264,11 +269,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
     exceptionSearch(splitFqn(symbol))
     /*FIXME: If we find a way to bypass the guesswork on reflection (https://goo.gl/MzBoJF),
             we may want to use searchMember instead of exceptionSearch
-    val names = wholeFqn(symbol).split("""[\.#]""").map(x => _universe.TermName(x))
+    val names = wholeFqn(symbol).split("""[\.#]""").map(x => u.TermName(x))
     val res = names.head match {
-      case _universe.TermName("_root_") =>
+      case u.TermName("_root_") =>
         searchMember(_mirror.RootPackage, names.tail)
-      case _universe.TermName("_empty_") =>
+      case u.TermName("_empty_") =>
         searchMember(_mirror.EmptyPackage, names.tail)
     }
    */
@@ -276,7 +281,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
 
   def signature(metaSymbol: Symbol): String = {
     val reflectSymbol = fetchReflectSymbol(metaSymbol)
-    logger.debug(s"${metaSymbol.syntax} -> ${reflectSymbol.toString}")
+    logger.debug(
+      s"Reflective symbol lookup result: ${metaSymbol.syntax} -> ${reflectSymbol.toString}")
     reflectSymbol.toString
   }
 }
