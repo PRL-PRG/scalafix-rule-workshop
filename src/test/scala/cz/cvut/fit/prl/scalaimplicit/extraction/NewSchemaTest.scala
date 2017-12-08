@@ -46,7 +46,7 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.stripMargin, { ctx =>
       val decl = Declaration(
-        location = Location.Empty,
+        location = None,
         name = "test.this.JsonWriter",
         kind = "implicit class",
         isImplicit = true,
@@ -85,7 +85,7 @@ class NewSchemaTest extends SemanticdbTest {
           ))
       )
       val call = CallSite(
-        location = Location.Empty,
+        location = None,
         name = "test.this.JsonWriter",
         code =
           "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))",

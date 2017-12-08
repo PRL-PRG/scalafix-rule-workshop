@@ -128,32 +128,33 @@ object Queries {
     ctx.index.synthetics.filter(_.text.contains("("))
 
   case class SyntheticBreakdown(synthetic: Synthetic,
-                                app: Option[ResolvedName],
-                                params: Seq[ResolvedName],
-                                typeParams: Seq[ResolvedName])
+                                pos: Int,
+                                app: Option[Symbol],
+                                params: Seq[Symbol],
+                                typeParams: Seq[Symbol])
   def breakdownSynthetic(synth: Synthetic): SyntheticBreakdown = {
 
     /**
-      * Returns true if a given resolved name is a resolved type.
+      * Returns true if a given symbol is a resolved type.
       * The discriminator is that type symbols end in hashtag (#),
       * as shown here: https://goo.gl/Z6mXdN
       * '''Note that not all type parameters belong to the application. e.g.:'''
       *  "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))"
       *  will have 3 type params, "Seq" and "Student" for the application,
       *  and an extra "Student" for seq2json
-      * @param rn
+      * @param s
       * @return
       */
-    def isType(rn: ResolvedName): Boolean = rn.symbol.syntax.endsWith("#")
+    def isType(s: Symbol): Boolean = s.syntax.endsWith("#")
 
     /**
       * The opposite of isType, a term or method ends with a dot.
       * Refer to the link in isType for proof.
-      * @param rn
+      * @param s
       * @return
       */
-    def isTermOrMethod(rn: ResolvedName): Boolean =
-      rn.symbol.syntax.endsWith(".") && !rn.symbol.syntax.startsWith("_star_")
+    def isTermOrMethod(s: Symbol): Boolean =
+      s.syntax.endsWith(".") && !s.syntax.startsWith("_star_")
 
     /**
       * We define plain name as everything in the text of a synthetic between the last dot (or hashtag)
@@ -179,11 +180,11 @@ object Queries {
       * productElement(1) corresponds to the jvmSignature (according to this: https://goo.gl/Z6mXdN).
       * In this case, for example, productElement(1) would be "Conversion(L/param)L/ret", and
       * "Conversion" should coincide with the plainName
-      * @param rn
+      * @param s
       * @return
       */
-    def isConversion(rn: ResolvedName): Boolean =
-      isTermOrMethod(rn) && rn.symbol
+    def isConversion(s: Symbol): Boolean =
+      isTermOrMethod(s) && s
         .productElement(1)
         .toString
         .startsWith(plainName)
@@ -194,18 +195,81 @@ object Queries {
       * '''Note that not all parameters belong to the application. e.g.:'''
       *  "test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))"
       *  will have 2 params, "seq2json" and "Student2Json"
-      * @param rn
+      * @param s
       * @return
       */
-    def isParameter(rn: ResolvedName): Boolean =
-      isTermOrMethod(rn) && !isConversion(rn)
+    def isParameter(s: Symbol): Boolean =
+      isTermOrMethod(s) && !isConversion(s)
 
     SyntheticBreakdown(
       synthetic = synth,
-      app = synth.names.find(isConversion),
-      params = synth.names.filter(isParameter),
-      typeParams = synth.names.filter(isType)
+      pos = synth.position.end,
+      app = synth.names.map(_.symbol).find(isConversion),
+      params = synth.names.map(_.symbol).filter(isParameter),
+      typeParams = synth.names.map(_.symbol).filter(isType)
     )
+  }
+
+  /**
+    * We find applications for the synthetics that don't have them (that is, pure parameter lists)
+    * For that, we try to look for a fitting `apply` synthetic. If we don't find one, we look in
+    * the source code and try to match there.
+    *
+    * In both cases, we match by position, since parameter lists are inserted at the end of calls.
+    *
+    * We assume that there is exactly one symbol at the position of the synthetic.
+    */
+  def matchWithInSourceApplications(
+      ctx: SemanticCtx,
+      breakdowns: Seq[SyntheticBreakdown]): Seq[SyntheticBreakdown] = {
+
+    /**
+      * We capture both Names and Applies that appear in-tree, since both represent function applications.
+      *
+      * In semanticdb notation, a Term.Name is the name part of a call.
+      * In function chains, it may happen that we have only Term.Names (and not Term.Applies)
+      * for individual functions in the chain. Thus, it is not sufficient to match Term.Applies.
+      *
+      * e.g.: https://astexplorer.net/#/gist/3246f2f332f71e73e4e0da969e8eed22/latest
+      *
+      * This first filter matches every call, both the outer Applies and the inner Names.
+      * Later filters leave out those calls without implicit parameters.
+      *
+      * ''Note that'' it is lazy, since this is a computationally expensive operation, and there will be
+      * cases where it is not needed (e.g. if all breakdowns have apps defined)
+      */
+    lazy val inSourceCallSites: Map[Int, Option[Symbol]] =
+      (ctx.tree collect {
+        case x: Term.Apply => x.fun.pos.end -> ctx.symbol(x)
+        case x: Term.Name => x.pos.end -> ctx.symbol(x)
+      }).toMap
+
+    /**
+      * Filter for the synthetic function applications.
+      * Captures all "apply()" functions inserted by the compiler.
+      * @param elem Synthetic to test
+      * @return true iff the synthetic has apply in the name
+      */
+    def hasApplyInTheName(elem: Synthetic): Boolean = {
+      elem.names.exists(_.toString() == "apply")
+    }
+    def getApply(elem: Synthetic): (Int, Symbol) = {
+      elem.position.end -> elem.names.find(_.toString == "apply").get.symbol
+    }
+    val syntheticApplies: Map[Int, Symbol] =
+      ctx.index.synthetics.filter(hasApplyInTheName).map(getApply).toMap
+
+    breakdowns.collect {
+      case bd if bd.app.isDefined => bd
+      case bd =>
+        syntheticApplies.find(_._1 == bd.pos) match {
+          case Some(callSite) => bd.copy(app = Some(callSite._2))
+          case None =>
+            bd.copy(
+              app =
+                inSourceCallSites.find(_._1 == bd.pos).getOrElse(0 -> None)._2)
+        }
+    }
   }
 
   import scala.reflect.runtime.{universe => u}
@@ -215,7 +279,7 @@ object Queries {
 
   /**
     * Query the context to fetch the reflective symbols of every relevant
-    * resolved name in the synthetic
+    * scala.meta symbol in the synthetic
     * @param ctx
     * @param breakdown
     * @return
@@ -225,22 +289,23 @@ object Queries {
       breakdown: SyntheticBreakdown): ReflectiveBreakdown = {
     ReflectiveBreakdown(
       app = breakdown.app match {
-        case Some(a) => Some(ctx.fetchReflectSymbol(a.symbol))
+        case Some(a) => Some(ctx.fetchReflectSymbol(a))
         case _ => None
       },
-      params = breakdown.params.map(x => ctx.fetchReflectSymbol(x.symbol)),
-      typeParams =
-        breakdown.typeParams.map(x => ctx.fetchReflectSymbol(x.symbol))
+      params = breakdown.params.map(x => ctx.fetchReflectSymbol(x)),
+      typeParams = breakdown.typeParams.map(x => ctx.fetchReflectSymbol(x))
     )
   }
-
 }
 
 object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
   def apply(ctx: ReflectiveCtx): Seq[TopLevelElem] = {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakdownSynthetic)
-    val syntheticApplications = breakDowns.filter(_.app.isDefined)
+    val matched = Queries.matchWithInSourceApplications(ctx, breakDowns)
+    assert(
+      !matched.exists(_.app.isEmpty),
+      s"Some synthetic(s) didn't find an application: ${matched.filter(_.app.isEmpty).mkString("\n")}")
 
     val reflectSymbols = breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
     //reflectSymbols.map(println)
