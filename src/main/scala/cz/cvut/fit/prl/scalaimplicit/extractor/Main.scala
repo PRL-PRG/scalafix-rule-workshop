@@ -11,8 +11,8 @@ object Main extends LazyLogging {
       case Some(conf) => {
         logger.debug(s"Root: ${conf.root}")
         val walker = new SingleProjectWalker(conf.root)
-        val results = walker(ExtractImplicits)
-        CSV.dumpFiles(conf.root, results)
+        //val results = walker(ExtractImplicits)
+        //CSV.dumpFiles(conf.root, results)
       }
       case None => {
         println("No arguments found. Closing")
