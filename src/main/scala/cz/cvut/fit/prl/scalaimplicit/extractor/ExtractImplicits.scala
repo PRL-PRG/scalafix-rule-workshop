@@ -38,11 +38,14 @@ trait TermDecomposer {
   }
 
   def breakDown(tree: Term): BreakdownContent = {
+    def processParamList(params: Seq[Term]): Seq[BreakdownContent] =
+      params.map(breakDown).filter(_.symbol.app.isDefined)
+
     tree match {
       case t: Term.Apply => {
         // Anything with a parameter list (`hello(*)`, `hello[String](*)`, `hello[String](*)(stringConverter)`...)
         val bd = breakDown(t.fun)
-        bd.copy(params = t.args.map(breakDown))
+        bd.copy(params = processParamList(t.args))
       }
       case t: Term.ApplyType => {
         // An application with type parameters but no parameter list
@@ -81,12 +84,12 @@ trait TermDecomposer {
         // Infix function applications (e.g. `list map f1`).
         // We take the operation and the ''implicit'' parameters
         val bd = breakDown(t.op)
-        bd.copy(params = t.args.map(breakDown))
+        bd.copy(params = processParamList(t.args))
       }
       case t: Term.ApplyUnary => {
         // Unary functions (e.g. )
         val bd = breakDown(t.op)
-        bd.copy(params = Seq(breakDown(t.arg)))
+        bd.copy(params = processParamList(Seq(t.arg)))
       }
     }
   }
@@ -164,17 +167,19 @@ object Queries {
 
     def needsMatching(bd: SyntheticBreakdown) = bd.content.symbol.app.isEmpty
 
-    def isNotStar(bd: SyntheticBreakdown) = bd.content.symbol.app.exists(_.syntax.contains("_star_"))
+    def isNotStar(bd: SyntheticBreakdown) =
+      bd.content.symbol.app.exists(_.syntax.contains("_star_"))
 
     def breakdownTree(term: Option[Tree]): BreakdownContent = {
       object internal extends TermDecomposer {
         override def findSymbolFor(t: Tree): QualifiedSymbol = {
           // A symbol from the tree will never be synthetic
-          QualifiedSymbol(Some(
-             ctx
-               .symbol(t)
-               .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-           false)
+          QualifiedSymbol(
+            Some(
+              ctx
+                .symbol(t)
+                .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
+            false)
         }
       }
       term match {
@@ -292,10 +297,10 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
 // TODO Remove once the thing above is stable
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
-Apply,
-DeclaredImplicit,
-FunApplyWithImplicitParam,
-ImplicitParam
+  Apply,
+  DeclaredImplicit,
+  FunApplyWithImplicitParam,
+  ImplicitParam
 }
 import org.langmeta.inputs.Input
 
@@ -316,8 +321,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _) => path.toString
-      case _ => ""
+      case Input.File(path, _)        => path.toString
+      case _                          => ""
     }
 
     /**
@@ -354,18 +359,18 @@ object ExtractImplicits extends (SemanticCtx => Result) {
     val paramsFuns =
       for {
 
-      /**
-        * We capture both Names and Applies that appear in-tree, since both represent function applications.
-        *
-        * In semanticdb notation, a Term.Name is the name part of a call.
-        * In function chains, it may happen that we have only Term.Names (and not Term.Applies)
-        * for individual functions in the chain. Thus, it is not sufficient to match Term.Applies.
-        *
-        * e.g.: https://astexplorer.net/#/gist/3246f2f332f71e73e4e0da969e8eed22/latest
-        *
-        * This first filter matches every call, both the outer Applies and the inner Names.
-        * Later filters leave out those calls without implicit parameters.
-        */
+        /**
+          * We capture both Names and Applies that appear in-tree, since both represent function applications.
+          *
+          * In semanticdb notation, a Term.Name is the name part of a call.
+          * In function chains, it may happen that we have only Term.Names (and not Term.Applies)
+          * for individual functions in the chain. Thus, it is not sufficient to match Term.Applies.
+          *
+          * e.g.: https://astexplorer.net/#/gist/3246f2f332f71e73e4e0da969e8eed22/latest
+          *
+          * This first filter matches every call, both the outer Applies and the inner Names.
+          * Later filters leave out those calls without implicit parameters.
+          */
         app <- ctx.tree collect {
           case x: Term.Apply =>
             Serializables.AppTerm(x, x.args.size, x.fun.pos.end)
