@@ -1,8 +1,16 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
-import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{ReflectiveCtx, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
+  Apply,
+  DeclaredImplicit,
+  FunApplyWithImplicitParam,
+  ImplicitParam
+}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
+}
 import org.langmeta.inputs.Input
 
 import scala.meta._
@@ -152,10 +160,9 @@ trait TermDecomposer {
         // A block inside the synthetic (e.g. `nested.this.a2c(*)({((a: A) => nested.this.a2b(a))})`)
         // We assume it has only one stat inside, and that it is a Term.
         assert(t.stats.size == 1,
-          s"Body ${t.stats} of block $t has more than one stat")
+               s"Body ${t.stats} of block $t has more than one stat")
         assert(t.stats.forall(_.isInstanceOf[Term]),
-          s"Stat (${t.stats.head}) from block ${t} is not a term")
-        // FIXME this is a bit of a hack, putting all the statements as parameters of a None-callsite
+               s"Stat (${t.stats.head}) from block ${t} is not a term")
         breakDown(t.stats.head.asInstanceOf[Term])
       }
       case t: Term.Function => {
@@ -164,6 +171,17 @@ trait TermDecomposer {
         // We also ignore the parameters for now, since they will appear in other call sites,
         // when the function gets executed
         breakDown(t.body)
+      }
+      case t: Term.ApplyInfix => {
+        // Infix function applications (e.g. `list map f1`).
+        // We take the operation and the ''implicit'' parameters
+        val bd = breakDown(t.op)
+        bd.copy(params = t.args.map(breakDown))
+      }
+      case t: Term.ApplyUnary => {
+        // Unary functions (e.g. )
+        val bd = breakDown(t.op)
+        bd.copy(params = Seq(breakDown(t.arg)))
       }
     }
   }
@@ -175,21 +193,6 @@ object Queries {
 
   case class SyntheticBreakdown(synth: Synthetic, content: BreakdownContent)
   def breakDownSynthetic(synth: Synthetic): SyntheticBreakdown = {
-    /**
-      * We define plain name as everything in the text of a synthetic between the last dot (or hashtag)
-      * and the first opening bracket, paren or the end of the string.
-      * For example, the plain names of the following are:
-      *  - "*.withFilter[A, Iterable[A]\](*)(some.package.B)" => withFilter
-      *  - "test.this.JsonWriter(*)" => JsonWriter
-      *  - "*.apply" => apply
-      * We strip the star prefix so that parameter list names ("*(param.One,param.Two)") will be ""
-      */
-    def plainName(text: String): String =
-      text
-        .stripPrefix("*")
-        .split("""[\[\(]""")(0)
-        .split("""[#\.]""")
-        .last
 
     def parse(text: String): Term = {
       text.parse[Term].get
@@ -199,15 +202,16 @@ object Queries {
     object internal extends TermDecomposer {
       override def findSymbolFor(t: Tree): Option[Symbol] = {
         synth.names.find(_.position.end == t.pos.end) match {
-          case Some(name) => Some(name.symbol)
-          case None => None
+          // Filter out the _star_ names
+          case Some(n) if n.symbol.syntax.contains("_star_") => None
+          case Some(name)                                    => Some(name.symbol)
+          case None                                          => None
         }
       }
     }
     val tree = parse(synth.text)
     SyntheticBreakdown(synth, internal.breakDown(tree))
   }
-
 
   /**
     * We find applications for the synthetics that don't have them (that is, pure parameter lists)
@@ -223,23 +227,18 @@ object Queries {
       breakdowns: Seq[SyntheticBreakdown]): Seq[SyntheticBreakdown] = {
 
     /**
-      * We capture both Names and Applies that appear in-tree, since both represent function applications.
+      * We capture every instance of function applications
+      * that may have implicit parameters.
       *
-      * In semanticdb notation, a Term.Name is the name part of a call.
-      * In function chains, it may happen that we have only Term.Names (and not Term.Applies)
-      * for individual functions in the chain. Thus, it is not sufficient to match Term.Applies.
-      *
-      * e.g.: https://astexplorer.net/#/gist/3246f2f332f71e73e4e0da969e8eed22/latest
-      *
-      * This first filter matches every call, both the outer Applies and the inner Names.
-      * Later filters leave out those calls without implicit parameters.
-      *
-      * ''Note that'' it is lazy, since this is a computationally expensive operation, and there will be
-      * cases where it is not needed (e.g. if all breakdowns have apps defined)
+      * FIXME This list may not be exhaustive, but an assertion will be triggeded if a case is missed
+      * There are some notable omissions, such as For and ForYield. The reason is that we
+      * will not have symbols for them, and thus it is necessary to treat it as a special case
       */
-    val inSourceCallSites: Map[Int, Term] =
+    val inSourceCallSites: Map[Int, Tree] =
       (ctx.tree collect {
-        case x: Term => x.pos.end -> x
+        case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
+            _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
+          x.pos.end -> x
       }).toMap
 
     /**
@@ -253,20 +252,23 @@ object Queries {
     }
 
     val syntheticApplies: Seq[SyntheticBreakdown] =
-      ctx.index.synthetics.filter(hasApplyInTheName).map(Queries.breakDownSynthetic)
+      ctx.index.synthetics
+        .filter(hasApplyInTheName)
+        .map(Queries.breakDownSynthetic)
 
-    def needsMatching(bd: SyntheticBreakdown) = {
-      bd.content.app.isEmpty || bd.content.app.get.syntax.startsWith("_star_")
-    }
+    def needsMatching(bd: SyntheticBreakdown) = bd.content.app.isEmpty
 
-    def breakdownTerm(term: Option[Term]): BreakdownContent = {
+    def breakdownTree(term: Option[Tree]): BreakdownContent = {
       object internal extends TermDecomposer {
         override def findSymbolFor(t: Tree): Option[Symbol] = {
-          Some(ctx.symbol(t).getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term]))))
+          Some(
+            ctx
+              .symbol(t)
+              .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term]))))
         }
       }
       term match {
-        case Some(t) => internal.breakDown(t)
+        case Some(t) => internal.breakDown(t.asInstanceOf[Term])
         case None    => BreakdownContent(None, Seq(), Seq())
       }
     }
@@ -280,7 +282,8 @@ object Queries {
               ))
           case None =>
             // We need to parse this from the tree itself
-            val fromTerm = breakdownTerm(inSourceCallSites.get(bd.synth.position.end))
+            val fromTerm =
+              breakdownTree(inSourceCallSites.get(bd.synth.position.end))
             bd.copy(
               content = bd.content.copy(
                 app = fromTerm.app,
@@ -334,7 +337,6 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     assert(
       !matched.exists(_.content.app.isEmpty),
       s"Some synthetic(s) didn't find an application: ${matched.filter(_.content.app.isEmpty).mkString("\n")}")
-
 
     val reflectSymbols =
       matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))

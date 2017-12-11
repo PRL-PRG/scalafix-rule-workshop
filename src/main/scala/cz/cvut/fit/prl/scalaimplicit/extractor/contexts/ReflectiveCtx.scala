@@ -40,7 +40,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           .toString
           .split("""\(""")
           .head
-      val isType = name.endsWith("#") // In scalameta, symbols that end in # are type names
+      val isType = name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
       val tryWhole = isType
       ReflectLoadable(owner,
                       name

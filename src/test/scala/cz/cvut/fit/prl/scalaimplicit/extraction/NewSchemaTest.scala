@@ -21,7 +21,7 @@ class NewSchemaTest extends SemanticdbTest {
       |
       |def write(x: Json): String = x match {
       |  case JsonObject(kvs) => (for ((k,v) <- kvs) yield k + ": " + write(v)).mkString("{", ", ", "}")
-      |  case JsonArray(vs) => vs map write mkString("[", ", ", "]")
+      |  case JsonArray(vs) => vs map write               mkString("[", ", ", "]")
       |  case JsonString(v) => "'" + v + "'"
       |}
       |
