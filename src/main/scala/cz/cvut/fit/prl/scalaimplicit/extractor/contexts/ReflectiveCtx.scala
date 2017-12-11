@@ -126,4 +126,28 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
            s"We were unable to find anything matching $loadable")
     candidates
   }
+
+  def getReflectiveKind(symbol: u.TermSymbol): String = {
+    var kind: String = symbol match {
+      case x if x.isVal => "val"
+      case x if x.isVal => "var"
+      case x if x.isMethod => "def"
+      case x if x.isClass =>
+        x.asClass match {
+          case c if c.isTrait => "trait"
+          case c if c.isCaseClass => "case class"
+          case c if c.isPackage => "package"
+          case c if c.isPackageClass => "package class"
+          case c => "class"
+        }
+      case x if x.isModule => "object"
+      case x if x.isMacro => "macro"
+      case x if x.isPackage => "package"
+      case x => throw new RuntimeException(s"<unknown: ${x.toString}>")
+    }
+    if (symbol.isFinal) kind = s"final $kind"
+    if (symbol.isLazy) kind = s"lazy $kind"
+    if (symbol.isAbstract) kind = s"abstract $kind"
+    kind
+  }
 }

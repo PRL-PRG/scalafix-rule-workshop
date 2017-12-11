@@ -1,9 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.ReflectiveTArg
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.{
-  TopLevelElem
+import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
+  ReflectiveBreakdown,
+  ReflectiveTArg
 }
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
   ReflectiveCtx,
   SemanticCtx
@@ -212,9 +213,9 @@ object Queries {
 
   import scala.reflect.runtime.{universe => u}
 
-  case class ReflectiveTArg(symbols: Set[u.Symbol], args: Seq[ReflectiveTArg])
+  case class ReflectiveTArg(symbols: u.Symbol, args: Seq[ReflectiveTArg])
   case class ReflectiveBreakdown(originalSymbol: QualifiedSymbol,
-                                 reflection: Set[u.Symbol],
+                                 reflection: u.Symbol,
                                  params: Seq[ReflectiveBreakdown],
                                  typeParams: Seq[ReflectiveTArg])
 
@@ -227,9 +228,43 @@ object Queries {
     */
   def getReflectiveSymbols(ctx: ReflectiveCtx,
                            breakdown: BreakdownContent): ReflectiveBreakdown = {
+
+    /**
+      * Apply some heuristic to select one type symbol of the many that there can be
+      * Currently, the heuristic is trait > class > case class > object > package
+      * @param symbols
+      * @return
+      */
+    def selectTypeSymbol(symbols: Set[u.Symbol]): u.Symbol = {
+      val priorities = Map("trait" -> 0,
+                           "class" -> 1,
+                           "case class" -> 2,
+                           "object" -> 3,
+                           "case object" -> 4,
+                           "package" -> 5)
+      symbols.toSeq
+        .sortWith((a, b) => {
+          priorities
+            .find(x => a.toString.startsWith(x._1))
+            .get
+            ._2 < priorities.find(x => b.toString.startsWith(x._1)).get._2
+        })
+        .head
+    }
+
+    /**
+      * Same as selectTypeSymbol, but for non-types.
+      * FIXME: Currently it only takes the head symbol.
+      * @param symbols
+      * @return
+      */
+    def selectTermSymbol(symbols: Set[u.Symbol]): u.Symbol = {
+      symbols.filter(_.isTerm).head
+    }
+
     def getReflectiveTArg(ctx: ReflectiveCtx, targ: TArg): ReflectiveTArg = {
       ReflectiveTArg(
-        symbols = ctx.fetchReflectSymbol(targ.symbol),
+        symbols = selectTypeSymbol(ctx.fetchReflectSymbol(targ.symbol)),
         args = targ.args.map(getReflectiveTArg(ctx, _))
       )
     }
@@ -239,7 +274,7 @@ object Queries {
 
     ReflectiveBreakdown(
       originalSymbol = breakdown.symbol,
-      reflection = ctx.fetchReflectSymbol(app),
+      reflection = selectTermSymbol(ctx.fetchReflectSymbol(app)),
       params = breakdown.params.map(getReflectiveSymbols(ctx, _)),
       typeParams = breakdown.typeParams.map(getReflectiveTArg(ctx, _))
     )
@@ -250,15 +285,21 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
 
   import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Representation => r}
 
-  def getDeclaration(reflection: Queries.ReflectiveBreakdown): r.Declaration =
-    ???
+  def getDeclaration(ctx: ReflectiveCtx,
+                     reflection: ReflectiveBreakdown): r.Declaration = {
+    r.Declaration(
+      name = reflection.originalSymbol.app.get.syntax,
+      kind = ctx.getReflectiveKind(reflection.reflection.asTerm),
+      location = None,
+      isImplicit = false
+    )
+  }
 
   def convertToRepresentation(
+      ctx: ReflectiveCtx,
       reflection: Queries.ReflectiveBreakdown): r.CallSite = {
     def convertType(targ: ReflectiveTArg): r.Type = {
-      assert(targ.symbols.count(_.isType) == 1,
-             s"More than 1 type symbol in ${targ.symbols}")
-      val symbol = targ.symbols.head
+      val symbol = targ.symbols
       r.Type(
         name = symbol.fullName,
         constraints = None,
@@ -273,9 +314,9 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
       name = original.app.get.syntax,
       code = "",
       isSynthetic = original.isSynthetic,
-      declaration = getDeclaration(reflection),
+      declaration = getDeclaration(ctx, reflection),
       typeArguments = reflection.typeParams.map(convertType),
-      implicitArguments = reflection.params.map(convertToRepresentation)
+      implicitArguments = reflection.params.map(convertToRepresentation(ctx, _))
     )
   }
 
@@ -290,7 +331,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
 
     val reflections =
       matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))
-    reflections.map(x => convertToRepresentation(x))
+    reflections.map(x => convertToRepresentation(ctx, x))
   }
 }
 
