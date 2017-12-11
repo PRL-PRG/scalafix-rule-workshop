@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
 
+import sext._
+
 /**
   * Module to hold the internal representation of extracted information
   */

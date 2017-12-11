@@ -10,6 +10,7 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
   SemanticCtx
 }
 
+import sext._
 import scala.meta._
 
 case class TArg(symbol: Symbol, args: Seq[TArg])
@@ -331,7 +332,10 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
 
     val reflections =
       matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))
-    reflections.map(x => convertToRepresentation(ctx, x))
+    val res = reflections.map(x => convertToRepresentation(ctx, x))
+    println(res.treeString)
+    println(res.valueTreeString)
+    res
   }
 }
 

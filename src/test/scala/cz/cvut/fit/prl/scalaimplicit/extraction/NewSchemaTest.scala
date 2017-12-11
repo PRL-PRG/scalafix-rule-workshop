@@ -138,5 +138,4 @@ class NewSchemaTest extends SemanticdbTest {
       println("End")
     }
   )
-
 }
