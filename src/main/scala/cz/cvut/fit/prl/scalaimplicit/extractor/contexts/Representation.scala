@@ -37,7 +37,7 @@ object Representation {
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
-                      implicitArguments: Seq[ImplicitArgument])
+                      implicitArguments: Seq[CallSite])
       extends TopLevelElem
   case class ImplicitArgument(name: String)
 }

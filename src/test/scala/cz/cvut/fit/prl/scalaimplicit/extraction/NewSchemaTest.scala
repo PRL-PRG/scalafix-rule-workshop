@@ -96,10 +96,7 @@ class NewSchemaTest extends SemanticdbTest {
             name = "Seq",
             parameters = Seq(Type("Student"))
           )),
-        implicitArguments = Seq(
-          ImplicitArgument(
-            name = "test.this.seq2json"
-          ))
+        implicitArguments = Seq()
       )
       val res = ReflectExtract(ctx)
       res should contain only (call, decl)
