@@ -127,10 +127,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     candidates
   }
 
-  def getReflectiveKind(symbol: u.TermSymbol): String = {
+  def getReflectiveKind(symbol: u.Symbol): String = {
     var kind: String = symbol match {
-      case x if x.isVal => "val"
-      case x if x.isVal => "var"
       case x if x.isMethod => "def"
       case x if x.isClass =>
         x.asClass match {
@@ -140,14 +138,21 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           case c if c.isPackageClass => "package class"
           case c => "class"
         }
+      case x if x.isTerm =>
+        x.asTerm match {
+          case t if t.isVal => "val"
+          case t if t.isVal => "var"
+          case x if x.isPackage => "package"
+        }
       case x if x.isModule => "object"
       case x if x.isMacro => "macro"
-      case x if x.isPackage => "package"
       case x => throw new RuntimeException(s"<unknown: ${x.toString}>")
     }
     if (symbol.isFinal) kind = s"final $kind"
-    if (symbol.isLazy) kind = s"lazy $kind"
     if (symbol.isAbstract) kind = s"abstract $kind"
+    if (symbol.isTerm) {
+      if (symbol.asTerm.isLazy) kind = s"lazy $kind"
+    }
     kind
   }
 }

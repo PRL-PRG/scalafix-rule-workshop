@@ -6,6 +6,8 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Factories, ReflectiveCt
 import sext._
 
 import scala.meta._
+import scala.reflect.runtime.{universe => u}
+
 
 case class TArg(symbol: Symbol, args: Seq[TArg])
 case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean, pos: Option[Position] = None)
@@ -206,9 +208,7 @@ object Queries {
     }
   }
 
-  import scala.reflect.runtime.{universe => u}
-
-  case class ReflectiveTArg(symbols: u.Symbol, args: Seq[ReflectiveTArg])
+  case class ReflectiveTArg(symbol: u.Symbol, args: Seq[ReflectiveTArg])
   case class ReflectiveBreakdown(originalSymbol: QualifiedSymbol,
                                  reflection: u.Symbol,
                                  params: Seq[ReflectiveBreakdown],
@@ -259,7 +259,7 @@ object Queries {
 
     def getReflectiveTArg(ctx: ReflectiveCtx, targ: TArg): ReflectiveTArg = {
       ReflectiveTArg(
-        symbols = selectTypeSymbol(ctx.fetchReflectSymbol(targ.symbol)),
+        symbol = selectTypeSymbol(ctx.fetchReflectSymbol(targ.symbol)),
         args = targ.args.map(getReflectiveTArg(ctx, _))
       )
     }
@@ -277,13 +277,35 @@ object Queries {
 }
 
 object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
+  /**
+    * Get the parent representation of a class symbol.
+    * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
+    * @param reflection
+    * @param ctx
+    * @return
+    */
+  def getParent(reflection: u.Symbol, ctx: ReflectiveCtx): r.Parent = {
+    r.Parent(
+      name = reflection.fullName,
+      declaration = r.Declaration(
+        name = reflection.fullName,
+        kind = ctx.getReflectiveKind(reflection.asClass),
+        location = Factories.createLocation(reflection.pos),
+        isImplicit = reflection.isImplicit,
+        parents = Seq()
+      ),
+      typeArguments = Seq()
+    )
+  }
+
   def getDeclaration(ctx: ReflectiveCtx,
                      reflection: ReflectiveBreakdown): r.Declaration = {
     r.Declaration(
       name = reflection.originalSymbol.app.get.syntax,
-      kind = ctx.getReflectiveKind(reflection.reflection.asTerm),
+      kind = ctx.getReflectiveKind(reflection.reflection),
       location = Factories.createLocation(reflection.originalSymbol.pos),
-      isImplicit = false
+      isImplicit = reflection.reflection.isImplicit,
+      parents = reflection.reflection.typeSignature.baseClasses.map(getParent(_, ctx))
     )
   }
 
@@ -291,7 +313,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
       ctx: ReflectiveCtx,
       reflection: Queries.ReflectiveBreakdown): r.CallSite = {
     def convertType(targ: ReflectiveTArg): r.Type = {
-      val symbol = targ.symbols
+      val symbol = targ.symbol
       r.Type(
         name = symbol.fullName,
         constraints = None,
@@ -304,7 +326,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
     r.CallSite(
       location = Factories.createLocation(reflection.originalSymbol.pos),
       name = original.app.get.syntax,
-      code = "",
+      code = "<No Code Yet>",
       isSynthetic = original.isSynthetic,
       declaration = getDeclaration(ctx, reflection),
       typeArguments = reflection.typeParams.map(convertType),

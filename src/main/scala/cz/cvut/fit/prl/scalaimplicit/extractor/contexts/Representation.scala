@@ -51,10 +51,17 @@ object Factories {
     pos.map(p => {
       val file: String = p.input match {
         case Input.VirtualFile(path, _) => path
-        case Input.File(path, _)        => path.toString
-        case _                          => s"<unknown file: ${p.input}"
+        case Input.File(path, _) => path.toString
+        case _ => s"<unknown file: ${p.input}"
       }
       Location(file, p.endLine, p.endColumn)
     })
+  }
+  import scala.reflect.runtime.{universe => u}
+  def createLocation(pos: u.Position): Option[Location] = {
+    pos match {
+      case p if p == u.NoPosition => None
+      case p => Some(Location("<Reflective File>", p.line, p.column))
+    }
   }
 }
