@@ -22,9 +22,9 @@ case class QualifiedSymbol(app: Option[Symbol],
 object QualifiedSymbol {
   val Empty = QualifiedSymbol(None, false)
 }
-case class BreakdownContent(symbol: QualifiedSymbol,
-                            typeParams: Seq[TArg],
-                            params: Seq[BreakdownContent])
+case class BreakDown(symbol: QualifiedSymbol,
+                     typeParams: Seq[TArg],
+                     params: Seq[BreakDown])
 trait TermDecomposer {
 
   def findSymbolFor(term: Tree): QualifiedSymbol
@@ -43,8 +43,8 @@ trait TermDecomposer {
     }
   }
 
-  def breakDown(tree: Term): BreakdownContent = {
-    def processParamList(params: Seq[Term]): Seq[BreakdownContent] =
+  def breakDown(tree: Term): BreakDown = {
+    def processParamList(params: Seq[Term]): Seq[BreakDown] =
       params.map(breakDown).filter(_.symbol.app.isDefined)
 
     tree match {
@@ -68,7 +68,7 @@ trait TermDecomposer {
       case t: Term.Name => {
         // Plain name of the symbol we want (e.g. in `test.this.JsonWriter` -> `"JsonWriter"`)
         val app = findSymbolFor(t)
-        BreakdownContent(app, Seq(), Seq())
+        BreakDown(app, Seq(), Seq())
       }
       case t: Term.Block => {
         // A block inside the synthetic (e.g. `nested.this.a2c(*)({((a: A) => nested.this.a2b(a))})`)
@@ -105,10 +105,7 @@ object Queries {
   def syntheticsWithImplicits(ctx: SemanticCtx): Seq[Synthetic] =
     ctx.index.synthetics.filter(_.text.contains("("))
 
-  case class SyntheticBreakdown(synth: Synthetic, content: BreakdownContent)
-
-  def breakDownSynthetic(ctx: SemanticCtx,
-                         synth: Synthetic): SyntheticBreakdown = {
+  def breakDownSynthetic(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
 
     def parse(text: String): Term = {
       text.parse[Term].get
@@ -130,7 +127,7 @@ object Queries {
       }
     }
 
-    def assertWeCanEraseParams(application: BreakdownContent) = {
+    def assertWeCanEraseParams(application: BreakDown) = {
       // Assert that no parameter of the matched application is implicit.
       // This way, we ensure that we are not losing information when replacing
       // that parameter list with the synthetic one
@@ -142,17 +139,14 @@ object Queries {
     }
 
     val processedSynthetic = internal.breakDown(parse(synth.text))
-    SyntheticBreakdown(
-      synth = synth,
-      content = processedSynthetic.symbol.app match {
-        case Some(app) => processedSynthetic
-        case None => {
-          val matchedApplication = findApplication(ctx, synth)
-          assertWeCanEraseParams(matchedApplication)
-          matchedApplication.copy(params = processedSynthetic.params)
-        }
+    processedSynthetic.symbol.app match {
+      case Some(app) => processedSynthetic
+      case None => {
+        val matchedApplication = findApplication(ctx, synth)
+        assertWeCanEraseParams(matchedApplication)
+        matchedApplication.copy(params = processedSynthetic.params)
       }
-    )
+    }
   }
 
   /**
@@ -164,9 +158,9 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def findApplication(ctx: SemanticCtx, synth: Synthetic): BreakdownContent = {
+  def findApplication(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
 
-    def breakdownTree(term: Option[Tree]): BreakdownContent = {
+    def breakdownTree(term: Option[Tree]): BreakDown = {
       object internal extends TermDecomposer {
         override def findSymbolFor(t: Tree): QualifiedSymbol = {
           // A symbol from the tree will never be synthetic
@@ -181,7 +175,7 @@ object Queries {
       }
       term match {
         case Some(t) => internal.breakDown(t.asInstanceOf[Term])
-        case None => BreakdownContent(QualifiedSymbol.Empty, Seq(), Seq())
+        case None => BreakDown(QualifiedSymbol.Empty, Seq(), Seq())
       }
     }
 
@@ -213,15 +207,20 @@ object Queries {
       elem.text.startsWith("*.apply")
     }
 
-    val syntheticApplies: Seq[SyntheticBreakdown] =
-      ctx.index.synthetics
-        .filter(hasApplyInTheName)
-        .map(Queries.breakDownSynthetic(ctx, _))
+    val syntheticApplies: Map[Int, BreakDown] = {
+      val applications =
+        ctx.index.synthetics.filter(hasApplyInTheName).groupBy(_.position.end)
+      assert(
+        applications.forall(_._2.size == 1),
+        s"There were multiple applies in position ${applications.find(_._2.size > 1).get._1}")
+      applications
+        .mapValues(s => Queries.breakDownSynthetic(ctx, s.head))
+    }
 
     val inSource = inSourceCallSites(ctx.tree)
-    syntheticApplies.find(_.synth.position.end == synth.position.end) match {
+    syntheticApplies.get(synth.position.end) match {
       // There is a synthetic application that matches
-      case Some(callSite) => callSite.content
+      case Some(callSite) => callSite
       // Parse from the tree itself
       case None => breakdownTree(inSource.get(synth.position.end))
     }
@@ -240,9 +239,8 @@ object Queries {
     * @param breakdown
     * @return
     */
-  def getReflectiveSymbols(
-      ctx: ReflectiveCtx,
-      breakdown: BreakdownContent): ReflectiveBreakdown = {
+  def getReflectiveSymbols(ctx: ReflectiveCtx,
+                           breakdown: BreakDown): ReflectiveBreakdown = {
 
     /**
       * Apply some heuristic to select one type symbol of the many that there can be
@@ -302,12 +300,12 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakDownSynthetic(ctx, _))
     assert(
-      !breakDowns.exists(_.content.symbol.app.isEmpty),
-      s"Some synthetic(s) didn't find an application: ${breakDowns.filter(_.content.symbol.app.isEmpty).mkString("\n")}"
+      !breakDowns.exists(_.symbol.app.isEmpty),
+      s"Some synthetic(s) didn't find an application: ${breakDowns.filter(_.symbol.app.isEmpty).mkString("\n")}"
     )
 
     val reflections =
-      breakDowns.map(x => Queries.getReflectiveSymbols(ctx, x.content))
+      breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
     val res = reflections.map(x => Factories.createCallSite(ctx, x))
     println(res.treeString)
     //println(res.valueTreeString)
