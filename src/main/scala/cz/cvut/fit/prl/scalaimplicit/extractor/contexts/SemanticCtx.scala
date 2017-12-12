@@ -1,7 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
 
 import com.typesafe.scalalogging.LazyLogging
-import org.langmeta.internal.semanticdb.{schema => s}
 
 import scala.meta._
 
@@ -57,6 +56,56 @@ case class SemanticCtx(database: Database) extends LazyLogging {
 
   def tree: Source = input.parse[Source].get
   implicit val index = database.documents.head
+
+  /**
+    * We capture every instance of function applications
+    * that may have implicit parameters.
+    *
+    * FIXME This list may not be exhaustive, but an assertion will be triggeded if a case is missed
+    * There are some notable omissions, such as For and ForYield. The reason is that we
+    * will not have symbols for them, and thus it is necessary to treat it as a special case
+    *
+    * ''NOTE'' That toMap will override entries with the same position
+    */
+  private lazy val _inSourceCallSites: Map[Int, Tree] =
+    (tree collect {
+      case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
+          _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
+        x.pos.end -> x
+    }).toMap
+  def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
+
+  /**
+    * Filter for the synthetic function applications.
+    * Captures all "apply()" functions inserted by the compiler.
+    *
+    * @param elem Synthetic to test
+    * @return true iff the synthetic has apply in the name
+    */
+  private def hasApplyInTheName(elem: Synthetic): Boolean = {
+    elem.text.startsWith("*.apply")
+  }
+  private lazy val _syntheticApplies: Map[Int, Synthetic] = {
+    val applications =
+      index.synthetics.filter(hasApplyInTheName).groupBy(_.position.end)
+    assert(
+      applications.forall(_._2.size == 1),
+      s"There were multiple applies in position ${applications.find(_._2.size > 1).get._1}")
+    applications
+      .mapValues(_.head)
+  }
+  def syntheticApplication(at: Int): Option[Synthetic] =
+    _syntheticApplies.get(at)
+
+  /**
+    * Synthetics with implicits in them.
+    * They can be either conversions (`path.to.name(*)(implicit.param.one)`)
+    * or parameter lists (`*(implicit.param.one,implicit.param.two)`).
+    * The other sort of synthetics, do not contain parentheses
+    * (synthetic applications - `*.apply` or type parameters - `*[Seq[Student]]`)
+    */
+  val syntheticsWithImplicits: Seq[Synthetic] =
+    index.synthetics.filter(_.text.contains("("))
 
   def qualifiedName(term: Term): String = {
     term match {

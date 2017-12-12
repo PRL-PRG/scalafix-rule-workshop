@@ -102,14 +102,10 @@ trait TermDecomposer {
 }
 
 object Queries {
-  def syntheticsWithImplicits(ctx: SemanticCtx): Seq[Synthetic] =
-    ctx.index.synthetics.filter(_.text.contains("("))
 
   def breakDownSynthetic(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
 
-    def parse(text: String): Term = {
-      text.parse[Term].get
-    }
+    def parse(text: String): Term = text.parse[Term].get
 
     // We define it internally so that we have access to `synth`
     object internal extends TermDecomposer {
@@ -184,50 +180,11 @@ object Queries {
       }
     }
 
-    /**
-      * We capture every instance of function applications
-      * that may have implicit parameters.
-      *
-      * FIXME This list may not be exhaustive, but an assertion will be triggeded if a case is missed
-      * There are some notable omissions, such as For and ForYield. The reason is that we
-      * will not have symbols for them, and thus it is necessary to treat it as a special case
-      *
-      * ''NOTE'' That toMap will override entries with the same position
-      */
-    def inSourceCallSites(tree: Tree): Map[Int, Tree] =
-      (tree collect {
-        case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
-            _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
-          x.pos.end -> x
-      }).toMap
-
-    /**
-      * Filter for the synthetic function applications.
-      * Captures all "apply()" functions inserted by the compiler.
-      *
-      * @param elem Synthetic to test
-      * @return true iff the synthetic has apply in the name
-      */
-    def hasApplyInTheName(elem: Synthetic): Boolean = {
-      elem.text.startsWith("*.apply")
-    }
-
-    val syntheticApplies: Map[Int, BreakDown] = {
-      val applications =
-        ctx.index.synthetics.filter(hasApplyInTheName).groupBy(_.position.end)
-      assert(
-        applications.forall(_._2.size == 1),
-        s"There were multiple applies in position ${applications.find(_._2.size > 1).get._1}")
-      applications
-        .mapValues(s => Queries.breakDownSynthetic(ctx, s.head))
-    }
-
-    val inSource = inSourceCallSites(ctx.tree)
-    syntheticApplies.get(synth.position.end) match {
+    ctx.syntheticApplication(synth.position.end) match {
       // There is a synthetic application that matches
-      case Some(callSite) => callSite
+      case Some(syntheticApply) => breakDownSynthetic(ctx, syntheticApply)
       // Parse from the tree itself
-      case None => breakdownTree(inSource.get(synth.position.end))
+      case None => breakdownTree(ctx.inSourceCallSite(synth.position.end))
     }
   }
 
@@ -303,8 +260,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
 
   def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
     val res =
-      Queries
-        .syntheticsWithImplicits(ctx)
+      ctx.syntheticsWithImplicits
         .map(Queries.breakDownSynthetic(ctx, _))
         .map(Queries.getReflectiveSymbols(ctx, _))
         .map(Factories.createCallSite(ctx, _))
