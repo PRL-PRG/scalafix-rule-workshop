@@ -1,5 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
 
+import org.langmeta.inputs.{Input, Position}
 import sext._
 
 /**
@@ -42,4 +43,18 @@ object Representation {
                       implicitArguments: Seq[CallSite])
       extends TopLevelElem
   case class ImplicitArgument(name: String)
+}
+
+object Factories {
+  import Representation._
+  def createLocation(pos: Option[Position]): Option[Location] = {
+    pos.map(p => {
+      val file: String = p.input match {
+        case Input.VirtualFile(path, _) => path
+        case Input.File(path, _)        => path.toString
+        case _                          => s"<unknown file: ${p.input}"
+      }
+      Location(file, p.endLine, p.endColumn)
+    })
+  }
 }

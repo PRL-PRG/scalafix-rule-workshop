@@ -1,20 +1,14 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
-  ReflectiveBreakdown,
-  ReflectiveTArg
-}
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
-  ReflectiveCtx,
-  SemanticCtx
-}
-
+import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{ReflectiveBreakdown, ReflectiveTArg}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Representation => r}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Factories, ReflectiveCtx, SemanticCtx}
 import sext._
+
 import scala.meta._
 
 case class TArg(symbol: Symbol, args: Seq[TArg])
-case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean)
+case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean, pos: Option[Position] = None)
 object QualifiedSymbol {
   val Empty = QualifiedSymbol(None, false)
 }
@@ -115,7 +109,7 @@ object Queries {
           // Filter out the _star_ names
           case Some(n) if n.symbol.syntax.contains("_star_") =>
             QualifiedSymbol.Empty
-          case Some(name) => QualifiedSymbol(Some(name.symbol), true)
+          case Some(name) => QualifiedSymbol(Some(name.symbol), isSynthetic = true, Some(synth.position))
           case None       => QualifiedSymbol.Empty
         }
       }
@@ -282,16 +276,13 @@ object Queries {
   }
 }
 
-object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
-
-  import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Representation => r}
-
+object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
   def getDeclaration(ctx: ReflectiveCtx,
                      reflection: ReflectiveBreakdown): r.Declaration = {
     r.Declaration(
       name = reflection.originalSymbol.app.get.syntax,
       kind = ctx.getReflectiveKind(reflection.reflection.asTerm),
-      location = None,
+      location = Factories.createLocation(reflection.originalSymbol.pos),
       isImplicit = false
     )
   }
@@ -311,7 +302,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     val reflect = reflection.reflection
 
     r.CallSite(
-      location = None,
+      location = Factories.createLocation(reflection.originalSymbol.pos),
       name = original.app.get.syntax,
       code = "",
       isSynthetic = original.isSynthetic,
@@ -321,7 +312,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[TopLevelElem]) {
     )
   }
 
-  def apply(ctx: ReflectiveCtx): Seq[TopLevelElem] = {
+  def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakDownSynthetic)
     val matched = Queries.matchWithInSourceApplications(ctx, breakDowns)
