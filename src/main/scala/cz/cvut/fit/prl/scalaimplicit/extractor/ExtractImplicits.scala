@@ -188,8 +188,7 @@ object Queries {
               ctx
                 .symbol(t)
                 .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-            isSynthetic = false,
-            Some(t.pos)
+            isSynthetic = false
           )
         }
       }
@@ -304,7 +303,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
       matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))
     val res = reflections.map(x => Factories.createCallSite(ctx, x))
     println(res.treeString)
-    println(res.valueTreeString)
+    //println(res.valueTreeString)
     res
   }
 }

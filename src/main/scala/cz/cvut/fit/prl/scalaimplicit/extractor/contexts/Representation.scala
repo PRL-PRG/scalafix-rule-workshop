@@ -97,7 +97,8 @@ object Factories {
                       reflection: u.Symbol): Option[Signature] = {
     Some(
       Signature(
-        typeParams = Seq(Type("<Type Parameters Not Implemented Yet>")),
+        typeParams = reflection.typeSignature.typeParams.map(t =>
+          createTypeParameter(t.asType)),
         parameterLists = Seq(),
         returnType = Type("<Return Types Not Implemented Yet>")
       ))
@@ -116,11 +117,23 @@ object Factories {
     )
   }
 
+  def createTypeConstraints(typeSignature: u.Type): Option[String] = {
+    None
+  }
+
+  def createTypeParameter(tipe: u.TypeSymbol): Type = {
+    Type(
+      name = tipe.name.toString,
+      constraints = createTypeConstraints(tipe.typeSignature),
+      parameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
+    )
+  }
+
   def createTypeArgument(targ: ReflectiveTArg): Type = {
     val symbol = targ.symbol
     Type(
-      name = symbol.fullName,
-      constraints = None,
+      name = symbol.name.toString,
+      constraints = createTypeConstraints(symbol.typeSignature),
       parameters = targ.args.map(createTypeArgument)
     )
   }
