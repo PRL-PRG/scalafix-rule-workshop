@@ -291,75 +291,6 @@ object Queries {
 
 object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
 
-  /**
-    * Get the parent representation of a class symbol.
-    * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
-    * @param reflection
-    * @param ctx
-    * @return
-    */
-  def getParent(reflection: u.Symbol, ctx: ReflectiveCtx): r.Parent = {
-    r.Parent(
-      name = reflection.fullName,
-      declaration = r.Declaration(
-        name = reflection.fullName,
-        kind = ctx.getReflectiveKind(reflection.asClass),
-        location = Factories.createLocation(reflection.pos),
-        isImplicit = reflection.isImplicit,
-        parents = Seq()
-      ),
-      typeArguments = Seq()
-    )
-  }
-
-  def getSignature(ctx: ReflectiveCtx,
-                   reflection: u.Symbol): Option[r.Signature] = {
-    Some(
-      r.Signature(
-        typeParams = Seq(r.Type("<Empty>")),
-        parameterLists = Seq(),
-        returnType = r.Type("<Empty>")
-      ))
-  }
-
-  def getDeclaration(ctx: ReflectiveCtx,
-                     reflection: ReflectiveBreakdown): r.Declaration = {
-    r.Declaration(
-      name = reflection.originalSymbol.app.get.syntax,
-      kind = ctx.getReflectiveKind(reflection.reflection),
-      location = Factories.createLocation(reflection.originalSymbol.pos),
-      isImplicit = reflection.reflection.isImplicit,
-      parents =
-        reflection.reflection.typeSignature.baseClasses.map(getParent(_, ctx)),
-      signature = getSignature(ctx, reflection.reflection)
-    )
-  }
-
-  def convertToRepresentation(
-      ctx: ReflectiveCtx,
-      reflection: Queries.ReflectiveBreakdown): r.CallSite = {
-    def convertType(targ: ReflectiveTArg): r.Type = {
-      val symbol = targ.symbol
-      r.Type(
-        name = symbol.fullName,
-        constraints = None,
-        parameters = targ.args.map(convertType)
-      )
-    }
-    val original = reflection.originalSymbol
-    val reflect = reflection.reflection
-
-    r.CallSite(
-      location = Factories.createLocation(original.pos),
-      name = original.app.get.syntax,
-      code = "<No Code Yet>",
-      isSynthetic = original.isSynthetic,
-      declaration = getDeclaration(ctx, reflection),
-      typeArguments = reflection.typeArguments.map(convertType),
-      implicitArguments = reflection.params.map(convertToRepresentation(ctx, _))
-    )
-  }
-
   def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
     val implicits = Queries.syntheticsWithImplicits(ctx)
     val breakDowns = implicits.map(Queries.breakDownSynthetic)
@@ -371,7 +302,7 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
 
     val reflections =
       matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))
-    val res = reflections.map(x => convertToRepresentation(ctx, x))
+    val res = reflections.map(x => Factories.createCallSite(ctx, x))
     println(res.treeString)
     println(res.valueTreeString)
     res

@@ -1,5 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor.contexts
 
+import cz.cvut.fit.prl.scalaimplicit.extractor.Queries
+import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
+  ReflectiveBreakdown,
+  ReflectiveTArg
+}
 import org.langmeta.inputs.{Input, Position}
 import sext._
 
@@ -65,5 +70,75 @@ object Factories {
       case p if p == u.NoPosition => None
       case p => Some(Location("<Reflective File>", p.line, p.column))
     }
+  }
+
+  /**
+    * Get the parent representation of a class symbol.
+    * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
+    * @param reflection
+    * @param ctx
+    * @return
+    */
+  def createParent(reflection: u.Symbol, ctx: ReflectiveCtx): Parent = {
+    Parent(
+      name = reflection.fullName,
+      declaration = Declaration(
+        name = reflection.fullName,
+        kind = ctx.getReflectiveKind(reflection.asClass),
+        location = Factories.createLocation(reflection.pos),
+        isImplicit = reflection.isImplicit,
+        parents = Seq()
+      ),
+      typeArguments = Seq()
+    )
+  }
+
+  def createSignature(ctx: ReflectiveCtx,
+                      reflection: u.Symbol): Option[Signature] = {
+    Some(
+      Signature(
+        typeParams = Seq(Type("<Type Parameters Not Implemented Yet>")),
+        parameterLists = Seq(),
+        returnType = Type("<Return Types Not Implemented Yet>")
+      ))
+  }
+
+  def createDeclaration(ctx: ReflectiveCtx,
+                        reflection: ReflectiveBreakdown): Declaration = {
+    Declaration(
+      name = reflection.originalSymbol.app.get.syntax,
+      kind = ctx.getReflectiveKind(reflection.reflection),
+      location = Factories.createLocation(reflection.originalSymbol.pos),
+      isImplicit = reflection.reflection.isImplicit,
+      parents = reflection.reflection.typeSignature.baseClasses
+        .map(createParent(_, ctx)),
+      signature = createSignature(ctx, reflection.reflection)
+    )
+  }
+
+  def createTypeArgument(targ: ReflectiveTArg): Type = {
+    val symbol = targ.symbol
+    Type(
+      name = symbol.fullName,
+      constraints = None,
+      parameters = targ.args.map(createTypeArgument)
+    )
+  }
+
+  def createCallSite(ctx: ReflectiveCtx,
+                     reflection: Queries.ReflectiveBreakdown): CallSite = {
+
+    val original = reflection.originalSymbol
+    val reflect = reflection.reflection
+
+    CallSite(
+      location = Factories.createLocation(original.pos),
+      name = original.app.get.syntax,
+      code = "<No Code Yet>",
+      isSynthetic = original.isSynthetic,
+      declaration = createDeclaration(ctx, reflection),
+      typeArguments = reflection.typeArguments.map(createTypeArgument),
+      implicitArguments = reflection.params.map(createCallSite(ctx, _))
+    )
   }
 }
