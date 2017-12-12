@@ -12,7 +12,9 @@ object Representation {
     def name: String
   }
 
-  case class Location(file: String, line: Int, col: Int)
+  case class Location(file: String, line: Int, col: Int) {
+    override def toString: String = s"$file:$line:$col"
+  }
   case class Type(name: String,
                   constraints: Option[String] = None,
                   parameters: Seq[Type] = Seq())

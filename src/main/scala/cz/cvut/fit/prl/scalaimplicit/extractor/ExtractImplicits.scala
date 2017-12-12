@@ -1,16 +1,24 @@
 package cz.cvut.fit.prl.scalaimplicit.extractor
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{ReflectiveBreakdown, ReflectiveTArg}
+import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
+  ReflectiveBreakdown,
+  ReflectiveTArg
+}
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Representation => r}
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Factories, ReflectiveCtx, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
+  Factories,
+  ReflectiveCtx,
+  SemanticCtx
+}
 import sext._
 
 import scala.meta._
 import scala.reflect.runtime.{universe => u}
 
-
 case class TArg(symbol: Symbol, args: Seq[TArg])
-case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean, pos: Option[Position] = None)
+case class QualifiedSymbol(app: Option[Symbol],
+                           isSynthetic: Boolean,
+                           pos: Option[Position] = None)
 object QualifiedSymbol {
   val Empty = QualifiedSymbol(None, false)
 }
@@ -111,8 +119,11 @@ object Queries {
           // Filter out the _star_ names
           case Some(n) if n.symbol.syntax.contains("_star_") =>
             QualifiedSymbol.Empty
-          case Some(name) => QualifiedSymbol(Some(name.symbol), isSynthetic = true, Some(synth.position))
-          case None       => QualifiedSymbol.Empty
+          case Some(name) =>
+            QualifiedSymbol(Some(name.symbol),
+                            isSynthetic = true,
+                            Some(synth.position))
+          case None => QualifiedSymbol.Empty
         }
       }
     }
@@ -177,7 +188,9 @@ object Queries {
               ctx
                 .symbol(t)
                 .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-            false)
+            isSynthetic = false,
+            Some(t.pos)
+          )
         }
       }
       term match {
@@ -212,7 +225,7 @@ object Queries {
   case class ReflectiveBreakdown(originalSymbol: QualifiedSymbol,
                                  reflection: u.Symbol,
                                  params: Seq[ReflectiveBreakdown],
-                                 typeParams: Seq[ReflectiveTArg])
+                                 typeArguments: Seq[ReflectiveTArg])
 
   /**
     * Query the context to fetch the reflective symbols of every relevant
@@ -271,12 +284,13 @@ object Queries {
       originalSymbol = breakdown.symbol,
       reflection = selectTermSymbol(ctx.fetchReflectSymbol(app)),
       params = breakdown.params.map(getReflectiveSymbols(ctx, _)),
-      typeParams = breakdown.typeParams.map(getReflectiveTArg(ctx, _))
+      typeArguments = breakdown.typeParams.map(getReflectiveTArg(ctx, _))
     )
   }
 }
 
 object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
+
   /**
     * Get the parent representation of a class symbol.
     * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
@@ -298,6 +312,16 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
     )
   }
 
+  def getSignature(ctx: ReflectiveCtx,
+                   reflection: u.Symbol): Option[r.Signature] = {
+    Some(
+      r.Signature(
+        typeParams = Seq(r.Type("<Empty>")),
+        parameterLists = Seq(),
+        returnType = r.Type("<Empty>")
+      ))
+  }
+
   def getDeclaration(ctx: ReflectiveCtx,
                      reflection: ReflectiveBreakdown): r.Declaration = {
     r.Declaration(
@@ -305,7 +329,9 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
       kind = ctx.getReflectiveKind(reflection.reflection),
       location = Factories.createLocation(reflection.originalSymbol.pos),
       isImplicit = reflection.reflection.isImplicit,
-      parents = reflection.reflection.typeSignature.baseClasses.map(getParent(_, ctx))
+      parents =
+        reflection.reflection.typeSignature.baseClasses.map(getParent(_, ctx)),
+      signature = getSignature(ctx, reflection.reflection)
     )
   }
 
@@ -324,12 +350,12 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
     val reflect = reflection.reflection
 
     r.CallSite(
-      location = Factories.createLocation(reflection.originalSymbol.pos),
+      location = Factories.createLocation(original.pos),
       name = original.app.get.syntax,
       code = "<No Code Yet>",
       isSynthetic = original.isSynthetic,
       declaration = getDeclaration(ctx, reflection),
-      typeArguments = reflection.typeParams.map(convertType),
+      typeArguments = reflection.typeArguments.map(convertType),
       implicitArguments = reflection.params.map(convertToRepresentation(ctx, _))
     )
   }
