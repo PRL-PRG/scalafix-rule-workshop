@@ -106,7 +106,9 @@ object Queries {
     ctx.index.synthetics.filter(_.text.contains("("))
 
   case class SyntheticBreakdown(synth: Synthetic, content: BreakdownContent)
-  def breakDownSynthetic(synth: Synthetic): SyntheticBreakdown = {
+
+  def breakDownSynthetic(ctx: SemanticCtx,
+                         synth: Synthetic): SyntheticBreakdown = {
 
     def parse(text: String): Term = {
       text.parse[Term].get
@@ -127,12 +129,34 @@ object Queries {
         }
       }
     }
-    val tree = parse(synth.text)
-    SyntheticBreakdown(synth, internal.breakDown(tree))
+
+    def assertWeCanEraseParams(application: BreakdownContent) = {
+      // Assert that no parameter of the matched application is implicit.
+      // This way, we ensure that we are not losing information when replacing
+      // that parameter list with the synthetic one
+      assert(
+        application.params.isEmpty || application.params.forall(x =>
+          !ctx.denotation(x.symbol.app.get).get.isImplicit),
+        s"Some parameter of matched application ${application} is implicit"
+      )
+    }
+
+    val processedSynthetic = internal.breakDown(parse(synth.text))
+    SyntheticBreakdown(
+      synth = synth,
+      content = processedSynthetic.symbol.app match {
+        case Some(app) => processedSynthetic
+        case None => {
+          val matchedApplication = findApplication(ctx, synth)
+          assertWeCanEraseParams(matchedApplication)
+          matchedApplication.copy(params = processedSynthetic.params)
+        }
+      }
+    )
   }
 
   /**
-    * We find applications for the synthetics that don't have them (that is, pure parameter lists)
+    * Find applications for the synthetics that don't have them (that is, pure parameter lists)
     * For that, we try to look for a fitting `apply` synthetic. If we don't find one, we look in
     * the source code and try to match there.
     *
@@ -140,44 +164,7 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def matchWithInSourceApplications(
-      ctx: SemanticCtx,
-      breakdowns: Seq[SyntheticBreakdown]): Seq[SyntheticBreakdown] = {
-
-    /**
-      * We capture every instance of function applications
-      * that may have implicit parameters.
-      *
-      * FIXME This list may not be exhaustive, but an assertion will be triggeded if a case is missed
-      * There are some notable omissions, such as For and ForYield. The reason is that we
-      * will not have symbols for them, and thus it is necessary to treat it as a special case
-      */
-    val inSourceCallSites: Map[Int, Tree] =
-      (ctx.tree collect {
-        case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
-            _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
-          x.pos.end -> x
-      }).toMap
-
-    /**
-      * Filter for the synthetic function applications.
-      * Captures all "apply()" functions inserted by the compiler.
-      * @param elem Synthetic to test
-      * @return true iff the synthetic has apply in the name
-      */
-    def hasApplyInTheName(elem: Synthetic): Boolean = {
-      elem.text.startsWith("*.apply")
-    }
-
-    val syntheticApplies: Seq[SyntheticBreakdown] =
-      ctx.index.synthetics
-        .filter(hasApplyInTheName)
-        .map(Queries.breakDownSynthetic)
-
-    def needsMatching(bd: SyntheticBreakdown) = bd.content.symbol.app.isEmpty
-
-    def isNotStar(bd: SyntheticBreakdown) =
-      bd.content.symbol.app.exists(_.syntax.contains("_star_"))
+  def findApplication(ctx: SemanticCtx, synth: Synthetic): BreakdownContent = {
 
     def breakdownTree(term: Option[Tree]): BreakdownContent = {
       object internal extends TermDecomposer {
@@ -194,29 +181,49 @@ object Queries {
       }
       term match {
         case Some(t) => internal.breakDown(t.asInstanceOf[Term])
-        case None    => BreakdownContent(QualifiedSymbol.Empty, Seq(), Seq())
+        case None => BreakdownContent(QualifiedSymbol.Empty, Seq(), Seq())
       }
     }
-    breakdowns.collect {
-      case bd if needsMatching(bd) =>
-        syntheticApplies.find(_.synth.position.end == bd.synth.position.end) match {
-          case Some(callSite) =>
-            callSite.copy(
-              content = callSite.content.copy(
-                params = bd.content.params,
-              ))
-          case None =>
-            // We need to parse this from the tree itself
-            val fromTerm =
-              breakdownTree(inSourceCallSites.get(bd.synth.position.end))
-            bd.copy(
-              content = bd.content.copy(
-                symbol = fromTerm.symbol,
-                typeParams = fromTerm.typeParams
-              )
-            )
-        }
-      case bd if isNotStar(bd) => bd
+
+    /**
+      * We capture every instance of function applications
+      * that may have implicit parameters.
+      *
+      * FIXME This list may not be exhaustive, but an assertion will be triggeded if a case is missed
+      * There are some notable omissions, such as For and ForYield. The reason is that we
+      * will not have symbols for them, and thus it is necessary to treat it as a special case
+      *
+      * ''NOTE'' That toMap will override entries with the same position
+      */
+    def inSourceCallSites(tree: Tree): Map[Int, Tree] =
+      (tree collect {
+        case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
+            _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
+          x.pos.end -> x
+      }).toMap
+
+    /**
+      * Filter for the synthetic function applications.
+      * Captures all "apply()" functions inserted by the compiler.
+      *
+      * @param elem Synthetic to test
+      * @return true iff the synthetic has apply in the name
+      */
+    def hasApplyInTheName(elem: Synthetic): Boolean = {
+      elem.text.startsWith("*.apply")
+    }
+
+    val syntheticApplies: Seq[SyntheticBreakdown] =
+      ctx.index.synthetics
+        .filter(hasApplyInTheName)
+        .map(Queries.breakDownSynthetic(ctx, _))
+
+    val inSource = inSourceCallSites(ctx.tree)
+    syntheticApplies.find(_.synth.position.end == synth.position.end) match {
+      // There is a synthetic application that matches
+      case Some(callSite) => callSite.content
+      // Parse from the tree itself
+      case None => breakdownTree(inSource.get(synth.position.end))
     }
   }
 
@@ -233,8 +240,9 @@ object Queries {
     * @param breakdown
     * @return
     */
-  def getReflectiveSymbols(ctx: ReflectiveCtx,
-                           breakdown: BreakdownContent): ReflectiveBreakdown = {
+  def getReflectiveSymbols(
+      ctx: ReflectiveCtx,
+      breakdown: BreakdownContent): ReflectiveBreakdown = {
 
     /**
       * Apply some heuristic to select one type symbol of the many that there can be
@@ -292,15 +300,14 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
 
   def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
     val implicits = Queries.syntheticsWithImplicits(ctx)
-    val breakDowns = implicits.map(Queries.breakDownSynthetic)
-    val matched = Queries.matchWithInSourceApplications(ctx, breakDowns)
+    val breakDowns = implicits.map(Queries.breakDownSynthetic(ctx, _))
     assert(
-      !matched.exists(_.content.symbol.app.isEmpty),
-      s"Some synthetic(s) didn't find an application: ${matched.filter(_.content.symbol.app.isEmpty).mkString("\n")}"
+      !breakDowns.exists(_.content.symbol.app.isEmpty),
+      s"Some synthetic(s) didn't find an application: ${breakDowns.filter(_.content.symbol.app.isEmpty).mkString("\n")}"
     )
 
     val reflections =
-      matched.map(x => Queries.getReflectiveSymbols(ctx, x.content))
+      breakDowns.map(x => Queries.getReflectiveSymbols(ctx, x.content))
     val res = reflections.map(x => Factories.createCallSite(ctx, x))
     println(res.treeString)
     //println(res.valueTreeString)
@@ -335,8 +342,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _)        => path.toString
-      case _                          => ""
+      case Input.File(path, _) => path.toString
+      case _ => ""
     }
 
     /**

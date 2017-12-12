@@ -142,9 +142,9 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         x.asTerm match {
           case t if t.isVal => "val"
           case t if t.isVal => "var"
-          case x if x.isPackage => "package"
+          case t if t.isPackage => "package"
+          case t if t.isModule => "object"
         }
-      case x if x.isModule => "object"
       case x if x.isMacro => "macro"
       case x => throw new RuntimeException(s"<unknown: ${x.toString}>")
     }
