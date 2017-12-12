@@ -109,7 +109,7 @@ object Factories {
     Declaration(
       name = reflection.originalSymbol.app.get.syntax,
       kind = ctx.getReflectiveKind(reflection.reflection),
-      location = Factories.createLocation(reflection.originalSymbol.pos),
+      location = Factories.createLocation(reflection.reflection.pos),
       isImplicit = reflection.reflection.isImplicit,
       parents = reflection.reflection.typeSignature.baseClasses
         .map(createParent(_, ctx)),

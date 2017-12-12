@@ -183,7 +183,8 @@ object Queries {
             ctx
               .symbol(t)
               .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-          isSynthetic = false
+          isSynthetic = false,
+          pos = Some(t.pos)
         )
       }
 
