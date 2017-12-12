@@ -25,11 +25,27 @@ object QualifiedSymbol {
 case class BreakDown(symbol: QualifiedSymbol,
                      typeParams: Seq[TArg],
                      params: Seq[BreakDown])
-trait TermDecomposer {
 
-  def findSymbolFor(term: Tree): QualifiedSymbol
+/**
+  * Common interface for objects that decompose terms
+  *
+  * Walking a term tree to form a useful form of a function
+  * is a tedious process. This has to be done twice -
+  * Once on the synthetics to examine the synthetic itself,
+  * and another one once we have matched the synthetics with their missing applications.
+  * This means that the only difference is in how they find symbols,
+  * which is this accepts a function.
+  *
+  * The accepted function is implicit for convenience, since breakDown and
+  * processType are recursive and implicit functions simplify the calls.
+  */
+object TermDecomposer {
+  def apply(tree: Term, finder: Tree => QualifiedSymbol): BreakDown = {
+    breakDown(tree)(finder)
+  }
 
-  def processType(tree: Type): TArg = {
+  private def processType(tree: Type)(
+      implicit finder: Tree => QualifiedSymbol): TArg = {
     tree match {
       case t: Type.Apply => {
         val pt = processType(t.tpe)
@@ -37,13 +53,14 @@ trait TermDecomposer {
         TArg(pt.symbol, targs)
       }
       case t: Type.Name => {
-        val symbol = findSymbolFor(t).app.get
+        val symbol = finder(t).app.get
         TArg(symbol, Seq())
       }
     }
   }
 
-  def breakDown(tree: Term): BreakDown = {
+  private def breakDown(tree: Term)(
+      implicit finder: Tree => QualifiedSymbol): BreakDown = {
     def processParamList(params: Seq[Term]): Seq[BreakDown] =
       params.map(breakDown).filter(_.symbol.app.isDefined)
 
@@ -67,7 +84,7 @@ trait TermDecomposer {
       }
       case t: Term.Name => {
         // Plain name of the symbol we want (e.g. in `test.this.JsonWriter` -> `"JsonWriter"`)
-        val app = findSymbolFor(t)
+        val app = finder(t)
         BreakDown(app, Seq(), Seq())
       }
       case t: Term.Block => {
@@ -107,19 +124,16 @@ object Queries {
 
     def parse(text: String): Term = text.parse[Term].get
 
-    // We define it internally so that we have access to `synth`
-    object internal extends TermDecomposer {
-      override def findSymbolFor(t: Tree): QualifiedSymbol = {
-        synth.names.find(_.position.end == t.pos.end) match {
-          // Filter out the _star_ names
-          case Some(n) if n.symbol.syntax.contains("_star_") =>
-            QualifiedSymbol.Empty
-          case Some(name) =>
-            QualifiedSymbol(Some(name.symbol),
-                            isSynthetic = true,
-                            Some(synth.position))
-          case None => QualifiedSymbol.Empty
-        }
+    def finder(tree: Tree): QualifiedSymbol = {
+      synth.names.find(_.position.end == tree.pos.end) match {
+        // Filter out the _star_ names
+        case Some(n) if n.symbol.syntax.contains("_star_") =>
+          QualifiedSymbol.Empty
+        case Some(name) =>
+          QualifiedSymbol(Some(name.symbol),
+                          isSynthetic = true,
+                          Some(synth.position))
+        case None => QualifiedSymbol.Empty
       }
     }
 
@@ -134,7 +148,7 @@ object Queries {
       )
     }
 
-    val processedSynthetic = internal.breakDown(parse(synth.text))
+    val processedSynthetic = TermDecomposer(parse(synth.text), finder)
     val res = processedSynthetic.symbol.app match {
       case Some(app) => processedSynthetic
       case None => {
@@ -162,20 +176,19 @@ object Queries {
   def findApplication(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
 
     def breakdownTree(term: Option[Tree]): BreakDown = {
-      object internal extends TermDecomposer {
-        override def findSymbolFor(t: Tree): QualifiedSymbol = {
-          // A symbol from the tree will never be synthetic
-          QualifiedSymbol(
-            Some(
-              ctx
-                .symbol(t)
-                .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-            isSynthetic = false
-          )
-        }
+      def finder(t: Tree): QualifiedSymbol = {
+        // A symbol from the tree will never be synthetic
+        QualifiedSymbol(
+          Some(
+            ctx
+              .symbol(t)
+              .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
+          isSynthetic = false
+        )
       }
+
       term match {
-        case Some(t) => internal.breakDown(t.asInstanceOf[Term])
+        case Some(t) => TermDecomposer(t.asInstanceOf[Term], finder)
         case None => BreakDown(QualifiedSymbol.Empty, Seq(), Seq())
       }
     }
