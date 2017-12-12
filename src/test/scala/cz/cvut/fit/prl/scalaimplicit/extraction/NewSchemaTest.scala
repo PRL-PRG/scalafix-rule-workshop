@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation._
 import cz.cvut.fit.prl.scalaimplicit.extractor.ReflectExtract
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
 class NewSchemaTest extends SemanticdbTest {
@@ -105,22 +106,6 @@ class NewSchemaTest extends SemanticdbTest {
   )
 
   checkReflContext(
-    "Heyo",
-    """
-      |object t {
-      | case class A()
-      | case class B()
-      | implicit def b2a(b: B): A = new A()
-      | def a(i: B)(implicit conv: B => A): A = conv(i)
-      | val mb = new B()
-      | a(mb)
-      |}
-    """.trim.stripMargin, { ctx =>
-      println("End")
-    }
-  )
-
-  checkReflContext(
     "Deep-nested calls",
     """
       |object nested {
@@ -134,8 +119,107 @@ class NewSchemaTest extends SemanticdbTest {
       | val mc: C = ma
       |}
     """.trim.stripMargin, { ctx =>
+      val expected = CallSite(
+        location = None,
+        name =
+          "_empty_.nested.a2c(Lnested/A;Lscala/Function1;Lscala/Function1;)Lnested/C;.",
+        code = "<No Code Yet>",
+        isSynthetic = true,
+        typeArguments = Seq(),
+        implicitArguments = Seq(
+          CallSite(
+            location = None,
+            name = "_empty_.nested.a2b(Lnested/A;)Lnested/B;.",
+            code = "<No Code Yet>",
+            isSynthetic = true,
+            typeArguments = Seq(),
+            implicitArguments = Seq(),
+            declaration = Declaration(
+              name = "nested.a2b",
+              kind = "def",
+              location = None,
+              isImplicit = true,
+              signature = None
+            )
+          ),
+          CallSite(
+            location = None,
+            name = "_empty_.nested.b2c(Lnested/B;)Lnested/C;.",
+            code = "<No Code Yet>",
+            isSynthetic = true,
+            typeArguments = Seq(),
+            implicitArguments = Seq(),
+            declaration = Declaration(
+              name = "nested.b2c",
+              kind = "def",
+              location = None,
+              isImplicit = true,
+              signature = None
+            )
+          )
+        ),
+        declaration = Declaration(
+          name = "nested.a2c",
+          kind = "def",
+          location = None,
+          isImplicit = true,
+          signature = Some(
+            Signature(
+              typeParams = Seq(),
+              parameterLists = Seq(
+                DeclaredParameterList(
+                  isImplicit = false,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "a",
+                      tipe = Type("A")
+                    ))
+                ),
+                DeclaredParameterList(
+                  isImplicit = true,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "b",
+                      tipe = Type(name = "Function1",
+                                  parameters = Seq(Type("A"), Type("B")))
+                    ),
+                    DeclaredParameter(
+                      name = "c",
+                      tipe = Type(name = "Function1",
+                                  parameters = Seq(Type("B"), Type("C")))
+                    )
+                  )
+                )
+              ),
+              returnType = Type("C")
+            )
+          )
+        )
+      )
       val res = ReflectExtract(ctx)
+
+      debugPrint(expected, res)
+
+      res should contain only expected
       println("End")
     }
   )
+
+  /**
+    * A small method to show the similarities between the expected and actual results.
+    * Its main use is to see where the similarities start to break down.
+    * More sophisticated diff methods require the use of external dependencies
+    * @param expected
+    * @param result
+    */
+  def debugPrint(expected: Seq[Representation.TopLevelElem],
+                 result: Seq[Representation.TopLevelElem]) = {
+    import sext._
+    println("Expected output:")
+    println(expected.treeString)
+    println("Actual output:")
+    println(res.treeString)
+    println("Similarities:")
+    println(expected.treeString intersect res.treeString)
+  }
 }

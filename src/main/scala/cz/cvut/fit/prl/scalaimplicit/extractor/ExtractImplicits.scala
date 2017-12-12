@@ -279,7 +279,8 @@ object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
         .map(Queries.getReflectiveSymbols(ctx, _))
         .map(Factories.createCallSite(ctx, _))
 
-    println(res.treeString)
+    // Can be turned on for debugging if needed
+    //println(res.treeString)
     //println(res.valueTreeString)
     res
   }
