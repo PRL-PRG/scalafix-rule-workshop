@@ -139,7 +139,7 @@ object Queries {
     }
 
     val processedSynthetic = internal.breakDown(parse(synth.text))
-    processedSynthetic.symbol.app match {
+    val res = processedSynthetic.symbol.app match {
       case Some(app) => processedSynthetic
       case None => {
         val matchedApplication = findApplication(ctx, synth)
@@ -147,6 +147,11 @@ object Queries {
         matchedApplication.copy(params = processedSynthetic.params)
       }
     }
+    assert(
+      res.symbol.app.isDefined,
+      s"Couldn't find an application for ynthetic ${synth.text}"
+    )
+    res
   }
 
   /**
@@ -297,16 +302,13 @@ object Queries {
 object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
 
   def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
-    val implicits = Queries.syntheticsWithImplicits(ctx)
-    val breakDowns = implicits.map(Queries.breakDownSynthetic(ctx, _))
-    assert(
-      !breakDowns.exists(_.symbol.app.isEmpty),
-      s"Some synthetic(s) didn't find an application: ${breakDowns.filter(_.symbol.app.isEmpty).mkString("\n")}"
-    )
+    val res =
+      Queries
+        .syntheticsWithImplicits(ctx)
+        .map(Queries.breakDownSynthetic(ctx, _))
+        .map(Queries.getReflectiveSymbols(ctx, _))
+        .map(Factories.createCallSite(ctx, _))
 
-    val reflections =
-      breakDowns.map(Queries.getReflectiveSymbols(ctx, _))
-    val res = reflections.map(x => Factories.createCallSite(ctx, x))
     println(res.treeString)
     //println(res.valueTreeString)
     res
