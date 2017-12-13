@@ -70,7 +70,8 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   private lazy val _inSourceCallSites: Map[Int, Tree] =
     (tree collect {
       case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
-          _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate) =>
+          _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate |
+          _: Term.New | _: Term.NewAnonymous) =>
         x.pos.end -> x
     }).toMap
   def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)

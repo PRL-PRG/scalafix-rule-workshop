@@ -114,6 +114,15 @@ object TermDecomposer {
         val bd = breakDown(t.op)
         bd.copy(params = processParamList(Seq(t.arg)))
       }
+      case t: Term.New => {
+        // Class constructor calls.
+        // If the constructor is anonymous, we return the symbol of the class.
+        // FIXME: This assumes that we won't find this in a synthetic
+        val app = t.init.name match {
+          case n: Name.Anonymous => finder(t.init.tpe)
+        }
+        BreakDown(app, Seq(), Seq())
+      }
     }
   }
 }
@@ -159,7 +168,7 @@ object Queries {
     }
     assert(
       res.symbol.app.isDefined,
-      s"Couldn't find an application for ynthetic ${synth.text}"
+      s"Couldn't find an application for synthetic ${synth.text}"
     )
     res
   }
