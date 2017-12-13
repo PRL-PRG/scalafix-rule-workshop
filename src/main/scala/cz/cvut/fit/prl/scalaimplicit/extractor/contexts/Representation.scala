@@ -93,14 +93,41 @@ object Factories {
     )
   }
 
+  def createParam(ctx: ReflectiveCtx, symbol: u.Symbol): DeclaredParameter = {
+    DeclaredParameter(
+      name = symbol.name.toString,
+      tipe = createTypeParameter(symbol.typeSignature.typeSymbol.asType)
+    )
+  }
+
+  def createParamList(ctx: ReflectiveCtx, paramList: List[u.Symbol]): DeclaredParameterList = {
+    DeclaredParameterList(
+      isImplicit = paramList.head.isImplicit, // We assume that if one param is implicit, every param is
+      params = paramList.map(createParam(ctx, _))
+    )
+  }
+
   def createSignature(ctx: ReflectiveCtx,
                       reflection: u.Symbol): Option[Signature] = {
+    def createType(tipe: u.Type): Type = {
+      Type(
+        name = tipe.toString,
+        constraints = createTypeConstraints(tipe),
+        parameters = tipe.typeParams.map(t => createType(t.typeSignature))
+      )
+    }
+
+    val params = reflection match {
+      case r if r.isMethod => r.asMethod.paramLists
+      case r if r.isClass => r.asClass.primaryConstructor.asMethod.paramLists
+      case _ => println(s"Not a class or a method ${reflection.toString}"); List()
+    }
     Some(
       Signature(
         typeParams = reflection.typeSignature.typeParams.map(t =>
           createTypeParameter(t.asType)),
-        parameterLists = Seq(),
-        returnType = Type("<Return Types Not Implemented Yet>")
+        parameterLists = params.map(createParamList(ctx, _)),
+        returnType = createType(reflection.typeSignature.resultType)
       ))
   }
 
@@ -120,7 +147,7 @@ object Factories {
   def createTypeConstraints(typeSignature: u.Type): Option[String] = {
     None
   }
-
+  
   def createTypeParameter(tipe: u.TypeSymbol): Type = {
     Type(
       name = tipe.name.toString,

@@ -139,7 +139,21 @@ class NewSchemaTest extends SemanticdbTest {
               kind = "def",
               location = None,
               isImplicit = true,
-              signature = None
+              signature = Some(
+                Signature(
+                  typeParams = Seq(),
+                  parameterLists = Seq(
+                    DeclaredParameterList(
+                      isImplicit = false,
+                      params = Seq(
+                        DeclaredParameter(
+                          name = "a",
+                          tipe = Type("A")
+                        ))
+                    )),
+                  returnType = Type("B")
+                )
+              )
             )
           ),
           CallSite(
@@ -154,7 +168,21 @@ class NewSchemaTest extends SemanticdbTest {
               kind = "def",
               location = None,
               isImplicit = true,
-              signature = None
+              signature = Some(
+                Signature(
+                  typeParams = Seq(),
+                  parameterLists = Seq(
+                    DeclaredParameterList(
+                      isImplicit = false,
+                      params = Seq(
+                        DeclaredParameter(
+                          name = "b",
+                          tipe = Type("B")
+                        ))
+                    )),
+                  returnType = Type("C")
+                )
+              )
             )
           )
         ),
@@ -181,12 +209,12 @@ class NewSchemaTest extends SemanticdbTest {
                     DeclaredParameter(
                       name = "b",
                       tipe = Type(name = "Function1",
-                                  parameters = Seq(Type("A"), Type("B")))
+                                  parameters = Seq(Type("T1"), Type("R")))
                     ),
                     DeclaredParameter(
                       name = "c",
                       tipe = Type(name = "Function1",
-                                  parameters = Seq(Type("B"), Type("C")))
+                                  parameters = Seq(Type("T1"), Type("R")))
                     )
                   )
                 )
@@ -198,7 +226,7 @@ class NewSchemaTest extends SemanticdbTest {
       )
       val res = ReflectExtract(ctx)
 
-      debugPrint(expected, res)
+      debugPrint(Seq(expected), res)
 
       res should contain only expected
       println("End")
@@ -218,8 +246,6 @@ class NewSchemaTest extends SemanticdbTest {
     println("Expected output:")
     println(expected.treeString)
     println("Actual output:")
-    println(res.treeString)
-    println("Similarities:")
-    println(expected.treeString intersect res.treeString)
+    println(result.treeString)
   }
 }
