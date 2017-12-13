@@ -120,16 +120,15 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin, { ctx =>
       val expected = CallSite(
-        location = None,
-        name =
-          "_empty_.nested.a2c(Lnested/A;Lscala/Function1;Lscala/Function1;)Lnested/C;.",
+        name = "nested.a2c",
         code = "<No Code Yet>",
+        location = None,
         isSynthetic = true,
         typeArguments = Seq(),
         implicitArguments = Seq(
           CallSite(
             location = None,
-            name = "_empty_.nested.a2b(Lnested/A;)Lnested/B;.",
+            name = "nested.a2b",
             code = "<No Code Yet>",
             isSynthetic = true,
             typeArguments = Seq(),
@@ -148,17 +147,17 @@ class NewSchemaTest extends SemanticdbTest {
                       params = Seq(
                         DeclaredParameter(
                           name = "a",
-                          tipe = Type("A")
+                          tipe = Type("nested.A")
                         ))
                     )),
-                  returnType = Type("B")
+                  returnType = Type("nested.B")
                 )
               )
             )
           ),
           CallSite(
             location = None,
-            name = "_empty_.nested.b2c(Lnested/B;)Lnested/C;.",
+            name = "nested.b2c",
             code = "<No Code Yet>",
             isSynthetic = true,
             typeArguments = Seq(),
@@ -177,10 +176,10 @@ class NewSchemaTest extends SemanticdbTest {
                       params = Seq(
                         DeclaredParameter(
                           name = "b",
-                          tipe = Type("B")
+                          tipe = Type("nested.B")
                         ))
                     )),
-                  returnType = Type("C")
+                  returnType = Type("nested.C")
                 )
               )
             )
@@ -200,7 +199,7 @@ class NewSchemaTest extends SemanticdbTest {
                   params = Seq(
                     DeclaredParameter(
                       name = "a",
-                      tipe = Type("A")
+                      tipe = Type("nested.A")
                     ))
                 ),
                 DeclaredParameterList(
@@ -208,18 +207,20 @@ class NewSchemaTest extends SemanticdbTest {
                   params = Seq(
                     DeclaredParameter(
                       name = "b",
-                      tipe = Type(name = "Function1",
-                                  parameters = Seq(Type("T1"), Type("R")))
+                      tipe = Type(name = "scala.Function1",
+                                  parameters = Seq(Type("scala.Function1.T1"),
+                                                   Type("scala.Function1.R")))
                     ),
                     DeclaredParameter(
                       name = "c",
-                      tipe = Type(name = "Function1",
-                                  parameters = Seq(Type("T1"), Type("R")))
+                      tipe = Type(name = "scala.Function1",
+                                  parameters = Seq(Type("scala.Function1.T1"),
+                                                   Type("scala.Function1.R")))
                     )
                   )
                 )
               ),
-              returnType = Type("C")
+              returnType = Type("nested.C")
             )
           )
         )
@@ -247,5 +248,13 @@ class NewSchemaTest extends SemanticdbTest {
     println(expected.treeString)
     println("Actual output:")
     println(result.treeString)
+    val exLines = expected.treeString.split("\n")
+    val resLines = result.treeString.split("\n")
+    val merge = resLines zip exLines
+    println(
+      merge
+        .filter(x => x._1 != x._2)
+        .map(x => s"Expected ${x._2}, got ${x._1}")
+        .mkString("\n"))
   }
 }

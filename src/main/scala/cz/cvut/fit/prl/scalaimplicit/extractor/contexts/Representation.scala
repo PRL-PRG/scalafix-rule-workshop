@@ -55,21 +55,25 @@ object Representation {
 object Factories {
   import Representation._
   def createLocation(pos: Option[Position]): Option[Location] = {
-    pos.map(p => {
+    /* pos.map(p => {
       val file: String = p.input match {
         case Input.VirtualFile(path, _) => path
         case Input.File(path, _) => path.toString
         case _ => s"<unknown file: ${p.input}"
       }
       Location(file, p.endLine, p.endColumn)
-    })
+    })*/
+    // TODO Uncomment the code above when we have normalized test results
+    None
   }
   import scala.reflect.runtime.{universe => u}
   def createLocation(pos: u.Position): Option[Location] = {
-    pos match {
+    /*pos match {
       case p if p == u.NoPosition => None
       case p => Some(Location("<Reflective File>", p.line, p.column))
-    }
+    }*/
+    // TODO Uncomment the code above when we have normalized test results
+    None
   }
 
   /**
@@ -100,7 +104,8 @@ object Factories {
     )
   }
 
-  def createParamList(ctx: ReflectiveCtx, paramList: List[u.Symbol]): DeclaredParameterList = {
+  def createParamList(ctx: ReflectiveCtx,
+                      paramList: List[u.Symbol]): DeclaredParameterList = {
     DeclaredParameterList(
       isImplicit = paramList.head.isImplicit, // We assume that if one param is implicit, every param is
       params = paramList.map(createParam(ctx, _))
@@ -109,32 +114,33 @@ object Factories {
 
   def createSignature(ctx: ReflectiveCtx,
                       reflection: u.Symbol): Option[Signature] = {
-    def createType(tipe: u.Type): Type = {
+    def createReturnType(tipe: u.Type): Type = {
       Type(
-        name = tipe.toString,
+        name = tipe.resultType.toString,
         constraints = createTypeConstraints(tipe),
-        parameters = tipe.typeParams.map(t => createType(t.typeSignature))
+        parameters =
+          tipe.typeParams.map(t => createReturnType(t.typeSignature))
       )
     }
 
     val params = reflection match {
       case r if r.isMethod => r.asMethod.paramLists
-      case r if r.isClass => r.asClass.primaryConstructor.asMethod.paramLists
-      case _ => println(s"Not a class or a method ${reflection.toString}"); List()
+      case _ =>
+        println(s"Not a method ${reflection.toString}"); List()
     }
     Some(
       Signature(
         typeParams = reflection.typeSignature.typeParams.map(t =>
           createTypeParameter(t.asType)),
         parameterLists = params.map(createParamList(ctx, _)),
-        returnType = createType(reflection.typeSignature.resultType)
+        returnType = createReturnType(reflection.typeSignature.resultType)
       ))
   }
 
   def createDeclaration(ctx: ReflectiveCtx,
                         reflection: ReflectiveBreakdown): Declaration = {
     Declaration(
-      name = reflection.originalSymbol.app.get.syntax,
+      name = reflection.reflection.fullName,
       kind = ctx.getReflectiveKind(reflection.reflection),
       location = Factories.createLocation(reflection.reflection.pos),
       isImplicit = reflection.reflection.isImplicit,
@@ -147,10 +153,10 @@ object Factories {
   def createTypeConstraints(typeSignature: u.Type): Option[String] = {
     None
   }
-  
+
   def createTypeParameter(tipe: u.TypeSymbol): Type = {
     Type(
-      name = tipe.name.toString,
+      name = tipe.fullName,
       constraints = createTypeConstraints(tipe.typeSignature),
       parameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
     )
@@ -173,7 +179,7 @@ object Factories {
 
     CallSite(
       location = Factories.createLocation(original.pos),
-      name = original.app.get.syntax,
+      name = reflect.fullName,
       code = "<No Code Yet>",
       isSynthetic = original.isSynthetic,
       declaration = createDeclaration(ctx, reflection),
