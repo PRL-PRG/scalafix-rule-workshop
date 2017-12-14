@@ -24,16 +24,14 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       */
     case class ReflectLoadable(owner: String,
                                term: String,
-                               searchWholeSymbol: Boolean)
+                               searchWholeSymbol: Boolean,
+                               isTypeParameter: Boolean)
     def splitFqn(symbol: Symbol): ReflectLoadable = {
       val owner =
         symbol
           .productElement(0)
           .toString
-          .stripPrefix("_empty_.")
-          .stripPrefix("_root_.")
-          .stripSuffix(".")
-          .stripSuffix("#")
+
       val name =
         symbol
           .productElement(1)
@@ -42,11 +40,21 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           .head
       val isType = name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
       val tryWhole = isType
-      ReflectLoadable(owner,
-                      name
-                        .stripSuffix("#")
-                        .stripSuffix("."),
-                      tryWhole)
+      val isTypeParameter = name.matches("""\[.*\]""")
+      ReflectLoadable(
+        owner
+          .stripPrefix("_empty_.")
+          .stripPrefix("_root_.")
+          .stripSuffix(".")
+          .stripSuffix("#"),
+        name
+          .stripPrefix("[")
+          .stripSuffix("]")
+          .stripSuffix("#")
+          .stripSuffix("."),
+        tryWhole,
+        isTypeParameter
+      )
     }
 
     /**
@@ -61,14 +69,19 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       */
     object SymbolSearch extends (ReflectLoadable => Set[u.Symbol]) {
       def apply(loadable: ReflectLoadable): Set[u.Symbol] = {
-        val candidates = (classMembers(loadable.owner) ++
+        var candidates = (classMembers(loadable.owner) ++
           moduleMembers(loadable.owner) ++
           packageMembers(loadable.owner))
           .filter(_.name.toString == loadable.term)
           .toSet
-        if (loadable.searchWholeSymbol)
-          candidates ++ getSymbol(s"${loadable.owner}.${loadable.term}")
-        else candidates
+        if (loadable.searchWholeSymbol) {
+          candidates ++= getSymbol(s"${loadable.owner}.${loadable.term}")
+        }
+        if (loadable.isTypeParameter) {
+          candidates ++= typeParameter(loadable.term,
+                                       getSymbol(loadable.owner))
+        }
+        candidates
       }
 
       // Get a single symbol from an fqn
@@ -78,6 +91,12 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
             loadModule(fqn).getOrElse(loadPackage(fqn).getOrElse(u.NoSymbol)))
         if (s == u.NoSymbol) Set()
         else Set(s)
+      }
+
+      private def typeParameter(param: String,
+                                parents: Set[u.Symbol]): Set[u.Symbol] = {
+        parents.flatMap(
+          _.typeSignature.typeParams.filter(_.name.toString.contains(param)))
       }
 
       def loadClass(symbol: String): Option[u.ClassSymbol] = {
