@@ -20,9 +20,7 @@ object Representation {
   case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
   }
-  case class Type(name: String,
-                  constraints: Option[String] = None,
-                  parameters: Seq[Type] = Seq())
+  case class Type(name: String, parameters: Seq[Type] = Seq())
 
   case class Declaration(name: String,
                          kind: String,
@@ -31,9 +29,9 @@ object Representation {
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
       extends TopLevelElem
-  case class Signature(typeParams: Seq[Type],
-                       parameterLists: Seq[DeclaredParameterList],
-                       returnType: Type)
+  case class Signature(typeParams: Seq[Type] = Seq(),
+                       parameterLists: Seq[DeclaredParameterList] = Seq(),
+                       returnType: Option[Type] = None)
   case class Parent(name: String,
                     declaration: Declaration,
                     typeArguments: Seq[Type])
@@ -114,13 +112,12 @@ object Factories {
 
   def createSignature(ctx: ReflectiveCtx,
                       reflection: u.Symbol): Option[Signature] = {
-    def createReturnType(tipe: u.Type): Type = {
-      Type(
-        name = tipe.resultType.toString,
-        constraints = createTypeConstraints(tipe),
-        parameters =
-          tipe.typeParams.map(t => createReturnType(t.typeSignature))
-      )
+    def createReturnType(tipe: u.Type): Option[Type] = {
+      Some(
+        Type(
+          name = tipe.toString,
+          parameters = tipe.typeArgs.map(t => createReturnType(t).get)
+        ))
     }
 
     val params = reflection match {
@@ -133,7 +130,7 @@ object Factories {
         typeParams = reflection.typeSignature.typeParams.map(t =>
           createTypeParameter(t.asType)),
         parameterLists = params.map(createParamList(ctx, _)),
-        returnType = createReturnType(reflection.typeSignature.resultType)
+        returnType = createReturnType(reflection.typeSignature.finalResultType)
       ))
   }
 
@@ -150,14 +147,9 @@ object Factories {
     )
   }
 
-  def createTypeConstraints(typeSignature: u.Type): Option[String] = {
-    None
-  }
-
   def createTypeParameter(tipe: u.TypeSymbol): Type = {
     Type(
       name = tipe.fullName,
-      constraints = createTypeConstraints(tipe.typeSignature),
       parameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
     )
   }
@@ -166,7 +158,6 @@ object Factories {
     val symbol = targ.symbol
     Type(
       name = symbol.name.toString,
-      constraints = createTypeConstraints(symbol.typeSignature),
       parameters = targ.args.map(createTypeArgument)
     )
   }

@@ -153,7 +153,7 @@ class NewSchemaTest extends SemanticdbTest {
                           tipe = Type("nested.A")
                         ))
                     )),
-                  returnType = Type("nested.B")
+                  returnType = Some(Type("nested.B"))
                 )
               )
             )
@@ -182,7 +182,7 @@ class NewSchemaTest extends SemanticdbTest {
                           tipe = Type("nested.B")
                         ))
                     )),
-                  returnType = Type("nested.C")
+                  returnType = Some(Type("nested.C"))
                 )
               )
             )
@@ -223,7 +223,7 @@ class NewSchemaTest extends SemanticdbTest {
                   )
                 )
               ),
-              returnType = Type("nested.C")
+              returnType = Some(Type("nested.C"))
             )
           )
         )
@@ -241,21 +241,91 @@ class NewSchemaTest extends SemanticdbTest {
     "Class Conversion",
     """
       |object classConv {
-      | implicit object IntWriter extends Writer[Int] {
-      |  def write(x: Int) = (x * 2).toString
-      | }
       | trait Writer[A] {
       |  def write(x: A): String
       | }
-      | class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
-      | println( new Hello(2).hello() )
+      | implicit object IntWriter extends Writer[Int] {
+      |  def write(x: Int) = (x * 2).toString
+      | }
+      | implicit class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
+      | println( 2.hello() )
       |}
     """.trim.stripMargin, { ctx =>
+      val expected = CallSite(
+        name = "classConv.Hello",
+        code = "<No Code Yet>",
+        location = None,
+        isSynthetic = true,
+        declaration = Declaration(
+          name = "classConv.Hello",
+          kind = "def",
+          location = None,
+          isImplicit = true,
+          signature = Some(
+            Signature(
+              typeParams = Seq(Type("classConv.T")),
+              parameterLists = Seq(
+                DeclaredParameterList(
+                  isImplicit = false,
+                  params = Seq(DeclaredParameter("s", Type("classConv.T")))
+                ),
+                DeclaredParameterList(
+                  isImplicit = true,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "evidence$1",
+                      tipe = Type(
+                        name = "classConv.Writer",
+                        parameters = Seq(Type("classConv.Writer.A"))
+                      )
+                    ))
+                )
+              ),
+              returnType =
+                Some(Type("classConv.Hello[T]", parameters = Seq(Type("T"))))
+            )),
+          parents = Seq()
+        ),
+        typeArguments = Seq(Type("Int")),
+        implicitArguments = Seq(
+          CallSite(
+            name = "classConv.IntWriter",
+            code = "<No Code Yet>",
+            location = None,
+            isSynthetic = true,
+            declaration = Declaration(
+              name = "classConv.IntWriter",
+              kind = "object",
+              location = None,
+              isImplicit = true,
+              signature = Some(Signature()),
+              parents = Seq(
+                Parent(
+                  name = "classConv.Writer",
+                  declaration = Declaration(
+                    name = "classConv.Writer",
+                    kind = "trait",
+                    location = None,
+                    isImplicit = false,
+                    signature = Some(Signature(
+                      typeParams = Seq(Type("T"))
+                    ))
+                  ),
+                  typeArguments = Seq(Type("Int"))
+                ))
+            ),
+            typeArguments = Seq(),
+            implicitArguments = Seq()
+          )
+        )
+      )
       val res = ReflectExtract(ctx)
 
       //debugPrint(Seq(expected), res)
 
-      debugPrint(res, res)
+      debugPrint(Seq(expected), res.filter(_.name == "classConv.Hello"))
+
+      res should contain(expected)
       println("End")
     }
   )
