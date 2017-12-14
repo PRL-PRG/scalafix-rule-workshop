@@ -7,98 +7,83 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
   import scala.reflect.runtime.{universe => u}
   val _mirror = u.runtimeMirror(loader)
 
-  /**
-    * Fetch the possible scala.reflect representations of a scala.meta Symbol
-    * @param symbol The scala.meta.Symbol whose representation we want
-    * @return A set of possible symbols with the same name as `symbol`
-    */
-  def fetchReflectSymbol(symbol: Symbol): Set[u.Symbol] = {
+  def findReflectSymbol(symbol: Symbol): u.Symbol = {
+    object Finders {
+      def findTypeSymbol(owner: String, tname: String) = {
+        val name = s"$owner.$tname"
+        getWholeSymbol(name).getOrElse(findName(owner, u.TypeName(tname)))
+      }
 
-    /**
-      * Extract a scala-reflect compatible fqn from a symbol.
-      * `searchWoleSymbol` will be true when we need to
-      * statically load the whole symbol ''in addition'' to
-      * searching in the members of the owner
-      * @param symbol
-      * @return
-      */
-    case class ReflectLoadable(owner: String,
-                               term: String,
-                               searchWholeSymbol: Boolean,
-                               isTypeParameter: Boolean)
-    def splitFqn(symbol: Symbol): ReflectLoadable = {
-      val owner =
-        symbol
-          .productElement(0)
-          .toString
+      def findTypeParam(owner: String, tname: String): u.Symbol = {
+        val ownerParts = owner.replace("#", ".").split(".")
+        val className = ownerParts.last
+        val classContainer = owner.replace(s".$className", "")
+        val container = Loaders
+          .loadClass(classContainer)
+          .getOrElse(Loaders
+            .loadModule(classContainer)
+            .getOrElse(throw new RuntimeException(
+              s"No suitable container for $className found in $classContainer")))
+        container.typeSignature
+          .member(u.TypeName(className))
+          .typeSignature
+          .typeParams
+          .find(_.fullName.endsWith(tname))
+          .getOrElse(throw new RuntimeException(
+            s"No type parameter matching $tname found in class $className"))
+      }
 
-      val name =
-        symbol
-          .productElement(1)
-          .toString
-          .split("""\(""")
-          .head
-      val isType = name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
-      val tryWhole = isType
-      val isTypeParameter = name.matches("""\[.*\]""")
-      ReflectLoadable(
-        owner
-          .stripPrefix("_empty_.")
-          .stripPrefix("_root_.")
-          .stripSuffix(".")
-          .stripSuffix("#"),
-        name
-          .stripPrefix("[")
-          .stripSuffix("]")
-          .stripSuffix("#")
-          .stripSuffix("."),
-        tryWhole,
-        isTypeParameter
-      )
-    }
+      def findTerm(owner: String, name: String): u.Symbol =
+        findName(owner, u.TermName(name))
 
-    /**
-      * Given an owner and a term name to search, search for it with the mirror.
-      * scala.reflect does not have a way to tell whether an fqn is a package, module or class.
-      * Therefore, we have to try to load a symbol as each of those. https://goo.gl/MzBoJF
-      *
-      * It also may be that `name` is not there when we load something as a class, but
-      * it appears when whe load it as a module (or vice versa).
-      * Therefore, we have to keep looking if we don't find it at first.
-      * FIXME: Exception-based flow control is obviously bad, we should look for a better way.
-      */
-    object SymbolSearch extends (ReflectLoadable => Set[u.Symbol]) {
-      def apply(loadable: ReflectLoadable): Set[u.Symbol] = {
-        var candidates = (classMembers(loadable.owner) ++
-          moduleMembers(loadable.owner) ++
-          packageMembers(loadable.owner))
-          .filter(_.name.toString == loadable.term)
-          .toSet
-        if (loadable.searchWholeSymbol) {
-          candidates ++= getSymbol(s"${loadable.owner}.${loadable.term}")
+      def findName(owner: String, name: u.Name): u.Symbol = {
+        classMember(owner, name) match {
+          case u.NoSymbol =>
+            moduleMember(owner, name) match {
+              case u.NoSymbol => packageMember(owner, name)
+              case ms => ms
+            }
+          case cs => cs
         }
-        if (loadable.isTypeParameter) {
-          candidates ++= typeParameter(loadable.term,
-                                       getSymbol(loadable.owner))
-        }
-        candidates
       }
 
       // Get a single symbol from an fqn
-      private def getSymbol(fqn: String): Set[u.Symbol] = {
+      def getWholeSymbol(fqn: String): Option[u.Symbol] = {
         val s =
-          loadClass(fqn).getOrElse(
-            loadModule(fqn).getOrElse(loadPackage(fqn).getOrElse(u.NoSymbol)))
-        if (s == u.NoSymbol) Set()
-        else Set(s)
+          Loaders
+            .loadClass(fqn)
+            .getOrElse(
+              Loaders
+                .loadModule(fqn)
+                .getOrElse(Loaders.loadPackage(fqn).getOrElse(u.NoSymbol)))
+        s match {
+          case u.NoSymbol => None
+          case s => Some(s)
+        }
       }
 
-      private def typeParameter(param: String,
-                                parents: Set[u.Symbol]): Set[u.Symbol] = {
-        parents.flatMap(
-          _.typeSignature.typeParams.filter(_.name.toString.contains(param)))
+      def classMember(cname: String, name: u.Name): u.Symbol = {
+        Loaders
+          .loadClass(cname)
+          .getOrElse(u.NoSymbol)
+          .typeSignature
+          .member(name)
       }
+      def moduleMember(mname: String, name: u.Name): u.Symbol = {
+        Loaders.loadModule(mname) match {
+          case Some(m) => m.asModule.moduleClass.info.member(name)
+          case None => u.NoSymbol
+        }
+      }
+      def packageMember(pname: String, name: u.Name): u.Symbol = {
+        Loaders.loadPackage(pname) match {
+          case Some(p) => p.moduleClass.info.member(name)
+          case None => u.NoSymbol
+        }
+      }
+    }
 
+    object Loaders {
       def loadClass(symbol: String): Option[u.ClassSymbol] = {
         try {
           Some(_mirror.staticClass(symbol))
@@ -121,29 +106,42 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           case _: Throwable => None
         }
       }
-
-      def classMembers(symbol: String): Seq[u.Symbol] = {
-        loadClass(symbol).getOrElse(u.NoSymbol).typeSignature.members.toSeq
-      }
-      def moduleMembers(symbol: String): Seq[u.Symbol] = {
-        loadModule(symbol) match {
-          case Some(s) => s.moduleClass.info.members.toSeq
-          case None => Seq()
-        }
-      }
-      def packageMembers(symbol: String): Seq[u.Symbol] = {
-        loadPackage(symbol) match {
-          case Some(s) => s.moduleClass.info.members.toSeq
-          case None => Seq()
-        }
-      }
     }
 
-    val loadable = splitFqn(symbol)
-    val candidates = SymbolSearch(loadable)
-    assert(candidates.nonEmpty,
-           s"We were unable to find anything matching $loadable")
-    candidates
+    object Cleaners {
+      def cleanOwner(raw: String): String =
+        raw
+          .stripPrefix("_empty_.")
+          .stripPrefix("_root_.")
+          .stripSuffix(".")
+          .stripSuffix("#")
+
+      def cleanName(raw: String): _root_.scala.Predef.String =
+        raw
+          .stripPrefix("[")
+          .stripSuffix("]")
+          .stripSuffix("#")
+          .stripSuffix(".")
+    }
+
+    def isType(name: String) =
+      name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
+    def isTypeParam(name: String) = name.matches("""\[.*\]""")
+
+    val owner = Cleaners.cleanOwner(
+      symbol
+        .productElement(0)
+        .toString)
+    val name = symbol.productElement(1).toString.split("""\(""").head
+    val reflection = (owner, name) match {
+      case (o, n) if isType(n) =>
+        Finders.findTypeSymbol(o, Cleaners.cleanName(n))
+      case (o, n) if isTypeParam(n) =>
+        Finders.findTypeParam(o, Cleaners.cleanName(n))
+      case (o, n) => Finders.findTerm(o, Cleaners.cleanName(n))
+    }
+    assert(reflection != u.NoSymbol, s"Reflection for $symbol not found")
+    reflection
   }
 
   def getReflectiveKind(symbol: u.Symbol): String = {

@@ -241,11 +241,11 @@ class NewSchemaTest extends SemanticdbTest {
     "Class Conversion",
     """
       |object classConv {
-      | trait Writer[A] {
-      |  def write(x: A): String
-      | }
       | implicit object IntWriter extends Writer[Int] {
       |  def write(x: Int) = (x * 2).toString
+      | }
+      | trait Writer[A] {
+      |  def write(x: A): String
       | }
       | class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
       | println( new Hello(2).hello() )

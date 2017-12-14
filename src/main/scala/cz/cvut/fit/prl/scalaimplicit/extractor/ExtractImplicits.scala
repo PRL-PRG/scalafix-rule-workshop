@@ -227,42 +227,9 @@ object Queries {
   def getReflectiveSymbols(ctx: ReflectiveCtx,
                            breakdown: BreakDown): ReflectiveBreakdown = {
 
-    /**
-      * Apply some heuristic to select one type symbol of the many that there can be
-      * Currently, the heuristic is trait > class > case class > object > package
-      * @param symbols
-      * @return
-      */
-    def selectTypeSymbol(symbols: Set[u.Symbol]): u.Symbol = {
-      val priorities = Map("trait" -> 0,
-                           "class" -> 1,
-                           "case class" -> 2,
-                           "object" -> 3,
-                           "case object" -> 4,
-                           "package" -> 5)
-      symbols.toSeq
-        .sortWith((a, b) => {
-          priorities
-            .find(x => a.toString.startsWith(x._1))
-            .get
-            ._2 < priorities.find(x => b.toString.startsWith(x._1)).get._2
-        })
-        .head
-    }
-
-    /**
-      * Same as selectTypeSymbol, but for non-types.
-      * FIXME: Currently it only takes the head symbol.
-      * @param symbols
-      * @return
-      */
-    def selectTermSymbol(symbols: Set[u.Symbol]): u.Symbol = {
-      symbols.filter(_.isTerm).head
-    }
-
     def getReflectiveTArg(ctx: ReflectiveCtx, targ: TArg): ReflectiveTArg = {
       ReflectiveTArg(
-        symbol = selectTypeSymbol(ctx.fetchReflectSymbol(targ.symbol)),
+        symbol = ctx.findReflectSymbol(targ.symbol),
         args = targ.args.map(getReflectiveTArg(ctx, _))
       )
     }
@@ -272,7 +239,7 @@ object Queries {
 
     ReflectiveBreakdown(
       originalSymbol = breakdown.symbol,
-      reflection = selectTermSymbol(ctx.fetchReflectSymbol(app)),
+      reflection = ctx.findReflectSymbol(app),
       params = breakdown.params.map(getReflectiveSymbols(ctx, _)),
       typeArguments = breakdown.typeParams.map(getReflectiveTArg(ctx, _))
     )
