@@ -15,19 +15,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       }
 
       def findTypeParam(owner: String, tname: String): u.Symbol = {
-        val ownerParts = owner.replace("#", ".").split(".")
-        val className = ownerParts.last
-        val classContainer = owner.replace(s".$className", "")
-        val container = Loaders
-          .loadClass(classContainer)
-          .getOrElse(Loaders
-            .loadModule(classContainer)
-            .getOrElse(throw new RuntimeException(
-              s"No suitable container for $className found in $classContainer")))
-        container.typeSignature
-          .member(u.TypeName(className))
-          .typeSignature
-          .typeParams
+        val (classContainer, className) = Cleaners.separateLastPart(owner)
+        findName(classContainer, u.TypeName(className)).typeSignature.typeParams
           .find(_.fullName.endsWith(tname))
           .getOrElse(throw new RuntimeException(
             s"No type parameter matching $tname found in class $className"))
@@ -122,6 +111,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           .stripSuffix("]")
           .stripSuffix("#")
           .stripSuffix(".")
+
+      def separateLastPart(fullName: String): (String, String) = {
+        val base = fullName.replace("#", ".")
+        val lastName = base.split("""\.""").last
+        val theRest = base.substring(0, fullName.lastIndexOf("."))
+        (theRest, lastName)
+      }
     }
 
     def isType(name: String) =
