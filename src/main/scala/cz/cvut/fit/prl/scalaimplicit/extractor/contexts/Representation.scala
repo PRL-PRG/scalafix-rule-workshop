@@ -210,3 +210,101 @@ object Factories {
     )
   }
 }
+
+object PrettyPrinters {
+  import Representation._
+  trait PrettyPrintable[T] {
+    def pretty(t: T, indent: Int): String
+  }
+
+  object PrettyInstances {
+
+    implicit object PrettyType extends PrettyPrintable[Type] {
+      override def pretty(t: Type, indent: Int): String = {
+        prettyPrint(t.parameters, indent + 2) match {
+          case p if p == "" => s"${t.name}"
+          case p => s"${t.name}[$p]"
+        }
+      }
+    }
+
+    implicit object PrettyDeclaredParameter
+        extends PrettyPrintable[DeclaredParameter] {
+      override def pretty(t: DeclaredParameter, indent: Int): String = {
+        s"${t.name}: ${prettyPrint(t.tipe, indent + 2)}"
+      }
+    }
+
+    implicit object PrettyDeclaredParameterList
+        extends PrettyPrintable[DeclaredParameterList] {
+      override def pretty(t: DeclaredParameterList, indent: Int): String = {
+        val prefix = if (t.isImplicit) s"implicit " else ""
+        s"(${prefix}${prettyPrint(t.params, indent + 2)})"
+      }
+    }
+
+    implicit object PrettySignature
+        extends PrettyPrintable[Option[Signature]] {
+      override def pretty(sign: Option[Signature], indent: Int): String = {
+        sign match {
+          case Some(sign) =>
+            s"${" " * indent}Signature: [${prettyPrint(sign.typeParams)}]${prettyPrint(
+              sign.parameterLists)}: ${prettyPrint(
+              sign.returnType.getOrElse(Type("")))}"
+          case None => ""
+        }
+
+      }
+    }
+
+    implicit object PrettyParent extends PrettyPrintable[Parent] {
+      override def pretty(t: Parent, indent: Int): String = {
+        s"\n${" " * indent}Parent: ${t.name}[${prettyPrint(t.typeArguments, indent + 2)}]" +
+          s"${nlTrim(prettyPrint(t.declaration, indent + 2)(PrettyDeclaration))}"
+      }
+    }
+
+    implicit object PrettyDeclaration extends PrettyPrintable[Declaration] {
+      override def pretty(t: Declaration, indent: Int): String = {
+        val realKind = if (t.isImplicit) s"implicit ${t.kind}" else t.kind
+        s"${" " * indent}Declaration: ${t.name}, $realKind, ${t.location}" +
+          s"${nlTrim(prettyPrint(t.signature, indent + 2))}" +
+          s"${nlTrim(prettyPrint(t.parents, indent + 2))}"
+      }
+    }
+
+    implicit object PrettyCallSite extends PrettyPrintable[CallSite] {
+      def pretty(cs: CallSite, indent: Int): String = {
+        val prefix = if (cs.isSynthetic) "synthetic " else ""
+        s"""${" " * indent}${prefix}CallSite: ${cs.name}, ${cs.code}, ${cs.location}
+           |${" " * indent}${prettyPrint(cs.declaration, indent + 2)}
+           |${" " * indent}${nlTrim(prettyPrint(cs.typeArguments, indent + 2))}
+           |${" " * indent}${nlTrim(
+             prettyPrint(cs.implicitArguments, indent + 2))}""".stripMargin
+      }
+    }
+
+    implicit object PrettyTopLevel extends PrettyPrintable[TopLevelElem] {
+      override def pretty(t: TopLevelElem, indent: Int): String = {
+        t match {
+          case t: CallSite => prettyPrint(t, indent)
+          case t: Declaration => prettyPrint(t, indent)
+        }
+      }
+    }
+
+    implicit def PrettySeq[T: PrettyPrintable]: PrettyPrintable[Seq[T]] =
+      (seq: Seq[T], indent: Int) =>
+        if (seq.nonEmpty)
+          seq.map(elem => s"${prettyPrint(elem, indent)}").mkString(",")
+        else ""
+
+    def nlTrim(str: String) = if (str.nonEmpty) s"\n$str" else ""
+  }
+
+  def prettyPrint[T](some: T, startIndent: Int = 0)(
+      implicit printer: PrettyPrintable[T]): String = {
+    val res = printer.pretty(some, startIndent)
+    res
+  }
+}

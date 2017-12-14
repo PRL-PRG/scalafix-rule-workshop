@@ -335,10 +335,12 @@ class NewSchemaTest extends SemanticdbTest {
         )
       )
       val res = ReflectExtract(ctx)
+      import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters._
+      print(
+        prettyPrint(res.head.asInstanceOf[CallSite])(
+          PrettyInstances.PrettyCallSite))
 
-      //debugPrint(Seq(expected), res)
-
-      debugPrint(Seq(expected), res.filter(_.name == "classConv.Hello"))
+      //debugPrint(Seq(expected), res.filter(_.name == "classConv.Hello"))
 
       res should contain(expected)
       println("End")
