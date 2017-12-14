@@ -77,21 +77,25 @@ object Factories {
   /**
     * Get the parent representation of a class symbol.
     * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
-    * @param reflection
+    * @param parent
     * @param ctx
     * @return
     */
-  def createParent(reflection: u.Symbol, ctx: ReflectiveCtx): Parent = {
+  def createParent(child: u.Symbol,
+                   parent: u.Symbol,
+                   ctx: ReflectiveCtx): Parent = {
+    val parentType = child.typeSignature.baseType(parent)
     Parent(
-      name = reflection.fullName,
+      name = parent.fullName,
       declaration = Declaration(
-        name = reflection.fullName,
-        kind = ctx.getReflectiveKind(reflection.asClass),
-        location = Factories.createLocation(reflection.pos),
-        isImplicit = reflection.isImplicit,
+        name = parent.fullName,
+        kind = ctx.getReflectiveKind(parent.asClass),
+        location = Factories.createLocation(parent.pos),
+        isImplicit = parent.isImplicit,
+        signature = createSignature(ctx, parent),
         parents = Seq()
       ),
-      typeArguments = Seq()
+      typeArguments = parentType.typeArgs.map(createTypeArgument)
     )
   }
 
@@ -120,30 +124,53 @@ object Factories {
         ))
     }
 
+    val typeParams = reflection.typeSignature.typeParams.map(t =>
+      createTypeParameter(t.asType))
+
     val params = reflection match {
       case r if r.isMethod => r.asMethod.paramLists
       case _ =>
         println(s"Not a method ${reflection.toString}"); List()
     }
-    Some(
-      Signature(
-        typeParams = reflection.typeSignature.typeParams.map(t =>
-          createTypeParameter(t.asType)),
-        parameterLists = params.map(createParamList(ctx, _)),
-        returnType = createReturnType(reflection.typeSignature.finalResultType)
-      ))
+    reflection match {
+      case refl if refl.isMethod =>
+        Some(
+          Signature(
+            typeParams = typeParams,
+            parameterLists =
+              refl.asMethod.paramLists.map(createParamList(ctx, _)),
+            returnType = createReturnType(refl.asMethod.returnType)
+          ))
+      case refl =>
+        Some(
+          Signature(typeParams = typeParams,
+                    parameterLists = Seq(),
+                    returnType = None))
+    }
   }
 
   def createDeclaration(ctx: ReflectiveCtx,
                         reflection: ReflectiveBreakdown): Declaration = {
+    def firstLevelBaseClasses(bases: List[u.Symbol]) = {
+      // Take the tail because the first one is the self definition
+      // Remove the classes that are parents of some class in bases
+      bases match {
+        case bases if bases.isEmpty => Seq()
+        case bases =>
+          bases.tail.filterNot(cls =>
+            bases.tail.exists(_.typeSignature.baseClasses.tail.contains(cls)))
+      }
+    }
+    val symbol = reflection.reflection
+
     Declaration(
-      name = reflection.reflection.fullName,
-      kind = ctx.getReflectiveKind(reflection.reflection),
-      location = Factories.createLocation(reflection.reflection.pos),
-      isImplicit = reflection.reflection.isImplicit,
-      parents = reflection.reflection.typeSignature.baseClasses
-        .map(createParent(_, ctx)),
-      signature = createSignature(ctx, reflection.reflection)
+      name = symbol.fullName,
+      kind = ctx.getReflectiveKind(symbol),
+      location = Factories.createLocation(symbol.pos),
+      isImplicit = symbol.isImplicit,
+      parents = firstLevelBaseClasses(symbol.typeSignature.baseClasses)
+        .map(createParent(symbol, _, ctx)),
+      signature = createSignature(ctx, symbol)
     )
   }
 
@@ -154,10 +181,14 @@ object Factories {
     )
   }
 
+  def createTypeArgument(symbol: u.Type): Type = {
+    Type(symbol.toString, symbol.typeArgs.map(createTypeArgument))
+  }
+
   def createTypeArgument(targ: ReflectiveTArg): Type = {
     val symbol = targ.symbol
     Type(
-      name = symbol.name.toString,
+      name = symbol.fullName,
       parameters = targ.args.map(createTypeArgument)
     )
   }

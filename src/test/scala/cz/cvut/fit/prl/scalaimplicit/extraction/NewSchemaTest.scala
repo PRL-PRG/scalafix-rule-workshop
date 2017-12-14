@@ -241,10 +241,12 @@ class NewSchemaTest extends SemanticdbTest {
     "Class Conversion",
     """
       |object classConv {
+      |trait UselessParent {}
+      |trait Useless extends UselessParent {}
       | trait Writer[A] {
       |  def write(x: A): String
       | }
-      | implicit object IntWriter extends Writer[Int] {
+      | implicit object IntWriter extends Writer[Int] with Useless {
       |  def write(x: Int) = (x * 2).toString
       | }
       | implicit class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
@@ -286,7 +288,7 @@ class NewSchemaTest extends SemanticdbTest {
             )),
           parents = Seq()
         ),
-        typeArguments = Seq(Type("Int")),
+        typeArguments = Seq(Type("scala.Int")),
         implicitArguments = Seq(
           CallSite(
             name = "classConv.IntWriter",
@@ -301,18 +303,31 @@ class NewSchemaTest extends SemanticdbTest {
               signature = Some(Signature()),
               parents = Seq(
                 Parent(
+                  name = "classConv.Useless",
+                  declaration = Declaration(
+                    name = "classConv.Useless",
+                    kind = "abstract trait",
+                    location = None,
+                    isImplicit = false,
+                    signature = Some(Signature())
+                  ),
+                  typeArguments = Seq()
+                ),
+                Parent(
                   name = "classConv.Writer",
                   declaration = Declaration(
                     name = "classConv.Writer",
-                    kind = "trait",
+                    kind = "abstract trait",
                     location = None,
                     isImplicit = false,
-                    signature = Some(Signature(
-                      typeParams = Seq(Type("T"))
-                    ))
+                    signature = Some(
+                      Signature(
+                        typeParams = Seq(Type("classConv.Writer.A"))
+                      ))
                   ),
-                  typeArguments = Seq(Type("Int"))
-                ))
+                  typeArguments = Seq(Type("scala.Int"))
+                )
+              )
             ),
             typeArguments = Seq(),
             implicitArguments = Seq()
