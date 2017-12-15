@@ -10,12 +10,17 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
   DeclaredImplicit
 }
 import cz.cvut.fit.prl.scalaimplicit.extractor._
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
   ReflectiveCtx,
+  Representation,
   SemanticCtx
 }
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.prettyPrint
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.PrettyInstances._
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
+import org.scalatest.exceptions.TestFailedException
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.compat.Platform.EOL
@@ -165,6 +170,53 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       val ctx = new ReflectiveCtx(loader, db)
 
       f(ctx)
+    }
+  }
+
+  protected def checkPrettyReflRes(name: String,
+                                   code: String,
+                                   expected: Seq[String]): Unit = {
+
+    /**
+      * Copied from scala.meta.testkit.DiffAssertions.
+      */
+    def compareContents(original: Seq[String], revised: Seq[String]): String = {
+      import collection.JavaConverters._
+      def trim(lines: Seq[String]) = lines.map(_.trim).asJava
+      val diff =
+        difflib.DiffUtils.diff(trim(lines(original)), trim(lines(revised)))
+      if (diff.getDeltas.isEmpty) ""
+      else
+        difflib.DiffUtils
+          .generateUnifiedDiff(
+            "original",
+            "revised",
+            original.asJava,
+            diff,
+            1
+          )
+          .asScala
+          .drop(3)
+          .mkString("\n")
+    }
+
+    /**
+      * Get all the lines of the results.
+      * We sort by length just so that all the callsites appear in the same order
+      * in both result and expected values
+      */
+    def lines(content: Seq[String]) =
+      content.sortBy(_.length).flatMap(_.split("\n").map(_.trim))
+
+    test(name) {
+      val db = computeSemanticdbFromCode(code)
+      val loader =
+        new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL),
+                           this.getClass.getClassLoader)
+      val ctx = new ReflectiveCtx(loader, db)
+      val res = ReflectExtract(ctx)
+      val resStrings = res.map(prettyPrint(_).trim)
+      compareContents(lines(resStrings), lines(expected)) shouldBe empty
     }
   }
 

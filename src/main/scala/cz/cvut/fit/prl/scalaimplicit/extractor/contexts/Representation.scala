@@ -129,8 +129,7 @@ object Factories {
 
     val params = reflection match {
       case r if r.isMethod => r.asMethod.paramLists
-      case _ =>
-        println(s"Not a method ${reflection.toString}"); List()
+      case _ => List()
     }
     reflection match {
       case refl if refl.isMethod =>
@@ -269,13 +268,25 @@ object PrettyPrinters {
     }
 
     implicit object PrettyParent extends PrettyPrintable[Parent] {
+      def getMatchedTypes(tparams: Seq[Type], targs: Seq[Type]): String = {
+        assert(tparams.size == targs.size,
+               "Different number of type parameters and arguments")
+        (tparams zip targs)
+          .map(pair => s"${prettyPrint(pair._1)} = ${prettyPrint(pair._2)}")
+          .mkString(",")
+      }
+
       override def pretty(t: Parent, indent: Int): String = {
         val targs =
-          wrapIfSome(prettyPrint(t.typeArguments, indent + 2), "[", "]")
-        val decl = wrapIfSome(
-          prettyPrint(t.declaration, indent + 2)(PrettyDeclaration),
-          "\n")
-        s"${" " * indent}Parent: ${t.name}$targs $decl"
+          wrapIfSome(getMatchedTypes(t.declaration.signature.get.typeParams,
+                                     t.typeArguments),
+                     "[",
+                     "]")
+        val kind =
+          if (t.declaration.isImplicit) s"implicit ${t.declaration.kind}"
+          else t.declaration.kind
+        val decl = s"$kind ${t.name}"
+        s"${" " * indent}Parent: $decl$targs"
       }
     }
 

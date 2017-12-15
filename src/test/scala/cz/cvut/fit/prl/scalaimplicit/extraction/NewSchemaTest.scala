@@ -2,6 +2,8 @@ package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation._
 import cz.cvut.fit.prl.scalaimplicit.extractor.ReflectExtract
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.PrettyInstances._
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.prettyPrint
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation
 import cz.cvut.fit.prl.scalaimplicit.framework.SemanticdbTest
 
@@ -335,17 +337,48 @@ class NewSchemaTest extends SemanticdbTest {
         )
       )
       val res = ReflectExtract(ctx)
-      import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters._
-      res.foreach(
-        x =>
-          println(prettyPrint(x.asInstanceOf[CallSite])(
-            PrettyInstances.PrettyCallSite)))
-
-      //debugPrint(Seq(expected), res.filter(_.name == "classConv.Hello"))
-
       res should contain(expected)
+
+      val resStrings =
+        res.map(x => prettyPrint(x.asInstanceOf[CallSite])(PrettyCallSite))
+
+      val expectedStrings = prettyPrint(expected)(PrettyCallSite)
+      resStrings should contain(prettyPrint(expected)(PrettyCallSite))
       println("End")
     }
+  )
+
+  checkPrettyReflRes(
+    "Class Conversion with pretty Printing",
+    """
+      |object classConvPretty {
+      |trait UselessParent {}
+      |trait Useless extends UselessParent {}
+      | trait Writer[A] {
+      |  def write(x: A): String
+      | }
+      | implicit object IntWriter extends Writer[Int] with Useless {
+      |  def write(x: Int) = (x * 2).toString
+      | }
+      | implicit class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
+      | println( 2.hello() )
+      |}
+    """.trim.stripMargin,
+    Seq(
+      """synthetic CallSite@None: classConvPretty.Hello[scala.Int]
+        |  Declaration: implicit def classConvPretty.Hello@None
+        |    Signature: [classConvPretty.T](s: classConvPretty.T),(implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
+        |  synthetic CallSite@None: classConvPretty.IntWriter[]
+        |    Declaration: implicit object classConvPretty.IntWriter@None
+        |      Parent: abstract trait classConvPretty.Useless
+        |      Parent: abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int]
+        """.trim.stripMargin,
+      """CallSite@None: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
+        |  Declaration: def scala.Predef.implicitly@None
+        |    Signature: [scala.Predef.T](implicit e: scala.Predef.T): T
+        |  synthetic CallSite@None: classConvPretty.Hello.[]
+        |    Declaration: final package classConvPretty.Hello.@None""".trim.stripMargin
+    )
   )
 
   /**
@@ -355,20 +388,7 @@ class NewSchemaTest extends SemanticdbTest {
     * @param expected
     * @param result
     */
-  def debugPrint(expected: Seq[Representation.TopLevelElem],
-                 result: Seq[Representation.TopLevelElem]) = {
-    import sext._
-    println("Expected output:")
-    println(expected.treeString)
-    println("Actual output:")
-    println(result.treeString)
-    val exLines = expected.treeString.split("\n")
-    val resLines = result.treeString.split("\n")
-    val merge = resLines zip exLines
-    println(
-      merge
-        .filter(x => x._1 != x._2)
-        .map(x => s"Expected ${x._2}, got ${x._1}")
-        .mkString("\n"))
+  def debugPrint(result: Seq[Representation.TopLevelElem]) = {
+    println(result.map(x => prettyPrint(x)))
   }
 }
