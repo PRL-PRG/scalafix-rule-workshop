@@ -4,11 +4,16 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
   ReflectiveBreakdown,
   ReflectiveTArg
 }
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{Representation => r}
+import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.{
+  CallSite,
+  Declaration
+}
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
   Factories,
+  Gatherer,
   ReflectiveCtx,
-  SemanticCtx
+  SemanticCtx,
+  Representation => r
 }
 import sext._
 
@@ -246,19 +251,22 @@ object Queries {
   }
 }
 
-object ReflectExtract extends (ReflectiveCtx => Seq[r.TopLevelElem]) {
+case class ExtractionResult(callSites: Seq[CallSite],
+                            declarations: Set[Declaration])
+object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
 
-  def apply(ctx: ReflectiveCtx): Seq[r.TopLevelElem] = {
-    val res =
+  def apply(ctx: ReflectiveCtx): ExtractionResult = {
+    val callSites =
       ctx.syntheticsWithImplicits
         .map(Queries.breakDownSynthetic(ctx, _))
         .map(Queries.getReflectiveSymbols(ctx, _))
         .map(Factories.createCallSite(ctx, _))
 
+    val declarations = Gatherer.gatherDeclarations(callSites)
     // Can be turned on for debugging if needed
     //println(res.treeString)
     //println(res.valueTreeString)
-    res
+    ExtractionResult(callSites, declarations)
   }
 }
 

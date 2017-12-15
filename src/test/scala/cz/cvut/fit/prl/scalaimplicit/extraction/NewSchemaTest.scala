@@ -1,7 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation._
-import cz.cvut.fit.prl.scalaimplicit.extractor.ReflectExtract
+import cz.cvut.fit.prl.scalaimplicit.extractor.{
+  ExtractionResult,
+  ReflectExtract
+}
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.PrettyInstances._
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.PrettyPrinters.prettyPrint
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation
@@ -104,7 +107,7 @@ class NewSchemaTest extends SemanticdbTest {
       // I'll leave this on because this is a good stress test for the
       // reflection resolution, it has tons of corner cases, so I want
       // this test to trigger the assertions whenever we make a breaking change
-      val res = ReflectExtract(ctx)
+      val res = ReflectExtract(ctx).callSites
       res should have size 7
       println("End")
     }
@@ -131,13 +134,12 @@ class NewSchemaTest extends SemanticdbTest {
         isSynthetic = true,
         typeArguments = Seq(),
         implicitArguments = Seq(
-          CallSite(
+          ImplicitArgument(
             location = None,
             name = "nested.a2b",
             code = "<No Code Yet>",
-            isSynthetic = true,
             typeArguments = Seq(),
-            implicitArguments = Seq(),
+            arguments = Seq(),
             declaration = Declaration(
               name = "nested.a2b",
               kind = "def",
@@ -160,13 +162,12 @@ class NewSchemaTest extends SemanticdbTest {
               )
             )
           ),
-          CallSite(
+          ImplicitArgument(
             location = None,
             name = "nested.b2c",
             code = "<No Code Yet>",
-            isSynthetic = true,
             typeArguments = Seq(),
-            implicitArguments = Seq(),
+            arguments = Seq(),
             declaration = Declaration(
               name = "nested.b2c",
               kind = "def",
@@ -230,7 +231,7 @@ class NewSchemaTest extends SemanticdbTest {
           )
         )
       )
-      val res = ReflectExtract(ctx)
+      val res = ReflectExtract(ctx).callSites
 
       //debugPrint(Seq(expected), res)
 
@@ -292,11 +293,10 @@ class NewSchemaTest extends SemanticdbTest {
         ),
         typeArguments = Seq(Type("scala.Int")),
         implicitArguments = Seq(
-          CallSite(
+          ImplicitArgument(
             name = "classConv.IntWriter",
             code = "<No Code Yet>",
             location = None,
-            isSynthetic = true,
             declaration = Declaration(
               name = "classConv.IntWriter",
               kind = "object",
@@ -332,11 +332,11 @@ class NewSchemaTest extends SemanticdbTest {
               )
             ),
             typeArguments = Seq(),
-            implicitArguments = Seq()
+            arguments = Seq()
           )
         )
       )
-      val res = ReflectExtract(ctx)
+      val res = ReflectExtract(ctx).callSites
       res should contain(expected)
 
       val resStrings =
@@ -365,15 +365,15 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     Seq(
-      """|[]:synthetic CallSite: classConvPretty.Hello[scala.Int]
-        |[]:  Declaration: implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
-        |[]:  synthetic CallSite: classConvPretty.IntWriter[]
-        |[]:    Declaration: implicit object classConvPretty.IntWriter extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
+      """|?:scs: classConvPretty.Hello[scala.Int]
+        |?:  implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
+        |?:  iarg: classConvPretty.IntWriter
+        |?:    implicit object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
         """.trim.stripMargin,
-      """[]:CallSite: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
-        |[]:  Declaration: def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T
-        |[]:  synthetic CallSite: classConvPretty.Hello.[]
-        |[]:    Declaration: final package classConvPretty.Hello.""".trim.stripMargin
+      """?:cs: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
+        |?:  def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T
+        |?:  iarg: classConvPretty.Hello.
+        |?:    final object classConvPretty.Hello.: classConvPretty.Hello..type""".trim.stripMargin
     )
   )
 
@@ -384,7 +384,7 @@ class NewSchemaTest extends SemanticdbTest {
     * @param expected
     * @param result
     */
-  def debugPrint(result: Seq[Representation.TopLevelElem]) = {
-    println(result.map(x => prettyPrint(x)))
+  def debugPrint(result: ExtractionResult) = {
+    println(result.callSites.map(x => prettyPrint(x)))
   }
 }

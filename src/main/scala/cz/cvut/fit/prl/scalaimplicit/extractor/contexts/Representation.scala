@@ -7,15 +7,12 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.Queries.{
 }
 import org.langmeta.inputs.{Input, Position}
 import sext._
+import sun.reflect.generics.tree.TypeArgument
 
 /**
   * Module to hold the internal representation of extracted information
   */
 object Representation {
-
-  trait TopLevelElem {
-    def name: String
-  }
 
   case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
@@ -28,7 +25,6 @@ object Representation {
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
-      extends TopLevelElem
   case class Signature(typeParams: Seq[Type] = Seq(),
                        parameterLists: Seq[DeclaredParameterList] = Seq(),
                        returnType: Option[Type] = None)
@@ -45,9 +41,13 @@ object Representation {
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
-                      implicitArguments: Seq[CallSite])
-      extends TopLevelElem
-  case class ImplicitArgument(name: String)
+                      implicitArguments: Seq[ImplicitArgument])
+  case class ImplicitArgument(name: String,
+                              code: String,
+                              location: Option[Location],
+                              declaration: Declaration,
+                              typeArguments: Seq[Type],
+                              arguments: Seq[ImplicitArgument])
 }
 
 object Factories {
@@ -116,13 +116,6 @@ object Factories {
 
   def createSignature(ctx: ReflectiveCtx,
                       reflection: u.Symbol): Option[Signature] = {
-    def createReturnType(tipe: u.Type): Option[Type] = {
-      Some(
-        Type(
-          name = tipe.toString,
-          parameters = tipe.typeArgs.map(t => createReturnType(t).get)
-        ))
-    }
 
     val typeParams = reflection.typeSignature.typeParams.map(t =>
       createTypeParameter(t.asType))
@@ -138,13 +131,13 @@ object Factories {
             typeParams = typeParams,
             parameterLists =
               refl.asMethod.paramLists.map(createParamList(ctx, _)),
-            returnType = createReturnType(refl.asMethod.returnType)
+            returnType = Some(createTypeArgument(refl.asMethod.returnType))
           ))
       case refl =>
         Some(
           Signature(typeParams = typeParams,
                     parameterLists = Seq(),
-                    returnType = None))
+                    returnType = Some(createTypeArgument(refl.typeSignature))))
     }
   }
 
@@ -180,8 +173,8 @@ object Factories {
     )
   }
 
-  def createTypeArgument(symbol: u.Type): Type = {
-    Type(symbol.toString, symbol.typeArgs.map(createTypeArgument))
+  def createTypeArgument(t: u.Type): Type = {
+    Type(t.toString, t.typeArgs.map(createTypeArgument))
   }
 
   def createTypeArgument(targ: ReflectiveTArg): Type = {
@@ -189,6 +182,22 @@ object Factories {
     Type(
       name = symbol.fullName,
       parameters = targ.args.map(createTypeArgument)
+    )
+  }
+
+  def createImplicitArgument(
+      ctx: ReflectiveCtx,
+      reflection: Queries.ReflectiveBreakdown): ImplicitArgument = {
+
+    val original = reflection.originalSymbol
+    val reflect = reflection.reflection
+    ImplicitArgument(
+      location = Factories.createLocation(original.pos),
+      name = reflect.fullName,
+      code = "<No Code Yet>",
+      declaration = createDeclaration(ctx, reflection),
+      typeArguments = reflection.typeArguments.map(createTypeArgument),
+      arguments = reflection.params.map(createImplicitArgument(ctx, _))
     )
   }
 
@@ -205,8 +214,27 @@ object Factories {
       isSynthetic = original.isSynthetic,
       declaration = createDeclaration(ctx, reflection),
       typeArguments = reflection.typeArguments.map(createTypeArgument),
-      implicitArguments = reflection.params.map(createCallSite(ctx, _))
+      implicitArguments = reflection.params.map(createImplicitArgument(ctx, _))
     )
+  }
+}
+
+object Gatherer {
+  import Representation._
+  private def gatherDeclarations(
+      implicitArgument: ImplicitArgument): Set[Declaration] = {
+    Set(implicitArgument.declaration) ++ implicitArgument.arguments.flatMap(
+      gatherDeclarations)
+  }
+
+  def gatherDeclarations(cs: CallSite): Set[Declaration] = {
+    Set(cs.declaration) ++ cs.implicitArguments
+      .flatMap(gatherDeclarations)
+      .toSet
+  }
+
+  def gatherDeclarations(cs: Seq[CallSite]): Set[Declaration] = {
+    cs.flatMap(gatherDeclarations).toSet
   }
 }
 
@@ -221,8 +249,8 @@ object PrettyPrinters {
     implicit object PrettyLocation extends PrettyPrintable[Option[Location]] {
       override def pretty(t: Option[Location], indent: Int): String = {
         t match {
-          case Some(loc) => loc.toString
-          case None => ""
+          case Some(loc) => s"[${loc.toString}]:"
+          case None => "?:"
         }
       }
     }
@@ -301,29 +329,32 @@ object PrettyPrinters {
         val signature = prettyPrint(t.signature, indent + 2)
         val parents =
           wrapIfSome(prettyPrint(t.parents, indent + 2), " extends (", ")")
-        s"[${prettyPrint(t.location)}]:${" " * indent}Declaration: $realKind ${t.name}"
+        s"${prettyPrint(t.location)}${" " * indent}$realKind ${t.name}"
           .concat(signature)
           .concat(parents)
       }
     }
 
-    implicit object PrettyCallSite extends PrettyPrintable[CallSite] {
-      def pretty(cs: CallSite, indent: Int): String = {
-        val prefix = if (cs.isSynthetic) "synthetic " else ""
-        s"""[${prettyPrint(cs.location)}]:${" " * indent}${prefix}CallSite: ${cs.name}[${prettyPrint(
-             cs.typeArguments,
-             indent + 2)}]
-           |${prettyPrint(cs.declaration, indent + 2)}
-           |${prettyPrint(cs.implicitArguments, indent + 2)}""".stripMargin
+    implicit object PrettyArgument extends PrettyPrintable[ImplicitArgument] {
+      override def pretty(t: ImplicitArgument, indent: Int): String = {
+        s"""${prettyPrint(t.location)}${" " * indent}iarg: ${t.name}${wrapIfSome(
+             prettyPrint(t.typeArguments, indent + 2),
+             "[",
+             "]")}
+          |${prettyPrint(t.declaration, indent + 2)}
+          |${prettyPrint(t.arguments, indent + 2)}""".stripMargin
       }
     }
 
-    implicit object PrettyTopLevel extends PrettyPrintable[TopLevelElem] {
-      override def pretty(t: TopLevelElem, indent: Int): String = {
-        t match {
-          case t: CallSite => prettyPrint(t, indent)
-          case t: Declaration => prettyPrint(t, indent)
-        }
+    implicit object PrettyCallSite extends PrettyPrintable[CallSite] {
+      def pretty(cs: CallSite, indent: Int): String = {
+        val prefix = if (cs.isSynthetic) "s" else ""
+        s"""${prettyPrint(cs.location)}${" " * indent}${prefix}cs: ${cs.name}${wrapIfSome(
+             prettyPrint(cs.typeArguments, indent + 2),
+             "[",
+             "]")}
+           |${prettyPrint(cs.declaration, indent + 2)}
+           |${prettyPrint(cs.implicitArguments, indent + 2)}""".stripMargin
       }
     }
 

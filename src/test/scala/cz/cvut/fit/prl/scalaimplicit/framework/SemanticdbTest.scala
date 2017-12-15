@@ -10,7 +10,6 @@ import cz.cvut.fit.prl.scalaimplicit.extractor.Serializables.{
   DeclaredImplicit
 }
 import cz.cvut.fit.prl.scalaimplicit.extractor._
-import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.Representation.TopLevelElem
 import cz.cvut.fit.prl.scalaimplicit.extractor.contexts.{
   ReflectiveCtx,
   Representation,
@@ -215,7 +214,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
                            this.getClass.getClassLoader)
       val ctx = new ReflectiveCtx(loader, db)
       val res = ReflectExtract(ctx)
-      val resStrings = res.map(prettyPrint(_).trim)
+      val resStrings = res.callSites.map(prettyPrint(_).trim)
       println(resStrings.mkString("\n"))
       compareContents(lines(resStrings), lines(expected)) shouldBe empty
     }
