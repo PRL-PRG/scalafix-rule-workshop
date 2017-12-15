@@ -218,6 +218,15 @@ object PrettyPrinters {
 
   object PrettyInstances {
 
+    implicit object PrettyLocation extends PrettyPrintable[Option[Location]] {
+      override def pretty(t: Option[Location], indent: Int): String = {
+        t match {
+          case Some(loc) => loc.toString
+          case None => ""
+        }
+      }
+    }
+
     implicit object PrettyType extends PrettyPrintable[Type] {
       override def pretty(t: Type, indent: Int): String = {
         prettyPrint(t.parameters, indent + 2) match {
@@ -259,8 +268,7 @@ object PrettyPrinters {
             val typeParams = wrapIfSome(prettyPrint(sign.typeParams), "[", "]")
             val parameterLists = prettyPrint(sign.parameterLists)
             val retType = wrapIfSome(prettyPrint(sign.returnType), ": ")
-            wrapIfSome(s"$typeParams$parameterLists$retType",
-                       s"${" " * indent}Signature: ")
+            s"$typeParams$parameterLists$retType"
           }
           case None => ""
         }
@@ -277,27 +285,23 @@ object PrettyPrinters {
       }
 
       override def pretty(t: Parent, indent: Int): String = {
+        val tparams = t.declaration.signature.get.typeParams
         val targs =
-          wrapIfSome(getMatchedTypes(t.declaration.signature.get.typeParams,
-                                     t.typeArguments),
-                     "[",
-                     "]")
+          wrapIfSome(getMatchedTypes(tparams, t.typeArguments), "[", "]")
         val kind =
           if (t.declaration.isImplicit) s"implicit ${t.declaration.kind}"
           else t.declaration.kind
-        val decl = s"$kind ${t.name}"
-        s"${" " * indent}Parent: $decl$targs"
+        s"$kind ${t.name}$targs"
       }
     }
 
     implicit object PrettyDeclaration extends PrettyPrintable[Declaration] {
       override def pretty(t: Declaration, indent: Int): String = {
         val realKind = if (t.isImplicit) s"implicit ${t.kind}" else t.kind
-        val signature = wrapIfSome(prettyPrint(t.signature, indent + 2), "\n")
-        val parents = wrapIfSome(prettyPrint(t.parents, indent + 2)(
-                                   PrettySeq[Parent]("\n", PrettyParent)),
-                                 "\n")
-        s"${" " * indent}Declaration: $realKind ${t.name}@${t.location}"
+        val signature = prettyPrint(t.signature, indent + 2)
+        val parents =
+          wrapIfSome(prettyPrint(t.parents, indent + 2), " extends (", ")")
+        s"[${prettyPrint(t.location)}]:${" " * indent}Declaration: $realKind ${t.name}"
           .concat(signature)
           .concat(parents)
       }
@@ -306,7 +310,7 @@ object PrettyPrinters {
     implicit object PrettyCallSite extends PrettyPrintable[CallSite] {
       def pretty(cs: CallSite, indent: Int): String = {
         val prefix = if (cs.isSynthetic) "synthetic " else ""
-        s"""${" " * indent}${prefix}CallSite@${cs.location}: ${cs.name}[${prettyPrint(
+        s"""[${prettyPrint(cs.location)}]:${" " * indent}${prefix}CallSite: ${cs.name}[${prettyPrint(
              cs.typeArguments,
              indent + 2)}]
            |${prettyPrint(cs.declaration, indent + 2)}
@@ -323,7 +327,7 @@ object PrettyPrinters {
       }
     }
 
-    implicit val separator: String = ","
+    implicit val separator: String = ", "
     implicit def PrettySeq[T](
         implicit separator: String,
         printer: PrettyPrintable[T]): PrettyPrintable[Seq[T]] =

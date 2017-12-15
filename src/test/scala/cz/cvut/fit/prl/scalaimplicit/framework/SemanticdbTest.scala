@@ -216,6 +216,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       val ctx = new ReflectiveCtx(loader, db)
       val res = ReflectExtract(ctx)
       val resStrings = res.map(prettyPrint(_).trim)
+      println(resStrings.mkString("\n"))
       compareContents(lines(resStrings), lines(expected)) shouldBe empty
     }
   }

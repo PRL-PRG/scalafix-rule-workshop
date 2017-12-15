@@ -365,19 +365,15 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     Seq(
-      """synthetic CallSite@None: classConvPretty.Hello[scala.Int]
-        |  Declaration: implicit def classConvPretty.Hello@None
-        |    Signature: [classConvPretty.T](s: classConvPretty.T),(implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
-        |  synthetic CallSite@None: classConvPretty.IntWriter[]
-        |    Declaration: implicit object classConvPretty.IntWriter@None
-        |      Parent: abstract trait classConvPretty.Useless
-        |      Parent: abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int]
+      """|[]:synthetic CallSite: classConvPretty.Hello[scala.Int]
+        |[]:  Declaration: implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
+        |[]:  synthetic CallSite: classConvPretty.IntWriter[]
+        |[]:    Declaration: implicit object classConvPretty.IntWriter extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
         """.trim.stripMargin,
-      """CallSite@None: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
-        |  Declaration: def scala.Predef.implicitly@None
-        |    Signature: [scala.Predef.T](implicit e: scala.Predef.T): T
-        |  synthetic CallSite@None: classConvPretty.Hello.[]
-        |    Declaration: final package classConvPretty.Hello.@None""".trim.stripMargin
+      """[]:CallSite: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
+        |[]:  Declaration: def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T
+        |[]:  synthetic CallSite: classConvPretty.Hello.[]
+        |[]:    Declaration: final package classConvPretty.Hello.""".trim.stripMargin
     )
   )
 
