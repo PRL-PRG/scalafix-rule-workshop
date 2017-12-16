@@ -151,7 +151,7 @@ def clean_fqn_test():
     An empty function to trigger doctest.
     clean_fqn agglomerates various cleaning functions, which should be comon to all symbols in semanticdb.
 
-    >>> clean_fqn('_root_.fastparse.Api#P(Lscala/Functi_on0;Lsourcecode/Name;)Lfastparse/core/Parser;.')
+    >>> clean_fqn(cz.cvut.fit.prl.scalaimplicit.core)
     'fastparse.Api.P'
     '''
 
