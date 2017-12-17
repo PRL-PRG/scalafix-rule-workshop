@@ -7,23 +7,24 @@ import scala.reflect.macros.blackbox.Context
 object QueryEngineMacros {
   import scala.language.experimental.macros
 
-  def qcsm(queries: (String, String)*): (CallSite => Boolean) = macro qcsm_impl
+  def qcsm(queries: (String, Any)*): (CallSite => Boolean) = macro qcsm_impl
 
-  def qcsm_impl(c: Context)(queries: c.Expr[(String, String)]*)
+  def qcsm_impl(c: Context)(queries: c.Expr[(String, Any)]*)
     : c.Expr[Function1[CallSite, Boolean]] = {
     import c.universe._
-    def getStrings(tree: c.Tree): (String, String) = {
-      val Apply(_,
-                List(Literal(Constant(one: String)),
-                     Literal(Constant(other: String)))) = tree
+    def getStrings(tree: c.Tree): (String, c.Tree) = {
+      val Apply(_, List(Literal(Constant(one: String)), other)) = tree
       (one, other)
     }
-    def getName(of: Option[String]): c.Tree = of match {
-      case Some(s) => Literal(Constant(of.getOrElse("_")))
+    def getNamee(of: Option[String]): c.Tree = of match {
+      case Some(s) => Literal(Constant(s))
       case None => Ident(termNames.WILDCARD)
     }
 
-    val m: Map[String, String] = queries.map(x => getStrings(x.tree)).toMap
+    def getName(of: Option[c.Tree]): c.Tree =
+      of.getOrElse(Ident(termNames.WILDCARD))
+
+    val m: Map[String, c.Tree] = queries.map(x => getStrings(x.tree)).toMap
     val cas =
       cq"""CallSite(
          ${getName(m.get("name"))},
