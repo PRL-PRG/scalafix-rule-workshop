@@ -1,7 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{ReflectiveBreakdown, ReflectiveTArg}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{
+  ReflectiveBreakdown,
+  ReflectiveTArg
+}
 import org.langmeta.inputs.{Input, Position}
 import sext._
 import sun.reflect.generics.tree.TypeArgument

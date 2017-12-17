@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.macros.QueryEngineMacros._
 
 class QueryEngineTest extends SemanticdbTest {
   checkReflContext(
@@ -20,8 +21,9 @@ class QueryEngineTest extends SemanticdbTest {
       | println( 2.hello() )
       |}
     """.trim.stripMargin, { ctx =>
+      import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
       val res = ReflectExtract(ctx)
-      val query = QueriableRepresentation.QCS(name = Some("\"scala.Predef.implicitly\""))
+      val query = qcsm(("name", "scala.Predef.implicitly"))
       val qres = QueryEngine(query, res)
       println(qres)
       println("End")

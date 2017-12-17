@@ -5,10 +5,22 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractImplicits, Location, ReflectExtract, Result}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{Apply, DeclaredImplicit}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractImplicits,
+  Location,
+  ReflectExtract,
+  Result
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
+  Apply,
+  DeclaredImplicit
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{PrettyPrinters, ReflectiveCtx, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  PrettyPrinters,
+  ReflectiveCtx,
+  SemanticCtx
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
@@ -16,7 +28,12 @@ import org.scalatest.exceptions.TestFailedException
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.compat.Platform.EOL
-import scala.meta.internal.semanticdb.{DatabaseOps, FailureMode, ProfilingMode, SemanticdbMode}
+import scala.meta.internal.semanticdb.{
+  DatabaseOps,
+  FailureMode,
+  ProfilingMode,
+  SemanticdbMode
+}
 import scala.meta.io.AbsolutePath
 import scala.tools.cmd.CommandLineParser
 import scala.tools.nsc.reporters.ConsoleReporter
@@ -202,7 +219,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
                            this.getClass.getClassLoader)
       val ctx = new ReflectiveCtx(loader, db)
       val res = ReflectExtract(ctx)
-      val resStrings: Seq[String] = res.callSites.map(PrettyPrinters.prettyPrint(_)(PrettyCallSite).trim)
+      val resStrings: Seq[String] =
+        res.callSites.map(PrettyPrinters.prettyPrint(_)(PrettyCallSite).trim)
       println(resStrings.mkString("\n"))
       compareContents(lines(resStrings), lines(expected)) shouldBe empty
     }

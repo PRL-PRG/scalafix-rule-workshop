@@ -1,8 +1,21 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{Apply, DeclaredImplicit, FunApplyWithImplicitParam, ImplicitParam}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{Factories, Gatherer, ReflectiveCtx, SemanticCtx}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{CallSite, Declaration}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
+  Apply,
+  DeclaredImplicit,
+  FunApplyWithImplicitParam,
+  ImplicitParam
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  Factories,
+  Gatherer,
+  ReflectiveCtx,
+  SemanticCtx
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+  CallSite,
+  Declaration
+}
 import sext._
 
 import scala.meta._

@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, ReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractionResult,
+  ReflectExtract
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
