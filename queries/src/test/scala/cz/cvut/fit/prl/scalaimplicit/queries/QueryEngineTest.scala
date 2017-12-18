@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Declaration
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Serializer
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import cz.cvut.fit.prl.scalaimplicit.macros.QueryEngineMacros._
 
@@ -43,6 +44,30 @@ class QueryEngineTest extends SemanticdbTest {
       println(qres3)
       println("--------------------------------------")
       println("End")
+    }
+  )
+
+  checkReflContext(
+    "Serialization test",
+    """
+      |object serialization {
+      |trait UselessParent {}
+      |trait Useless extends UselessParent {}
+      | trait Writer[A] {
+      |  def write(x: A): String
+      | }
+      | implicit object IntWriter extends Writer[Int] with Useless {
+      |  def write(x: Int) = (x * 2).toString
+      | }
+      | implicit class Hello[T: Writer](s: T) { def hello(): String = implicitly[Writer[T]].write(s) }
+      | println( 2.hello() )
+      |}
+    """.trim.stripMargin, { ctx =>
+      val res = ReflectExtract(ctx)
+
+      Serializer.save(res, "./tmp/serialized.dat")
+      val loaded = Serializer.load("./tmp/serialized.dat")
+      println(loaded)
     }
   )
 }

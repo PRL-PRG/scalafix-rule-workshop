@@ -1,13 +1,16 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries
+import java.nio.ByteBuffer
+import java.nio.file.{Files, Paths}
+
+import boopickle.DefaultBasic
+import boopickle.DefaultBasic.PicklerGenerator
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{
   ReflectiveBreakdown,
   ReflectiveTArg
 }
 import org.langmeta.inputs.{Input, Position}
-import sext._
-import sun.reflect.generics.tree.TypeArgument
 
 /**
   * Module to hold the internal representation of extracted information
@@ -379,4 +382,29 @@ object PrettyPrinters {
     val res = printer.pretty(some, startIndent)
     res
   }
+}
+
+object Serializer {
+  object Picklers {
+    import Representation._
+    import boopickle.Default._
+    implicit val typepickler = PicklerGenerator.generatePickler[Type]
+    implicit val signpickler = PicklerGenerator.generatePickler[Signature]
+    implicit val iargpickler =
+      PicklerGenerator.generatePickler[ImplicitArgument]
+    implicit val locpickler = PicklerGenerator.generatePickler[Location]
+    implicit val declpickler = PicklerGenerator.generatePickler[Declaration]
+    implicit val cspickler = PicklerGenerator.generatePickler[CallSite]
+    implicit val respickler =
+      PicklerGenerator.generatePickler[ExtractionResult]
+  }
+
+  import boopickle.DefaultBasic._
+  import Picklers._
+  def save(res: ExtractionResult, file: String) =
+    Files.write(Paths.get(file), Pickle.intoBytes(res).array())
+
+  def load(file: String): ExtractionResult =
+    Unpickle[ExtractionResult].fromBytes(
+      ByteBuffer.wrap(Files.readAllBytes(Paths.get(file))))
 }
