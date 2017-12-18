@@ -1,14 +1,26 @@
-package cz.cvut.fit.prl.scalaimplicit
+package cz.cvut.fit.prl.scalaimplicit.plugin
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.{CSV, ExtractImplicits}
-import cz.cvut.fit.prl.scalaimplicit.extractor.Main.logger
 import cz.cvut.fit.prl.scalaimplicit.extractor.runners.SingleProjectWalker
-import sbt._
+import cz.cvut.fit.prl.scalaimplicit.extractor.{CSV, ExtractImplicits}
 import sbt.Keys._
+import sbt._
 import sbt.plugins.JvmPlugin
 
 object ExtractorPlugin extends AutoPlugin {
   override def requires = JvmPlugin
+  val V: Map[(Long, Long), String] = Map(
+    (2L -> 11L) -> "2.11.12",
+    (2L -> 12L) -> "2.12.4"
+  )
+  def relevantProjects(state: State): Seq[(ProjectRef, String)] = {
+    val extracted = Project.extract(state)
+    for {
+      p <- extracted.structure.allProjectRefs
+      version <- scalaVersion.in(p).get(extracted.structure.data).toList
+      partialVersion <- CrossVersion.partialVersion(version).toList
+      fullVersion <- V.get(partialVersion).toList
+    } yield p -> fullVersion
+  }
   object autoImport {
     val reflect = inputKey[Unit]("Reflect on an fqn")
     val extract = taskKey[Unit]("Extract implicits")

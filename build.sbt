@@ -1,6 +1,5 @@
 organization := "cz.cvut.fit.prl"
 name := "implicit-collector"
-version := "0.1"
 
 scalacOptions += "-Yno-adapted-args"
 assemblyJarName in assembly := "implicit-collector.jar"
@@ -21,8 +20,11 @@ lazy val core = (project in file("core")).settings(
 )
 
 lazy val plugin = (project in file("plugin")).dependsOn(core).settings(
+  organization := "cz.cvut.fit.prl",
+  name := "sbt-implicit-collector",
+  version := "0.1",
+  scalaVersion := "2.12.4",
   sbtPlugin := true,
   sbtVersion in Global := "1.0.0",
-  moduleName := "sbt-implicit-collector",
-  isOnly("2.12.4")
+  moduleName := "sbt-implicit-collector"
 )
