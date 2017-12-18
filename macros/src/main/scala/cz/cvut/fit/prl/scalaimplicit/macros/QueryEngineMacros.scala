@@ -1,53 +1,58 @@
 package cz.cvut.fit.prl.scalaimplicit.macros
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
+import sbt.complete.Parsers
 
 import scala.reflect.macros.blackbox.Context
 
 object QueryEngineMacros {
   import scala.language.experimental.macros
 
-  def qcsm(queries: (String, Any)*): (CallSite => Boolean) = macro qcsm_impl
+  def qcs(pat: String, guard: String): (CallSite => Boolean) = macro qcs_impl
 
-  def qcsm_impl(c: Context)(queries: c.Expr[(String, Any)]*)
-    : c.Expr[Function1[CallSite, Boolean]] = {
+  def qcs_impl(c: Context)(
+      pat: c.Tree,
+      guard: c.Tree): c.Expr[Function1[CallSite, Boolean]] = {
     import c.universe._
-    def getStrings(tree: c.Tree): (String, c.Tree) = {
-      val Apply(_, List(Literal(Constant(one: String)), other)) = tree
-      (one, other)
+
+    val Literal(Constant(patStr: String)) = pat
+    def extractApply(fun: Function): Apply = {
+      val vparams = fun.vparams.map(_.name)
+      val body = fun.body.asInstanceOf[Apply]
+      val liftedArgs = body.args.collect {
+        case arg: Function => extractApply(arg)
+        case arg: Ident if vparams.contains(arg.name) =>
+          Ident(termNames.WILDCARD)
+        case a: Ident if a.name != termNames.WILDCARD =>
+          Bind(a.name, Ident(termNames.WILDCARD))
+        case other => other
+      }
+      Apply(body.fun, liftedArgs)
     }
-    def getNamee(of: Option[String]): c.Tree = of match {
-      case Some(s) => Literal(Constant(s))
-      case None => Ident(termNames.WILDCARD)
+    val patRepr = extractApply(c.parse(patStr).asInstanceOf[Function])
+
+    val Literal(Constant(guardStr: String)) = guard
+    val guardRepr = guardStr match {
+      case str if str.isEmpty => Literal(Constant(true))
+      case str => c.parse(guardStr)
     }
 
-    def getName(of: Option[c.Tree]): c.Tree =
-      of.getOrElse(Ident(termNames.WILDCARD))
+    val caseDef = cq"$patRepr if $guardRepr => true"
 
-    val m: Map[String, c.Tree] = queries.map(x => getStrings(x.tree)).toMap
-    val cas =
-      cq"""CallSite(
-         ${getName(m.get("name"))},
-         ${getName(m.get("code"))},
-         ${getName(m.get("location"))},
-         ${getName(m.get("isSynthetic"))},
-         ${getName(m.get("declaration"))},
-         ${getName(m.get("typeArguments"))},
-         ${getName(m.get("implicitArguments"))}
-         ) => true
-       """
+    val testPattern =
+      cq"""CallSite(ss,_,_,_,Declaration(xx,_,_,_,_,_),_,_) if ss != xx => true"""
 
-    // TODO Delete this when the macro is stable
-    val mcas =
-      cq"""CallSite("scala.Predef.implicitly", _, _, _, _, _, _) => true"""
-
-    c.Expr[Function1[CallSite, Boolean]](q"""
-       (cs: CallSite) => {
-         val res = cs match {
-          case $cas
-          case _ => false
+    val fun = c.Expr[Function1[CallSite, Boolean]](q"""
+         (cs: CallSite) => {
+           cs match {
+             case $caseDef
+             case _ => false
+           }
          }
-         res
-        }""")
+       """)
+    // Print the generated code for debugging
+    //println(fun)
+    fun
   }
+
 }

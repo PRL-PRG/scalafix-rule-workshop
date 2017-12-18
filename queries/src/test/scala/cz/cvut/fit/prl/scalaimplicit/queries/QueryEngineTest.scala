@@ -24,10 +24,24 @@ class QueryEngineTest extends SemanticdbTest {
     """.trim.stripMargin, { ctx =>
       import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
       val res = ReflectExtract(ctx)
-      val query =
-        qcsm(("name", "scala.Predef.implicitly"), ("declaration", false))
-      val qres = QueryEngine(query, res)
+
+      val q1 = qcs(
+        """CallSite("scala.Predef.implicitly",_,_,_,Declaration("scala.Predef.implicitly",_,_,_,_,_),_,_)""",
+        "")
+      val qres = QueryEngine(q1, res)
       println(qres)
+      println("--------------------------------------")
+      val q2 =
+        qcs("""CallSite(ss,_,_,_,Declaration(xx,_,_,_,_,_),_,_)""", "ss == xx")
+      val qres2 = QueryEngine(q2, res)
+      println(qres2)
+      println("--------------------------------------")
+      // All the non-synthetic calls to implicit defs (matches only implicitly[]())
+      val q3 =
+        qcs("""CallSite(_,_,_,false,Declaration(_,_,_,true,_,_),_,_)""", "")
+      val qres3 = QueryEngine(q2, res)
+      println(qres3)
+      println("--------------------------------------")
       println("End")
     }
   )
