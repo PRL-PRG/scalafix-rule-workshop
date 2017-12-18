@@ -1,8 +1,8 @@
-/*
 package cz.cvut.fit.prl.scalaimplicit
 
-import cz.cvut.fit.prl.scalaimplicit.extractor.{CSV, ExtractImplicits, SingleProjectWalker}
+import cz.cvut.fit.prl.scalaimplicit.extractor.{CSV, ExtractImplicits}
 import cz.cvut.fit.prl.scalaimplicit.extractor.Main.logger
+import cz.cvut.fit.prl.scalaimplicit.extractor.runners.SingleProjectWalker
 import sbt._
 import sbt.Keys._
 import sbt.plugins.JvmPlugin
@@ -50,4 +50,3 @@ object Extract {
     CSV.dumpFiles(root, results)
   }
 }
- */
