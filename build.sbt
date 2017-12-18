@@ -1,12 +1,8 @@
 import sbt.Keys.name
-name := "implicit-collector"
 
 lazy val commonSettings = Seq(
-  organization := "cz.cvut.fit.prl",
-  version := "0.1",
   scalaVersion := "2.12.4",
-  sbtPlugin := true,
-  //sbtVersion := "0.13.x"
+  sbtVersion := "1.0.4",
   scalacOptions += "-Yno-adapted-args"
 )
 
@@ -41,3 +37,13 @@ lazy val macros = (project in file("macros"))
 lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .dependsOn(coreutils % "test->test", macros)
+
+lazy val plugin =
+  (project in file("plugin"))
+    .settings(commonSettings: _*)
+    .settings(
+      sbtPlugin := true,
+      organization := "cz.cvut.fit.prl",
+      name := "sbt-implicit-collector",
+      version := "0.2"
+    )
