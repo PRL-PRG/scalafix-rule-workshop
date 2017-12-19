@@ -65,8 +65,8 @@ class QueryEngineTest extends SemanticdbTest {
     """.trim.stripMargin, { ctx =>
       val res = ReflectExtract(ctx)
 
-      Serializer.save(res, "./tmp/serialized.dat")
-      val loaded = Serializer.load("./tmp/serialized.dat")
+      Serializer.save(res, "./res.dat")
+      val loaded = Serializer.load("./res.dat")
       println(loaded)
     }
   )

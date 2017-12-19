@@ -1,13 +1,17 @@
-import sbt.Keys.name
-
 lazy val commonSettings = Seq(
   scalaVersion := "2.12.4",
-  sbtVersion := "1.0.4",
-  scalacOptions += "-Yno-adapted-args"
+  sbtVersion in Global := "1.0.4",
+  crossSbtVersions := Vector("0.13.16", "1.0.4"),
+  scalacOptions += "-Yno-adapted-args",
+  organization := "cz.cvut.fit.prl",
+  scalaCompilerBridgeSource := {
+    val sv = appConfiguration.value.provider.id.version
+    ("org.scala-sbt" % "compiler-interface" % sv % "component").sources
+  }
 )
 
 lazy val root = (project in file("."))
-  .aggregate(coreutils, macros, queries)
+  .aggregate(coreutils, macros, queries, implicitExtractor)
   .settings(commonSettings: _*)
 
 lazy val coreutils = (project in file("core"))
@@ -38,12 +42,25 @@ lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .dependsOn(coreutils % "test->test", macros)
 
-lazy val plugin =
-  (project in file("plugin"))
-    .settings(commonSettings: _*)
+lazy val classpathExtractor =
+  (project in file("sbt-classpath-extractor"))
     .settings(
+      sbtVersion in Global := "0.13.16",
+      crossSbtVersions := Vector("0.13.16", "1.0.4"),
       sbtPlugin := true,
+      scalaCompilerBridgeSource := {
+        val sv = appConfiguration.value.provider.id.version
+        ("org.scala-sbt" % "compiler-interface" % sv % "component").sources
+      },
+
       organization := "cz.cvut.fit.prl",
-      name := "sbt-implicit-collector",
-      version := "0.2"
+      name := "sbt-classpath-extractor",
+      version := "0.4-SNAPSHOT"
     )
+
+lazy val implicitExtractor = (project in file("application"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "implicit-collector.jar"
+  )
+  .dependsOn(coreutils)
