@@ -3,8 +3,15 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.runners
 import java.nio.file.Files
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Result, ResultElement}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{ReflectiveCtx, SemanticCtx}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractionResult,
+  Result,
+  ResultElement
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
+}
 import org.langmeta.internal.io.PathIO
 
 import scala.meta.AbsolutePath
@@ -74,7 +81,8 @@ class SingleProjectWalker(rootPath: String)
   }
 }
 
-class ReflectiveSingleProjectWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
+class ReflectiveSingleProjectWalker(loader: ClassLoader, rootPath: String)
+    extends LazyLogging {
   val root = AbsolutePath(rootPath)
   logger.debug(s"Analyzing ${rootPath}")
   def apply(f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
@@ -87,17 +95,19 @@ class ReflectiveSingleProjectWalker(loader: ClassLoader, rootPath: String) exten
       .asScala
       .filter { file =>
         Files.isRegularFile(file) &&
-          PathIO.extension(file) == "semanticdb"
+        PathIO.extension(file) == "semanticdb"
       }
       .toSeq
       .par
       .map { file =>
         ReflectiveVisitor(file, loader, f)
       }
-      .fold(ExtractionResult.Empty)((acc, res) => ExtractionResult(
-        callSites = acc.callSites ++ res.callSites,
-        declarations = acc.declarations ++ res.declarations
-      ))
+      .fold(ExtractionResult.Empty)(
+        (acc, res) =>
+          ExtractionResult(
+            callSites = acc.callSites ++ res.callSites,
+            declarations = acc.declarations ++ res.declarations
+        ))
     results
   }
 }

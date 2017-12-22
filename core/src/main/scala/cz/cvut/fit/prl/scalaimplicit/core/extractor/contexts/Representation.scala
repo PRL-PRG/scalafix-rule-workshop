@@ -10,6 +10,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{
   ReflectiveBreakdown,
   ReflectiveTArg
 }
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
 import org.langmeta.inputs.{Input, Position}
 
 /**
@@ -402,9 +403,182 @@ object Serializer {
   import boopickle.DefaultBasic._
   import Picklers._
   def save(res: ExtractionResult, file: String) =
-    Files.write(Paths.get(file), Pickle.intoBytes(res).array())
+    Files.write(Paths.get(file), Pickle.intoBytes(res.callSites).array())
 
-  def load(file: String): ExtractionResult =
-    Unpickle[ExtractionResult].fromBytes(
-      ByteBuffer.wrap(Files.readAllBytes(Paths.get(file))))
+  def load(file: String): ExtractionResult = {
+    val css = Unpickle[Seq[CallSite]]
+      .fromBytes(ByteBuffer.wrap(Files.readAllBytes(Paths.get(file))))
+    ExtractionResult(css, Set())
+  }
+}
+
+object JSONSerializer {
+  import org.json4s._
+  import org.json4s.native.JsonMethods._
+  object DSL {
+    import Representation._
+    import org.json4s.JsonDSL._
+    trait Jsonable[T] {
+      def json(v: T): JValue
+      //def unjson(v: JValue): T
+    }
+
+    implicit object JLocation extends Jsonable[Location] {
+      def json(v: Location) =
+        "location" ->
+          ("line" -> v.line) ~
+            ("col" -> v.col) ~
+            ("file" -> v.file)
+    }
+
+    implicit object JLocationOption extends Jsonable[Option[Location]] {
+      def json(v: Option[Location]) =
+        v match {
+          case Some(loc) => JLocation.json(loc)
+          case None => JNothing
+        }
+    }
+
+    implicit object JTypeOption extends Jsonable[Option[Type]] {
+      def json(v: Option[Type]) =
+        v match {
+          case Some(loc) => JType.json(loc)
+          case None => JNothing
+        }
+    }
+
+    implicit object JTypeSeq extends Jsonable[Seq[Type]] {
+      def json(v: Seq[Type]) =
+        v.map(JType.json)
+    }
+    implicit object JType extends Jsonable[Type] {
+      def json(v: Type) =
+        "type" ->
+          ("name" -> v.name) ~
+            ("tparams" -> JTypeSeq.json(v.parameters))
+    }
+
+    implicit object JDParamSeq extends Jsonable[Seq[DeclaredParameter]] {
+      def json(v: Seq[DeclaredParameter]) =
+        v.map(JDeclaredParameter.json)
+    }
+
+    implicit object JDeclaredParameter extends Jsonable[DeclaredParameter] {
+      override def json(v: DeclaredParameter): JValue =
+        "declared_param" -> ("name" -> v.name) ~ ("typee" -> JType.json(
+          v.tipe))
+    }
+
+    implicit object JDParamListSeq
+        extends Jsonable[Seq[DeclaredParameterList]] {
+      def json(v: Seq[DeclaredParameterList]) =
+        v.map(JDeclaredParameterList.json)
+    }
+
+    implicit object JDeclaredParameterList
+        extends Jsonable[DeclaredParameterList] {
+      def json(v: DeclaredParameterList) =
+        "declared_param_list" ->
+          ("is_implicit" -> JBool(v.isImplicit)) ~
+            ("params" -> JDParamSeq.json(v.params))
+    }
+
+    implicit object JSignatureOption extends Jsonable[Option[Signature]] {
+      def json(v: Option[Signature]) =
+        v match {
+          case Some(loc) => JSignature.json(loc)
+          case None => JNothing
+        }
+    }
+
+    implicit object JSignature extends Jsonable[Signature] {
+      def json(v: Signature): JValue =
+        "signature" ->
+          ("tparams" -> JTypeSeq.json(v.typeParams)) ~
+            ("params" -> JDParamListSeq.json(v.parameterLists)) ~
+            ("rettype" -> JTypeOption.json(v.returnType))
+    }
+
+    implicit object JParentSeq extends Jsonable[Seq[Parent]] {
+      def json(v: Seq[Parent]) =
+        v.map(JParent.json)
+    }
+
+    implicit object JParent extends Jsonable[Parent] {
+      def json(v: Parent) =
+        "parent" ->
+          ("name" -> JString(v.name)) ~
+            ("declaration" -> JDeclaration.json(v.declaration)) ~
+            ("targs" -> JTypeSeq.json(v.typeArguments))
+    }
+
+    implicit object JDeclarationSeq extends Jsonable[Seq[Declaration]] {
+      def json(v: Seq[Declaration]) =
+        v.map(JDeclaration.json)
+    }
+
+    implicit object JDeclaration extends Jsonable[Declaration] {
+      def json(v: Declaration) =
+        "declaration" ->
+          ("name" -> v.name) ~
+            ("kind" -> v.kind) ~
+            ("location" -> JLocationOption.json(v.location)) ~
+            ("isImplicit" -> v.isImplicit) ~
+            ("signature" -> JSignatureOption.json(v.signature)) ~
+            ("parents" -> JParentSeq.json(v.parents))
+    }
+
+    implicit object JImplArgSeq extends Jsonable[Seq[ImplicitArgument]] {
+      def json(v: Seq[ImplicitArgument]) =
+        v.map(JImplicitArgument.json)
+    }
+
+    implicit object JImplicitArgument extends Jsonable[ImplicitArgument] {
+      def json(v: ImplicitArgument) =
+        "callsite" ->
+          ("name" -> v.name) ~
+            ("code" -> v.code) ~
+            ("location" -> JLocationOption.json(v.location)) ~
+            ("declaration" -> JDeclaration.json(v.declaration)) ~
+            ("targs" -> JTypeSeq.json(v.typeArguments)) ~
+            ("impl_args" -> JImplArgSeq.json(v.arguments))
+    }
+
+    implicit object JCallSiteSeq extends Jsonable[Seq[CallSite]] {
+      def json(v: Seq[CallSite]) =
+        v.map(JCallSite.json)
+    }
+
+    implicit object JCallSite extends Jsonable[CallSite] {
+      def json(v: CallSite) =
+        "callsite" ->
+          ("name" -> v.name) ~
+            ("code" -> v.code) ~
+            ("location" -> JLocationOption.json(v.location)) ~
+            ("isSynthetic" -> v.isSynthetic) ~
+            ("declaration" -> JDeclaration.json(v.declaration)) ~
+            ("targs" -> JTypeSeq.json(v.typeArguments)) ~
+            ("impl_args" -> JImplArgSeq.json(v.implicitArguments))
+    }
+
+    implicit object JRes extends Jsonable[ExtractionResult] {
+      def json(v: ExtractionResult) =
+        "extraction_result" ->
+          ("callSites" -> JCallSiteSeq.json(v.callSites)) ~
+            ("declarations" -> JDeclarationSeq.json(v.declarations.toSeq))
+    }
+  }
+
+  import DSL._
+  def save(res: ExtractionResult, file: String) =
+    Files.write(Paths.get(file),
+                pretty(render(JRes.json(res))).toString.getBytes)
+
+  def load(file: String): ExtractionResult = {
+    implicit val formats = org.json4s.DefaultFormats
+    val json = parse(io.Source.fromFile(file).mkString)
+      .extract[ExtractionResult]
+
+    ExtractionResult(Seq(), Set())
+  }
 }

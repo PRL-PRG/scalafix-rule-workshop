@@ -18,6 +18,7 @@ BASE_CONFIG = {
     "debug_info": True,
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
+    "default_location_depth": 0,
     "temporal_git_repo_storage": "_gitrepotmp",
 
     "force_recompile_on_fail": False,
@@ -86,13 +87,19 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_report(self, project_path, kind):
-        for root, subdir, files in os.walk(project_path):
-            for f in files:
+    def get_report(self, project_path, kind, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        def get_report_in(path, kind):
+            for f in os.listdir(path):
                 if f == BASE_CONFIG[kind]:
-                    with open(os.path.join(root, f)) as report:
+                    with open(os.path.join(path, f)) as report:
                         return report.read()
-        return None
+            return None
+
+        reports_folder = os.path.join(project_path, reports_folder_name)
+        res = get_report_in(reports_folder, kind)
+        # For projects that were processed before we had the _reports folder
+        if res is None: res = get_report_in(project_path, kind)
+        return res
 
     def write_report(self, content, project_path, kind):
         report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
@@ -486,9 +493,10 @@ def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
 
 @task
 def condense_reports(
-    report_name=BASE_CONFIG["condensed_report"],
-    projects_path=BASE_CONFIG["projects_dest"]
-    ):
+        report_name=BASE_CONFIG["condensed_report"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        project_depth=BASE_CONFIG["default_location_depth"]
+):
     def write_header(report_file):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
 
@@ -496,20 +504,29 @@ def condense_reports(
         status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
 
+    def get_project_list(projects_path, depth):
+        if depth == 0:
+            return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
+        else:
+            paths = []
+            for p in os.listdir(projects_path):
+                paths = paths + get_project_list(os.path.join(projects_path, p), depth - 1)
+            return paths
+
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
     with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
-        for subdir in os.listdir(projects_path):
-            P.info("[Reports] Extracting from %s" % subdir)
-            project_path = os.path.join(projects_path, subdir)
-            project_name = subdir
+        for project_path in get_project_list(projects_path, int(float(project_depth))):
+            P.info("[Reports] Extracting from %s" % project_path)
+            project_name = project_path
 
             report_file.write("%s:\n" % project_name)
             reports = ["compilation_report", "semanticdb_report", "analyzer_report", "cleanup_report", "db_push_report"]
             for report in reports:
                 append_report(project_path, report_file, report)
+
 
 @task
 def cleanup_reports(project_path):

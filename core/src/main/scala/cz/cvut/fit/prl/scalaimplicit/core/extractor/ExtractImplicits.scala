@@ -254,7 +254,7 @@ object Queries {
 
 case class ExtractionResult(callSites: Seq[CallSite],
                             declarations: Set[Declaration])
-object ExtractionResult{
+object ExtractionResult {
   val Empty = ExtractionResult(Seq(), Set())
 }
 object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {

@@ -15,12 +15,13 @@ object ClassPathExtractorPlugin extends AutoPlugin {
   }
   import autoImport._
   override def trigger: PluginTrigger = allRequirements
-  override lazy val projectSettings =inConfig(Compile)(Seq(
-    gcp := {
-      val csp = (fullClasspath in Runtime).value
-      PrintClasspath(csp, "./classpath.dat")
-    }
-  ))
+  override lazy val projectSettings = inConfig(Compile)(
+    Seq(
+      gcp := {
+        val csp = (fullClasspath in Runtime).value
+        PrintClasspath(csp, "./classpath.dat")
+      }
+    ))
 }
 
 object PrintClasspath {
@@ -28,7 +29,12 @@ object PrintClasspath {
     import java.nio._
     import java.nio.file._
     import java.nio.charset._
-    val contents = csp.map(_.toString).mkString("\n\n").getBytes(StandardCharsets.US_ASCII)
-    Files.write(Paths.get(target), contents, StandardOpenOption.APPEND)
+    val contents = csp
+      .map(_.data.getAbsolutePath)
+      .mkString("\n")
+      .getBytes(StandardCharsets.US_ASCII)
+    if (Files.exists(Paths.get(target)))
+      Files.write(Paths.get(target), contents, StandardOpenOption.APPEND)
+    else Files.write(Paths.get(target), contents)
   }
 }

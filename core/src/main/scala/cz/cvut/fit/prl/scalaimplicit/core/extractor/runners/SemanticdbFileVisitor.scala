@@ -32,9 +32,11 @@ object SemanticDBFileVisitor
 }
 
 object ReflectiveVisitor
-  extends ((Path, ClassLoader, (ReflectiveCtx => ExtractionResult)) => ExtractionResult)
+    extends ((Path, ClassLoader, (ReflectiveCtx => ExtractionResult)) => ExtractionResult)
     with LazyLogging {
-  def apply(filePath: Path, loader: ClassLoader, f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
+  def apply(filePath: Path,
+            loader: ClassLoader,
+            f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
     try {
       val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
       val mdb = sdb.toDb(None)

@@ -28,7 +28,8 @@ lazy val coreutils = (project in file("core"))
       "org.scalactic" %% "scalactic" % "3.0.4",
       "org.scalatest" %% "scalatest" % "3.0.4" % "test",
       "com.github.nikita-volkov" % "sext" % "0.2.4",
-      "io.suzaku" %% "boopickle" % "1.2.6"
+      "io.suzaku" %% "boopickle" % "1.2.6",
+      "org.json4s" %% "json4s-native" % "3.6.0-M2"
     )
   )
 lazy val macros = (project in file("macros"))
@@ -52,7 +53,6 @@ lazy val classpathExtractor =
         val sv = appConfiguration.value.provider.id.version
         ("org.scala-sbt" % "compiler-interface" % sv % "component").sources
       },
-
       organization := "cz.cvut.fit.prl",
       name := "sbt-classpath-extractor",
       version := "0.4-SNAPSHOT"

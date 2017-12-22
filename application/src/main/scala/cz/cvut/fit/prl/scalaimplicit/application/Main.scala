@@ -6,7 +6,10 @@ import java.net.{URL, URLClassLoader}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Serializer
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  JSONSerializer,
+  Serializer
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.runners.ReflectiveSingleProjectWalker
 
 import scala.io.{Codec, Source}
@@ -14,8 +17,10 @@ import scala.io.{Codec, Source}
 object Main extends LazyLogging {
   def loadClasspath(path: String): ClassLoader = {
     val src = Source.fromFile(path)(io.Codec("UTF-8"))
-    val lines = try src.getLines().toArray finally src.close()
-    new URLClassLoader(lines.map(l => new URL(l)), this.getClass.getClassLoader)
+    val lines = try src.getLines().toArray
+    finally src.close()
+    new URLClassLoader(lines.map(l => new File(l).toURI.toURL),
+                       this.getClass.getClassLoader)
   }
 
   def main(args: Array[String]): Unit = {
