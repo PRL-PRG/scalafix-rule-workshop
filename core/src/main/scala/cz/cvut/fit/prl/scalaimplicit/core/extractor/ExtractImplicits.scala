@@ -129,6 +129,15 @@ object TermDecomposer {
         }
         BreakDown(app, Seq(), Seq())
       }
+      case t: Term.Ascribe => {
+        // Type ascriptions: `((ClassTag.apply[String](classOf[java.lang.String])): ClassTag[String])`
+        val app = breakDown(t.expr)
+        val tpe = processType(t.tpe)
+        app.copy(typeParams = Seq(tpe))
+      }
+      case _ => {
+        throw new RuntimeException("what")
+      }
     }
   }
 }
