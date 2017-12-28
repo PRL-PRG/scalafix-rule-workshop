@@ -5,7 +5,11 @@ import java.nio.file.{Files, Paths}
 
 import boopickle.DefaultBasic
 import boopickle.DefaultBasic.PicklerGenerator
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractionResult,
+  Param,
+  Queries
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{
   ReflectiveBreakdown,
   ReflectiveTArg
@@ -45,26 +49,35 @@ object Representation {
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
-                      implicitArguments: Seq[ImplicitArgument])
+                      implicitArguments: Seq[ArgumentLike])
+  trait ArgumentLike {
+    def code: String
+    def location: Option[Location]
+  }
+  case class Argument(code: String, location: Option[Location])
+      extends ArgumentLike
   case class ImplicitArgument(name: String,
                               code: String,
                               location: Option[Location],
                               declaration: Declaration,
                               typeArguments: Seq[Type],
-                              arguments: Seq[ImplicitArgument])
+                              arguments: Seq[ArgumentLike])
+      extends ArgumentLike
 }
 
 object Factories {
   import Representation._
+
+  def createLocation(pos: Position): Option[Location] = {
+    val file: String = pos.input match {
+      case Input.VirtualFile(path, _) => path
+      case Input.File(path, _) => path.toString
+      case _ => s"<unknown file: ${pos.input}"
+    }
+    Some(Location(file, pos.endLine, pos.endColumn))
+  }
   def createLocation(pos: Option[Position]): Option[Location] = {
-    /* pos.map(p => {
-      val file: String = p.input match {
-        case Input.VirtualFile(path, _) => path
-        case Input.File(path, _) => path.toString
-        case _ => s"<unknown file: ${p.input}"
-      }
-      Location(file, p.endLine, p.endColumn)
-    })*/
+    /* pos.map(createLocation)*/
     // TODO Uncomment the code above when we have normalized test results
     None
   }
@@ -189,20 +202,25 @@ object Factories {
     )
   }
 
-  def createImplicitArgument(
-      ctx: ReflectiveCtx,
-      reflection: Queries.ReflectiveBreakdown): ImplicitArgument = {
+  def createImplicitArgument(ctx: ReflectiveCtx, param: Param): ArgumentLike = {
+    param match {
+      case reflection: ReflectiveBreakdown => {
+        val original = reflection.originalSymbol
+        val reflect = reflection.reflection
+        ImplicitArgument(
+          location = Factories.createLocation(reflection.pos),
+          name = reflect.fullName,
+          code = "<No Code Yet>",
+          declaration = createDeclaration(ctx, reflection),
+          typeArguments = reflection.typeArguments.map(createTypeArgument),
+          arguments = reflection.params.map(createImplicitArgument(ctx, _))
+        )
+      }
+      case p: Param => {
+        Argument(p.code, Factories.createLocation(p.pos))
+      }
+    }
 
-    val original = reflection.originalSymbol
-    val reflect = reflection.reflection
-    ImplicitArgument(
-      location = Factories.createLocation(original.pos),
-      name = reflect.fullName,
-      code = "<No Code Yet>",
-      declaration = createDeclaration(ctx, reflection),
-      typeArguments = reflection.typeArguments.map(createTypeArgument),
-      arguments = reflection.params.map(createImplicitArgument(ctx, _))
-    )
   }
 
   def createCallSite(ctx: ReflectiveCtx,
@@ -212,9 +230,9 @@ object Factories {
     val reflect = reflection.reflection
 
     CallSite(
-      location = Factories.createLocation(original.pos),
+      location = Factories.createLocation(reflection.pos),
       name = reflect.fullName,
-      code = "<No Code Yet>",
+      code = reflection.code,
       isSynthetic = original.isSynthetic,
       declaration = createDeclaration(ctx, reflection),
       typeArguments = reflection.typeArguments.map(createTypeArgument),
@@ -225,21 +243,28 @@ object Factories {
 
 object Gatherer {
   import Representation._
+  //TODO: We should actually gather declarations from the tree instead of the implicits
+
+  /*
   private def gatherDeclarations(
       implicitArgument: ImplicitArgument): Set[Declaration] = {
-    Set(implicitArgument.declaration) ++ implicitArgument.arguments.flatMap(
-      gatherDeclarations)
+    //TODO: We should actually gather declarations from the tree instead of the implicits
+    Set(implicitArgument.declaration) ++ implicitArgument.arguments.collect {
+      case a: ImplicitArgument => gatherDeclarations(a)
+    }
   }
 
   def gatherDeclarations(cs: CallSite): Set[Declaration] = {
-    Set(cs.declaration) ++ cs.implicitArguments
-      .flatMap(gatherDeclarations)
-      .toSet
+    //TODO: We should actually gather declarations from the tree instead of the implicits
+    Set(cs.declaration) ++ cs.implicitArguments.collect {
+      case a: ImplicitArgument => gatherDeclarations(a)
+    }.toSet
   }
+   */
 
-  def gatherDeclarations(cs: Seq[CallSite]): Set[Declaration] = {
-    cs.flatMap(gatherDeclarations).toSet
-  }
+  //TODO: We should actually gather declarations from the tree instead of the implicits
+  def gatherDeclarations(cs: Seq[CallSite]): Set[Declaration] = Set()
+
 }
 
 object PrettyPrinters {
@@ -339,14 +364,21 @@ object PrettyPrinters {
       }
     }
 
-    implicit object PrettyArgument extends PrettyPrintable[ImplicitArgument] {
-      override def pretty(t: ImplicitArgument, indent: Int): String = {
-        s"""${prettyPrint(t.location)}${" " * indent}iarg: ${t.name}${wrapIfSome(
-             prettyPrint(t.typeArguments, indent + 2),
-             "[",
-             "]")}
-          |${prettyPrint(t.declaration, indent + 2)}
-          |${prettyPrint(t.arguments, indent + 2)}""".stripMargin
+    implicit object PrettyArgument extends PrettyPrintable[ArgumentLike] {
+      override def pretty(arg: ArgumentLike, indent: Int): String = {
+        arg match {
+          case t: Argument => {
+            s"""${prettyPrint(t.location)}${" " * indent}arg: ${t.code}"""
+          }
+          case t: ImplicitArgument => {
+            s"""${prettyPrint(t.location)}${" " * indent}iarg: ${t.name}${wrapIfSome(
+                 prettyPrint(t.typeArguments, indent + 2),
+                 "[",
+                 "]")}
+               |${prettyPrint(t.declaration, indent + 2)}
+               |${prettyPrint(t.arguments, indent + 2)}""".stripMargin
+          }
+        }
       }
     }
 
@@ -384,7 +416,7 @@ object PrettyPrinters {
     res
   }
 }
-
+/*
 object Serializer {
   object Picklers {
     import Representation._
@@ -393,6 +425,7 @@ object Serializer {
     implicit val signpickler = PicklerGenerator.generatePickler[Signature]
     implicit val iargpickler =
       PicklerGenerator.generatePickler[ImplicitArgument]
+    implicit val argpicler = PicklerGenerator.generatePickler[Argument]
     implicit val locpickler = PicklerGenerator.generatePickler[Location]
     implicit val declpickler = PicklerGenerator.generatePickler[Declaration]
     implicit val cspickler = PicklerGenerator.generatePickler[CallSite]
@@ -411,7 +444,7 @@ object Serializer {
     ExtractionResult(css, Set())
   }
 }
-
+ */
 object JSONSerializer {
   import org.json4s._
   import org.json4s.native.JsonMethods._
@@ -518,7 +551,7 @@ object JSONSerializer {
     }
 
     implicit object JDeclaration extends Jsonable[Declaration] {
-      def json(v: Declaration) =
+      def json(v: Declaration): JValue =
         "declaration" ->
           ("name" -> v.name) ~
             ("kind" -> v.kind) ~
@@ -528,20 +561,30 @@ object JSONSerializer {
             ("parents" -> JParentSeq.json(v.parents))
     }
 
-    implicit object JImplArgSeq extends Jsonable[Seq[ImplicitArgument]] {
-      def json(v: Seq[ImplicitArgument]) =
-        v.map(JImplicitArgument.json)
+    implicit object JArgSeq extends Jsonable[Seq[ArgumentLike]] {
+      def json(v: Seq[ArgumentLike]): JValue =
+        v.collect {
+          case a: ImplicitArgument => JImplicitArgument.json(a)
+          case a: Argument => JArgument.json(a)
+        }
+    }
+
+    implicit object JArgument extends Jsonable[Argument] {
+      def json(v: Argument): JValue =
+        "argument" ->
+          ("code" -> JString(v.code)) ~
+            ("location" -> JLocationOption.json(v.location))
     }
 
     implicit object JImplicitArgument extends Jsonable[ImplicitArgument] {
       def json(v: ImplicitArgument) =
-        "callsite" ->
+        "argument" ->
           ("name" -> v.name) ~
             ("code" -> v.code) ~
             ("location" -> JLocationOption.json(v.location)) ~
             ("declaration" -> JDeclaration.json(v.declaration)) ~
             ("targs" -> JTypeSeq.json(v.typeArguments)) ~
-            ("impl_args" -> JImplArgSeq.json(v.arguments))
+            ("impl_args" -> JArgSeq.json(v.arguments))
     }
 
     implicit object JCallSiteSeq extends Jsonable[Seq[CallSite]] {
@@ -558,7 +601,7 @@ object JSONSerializer {
             ("isSynthetic" -> v.isSynthetic) ~
             ("declaration" -> JDeclaration.json(v.declaration)) ~
             ("targs" -> JTypeSeq.json(v.typeArguments)) ~
-            ("impl_args" -> JImplArgSeq.json(v.implicitArguments))
+            ("impl_args" -> JArgSeq.json(v.implicitArguments))
     }
 
     implicit object JRes extends Jsonable[ExtractionResult] {

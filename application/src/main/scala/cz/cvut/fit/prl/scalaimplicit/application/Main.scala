@@ -6,10 +6,7 @@ import java.net.{URL, URLClassLoader}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  JSONSerializer,
-  Serializer
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{JSONSerializer}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.runners.ReflectiveSingleProjectWalker
 
 import scala.io.{Codec, Source}
@@ -31,7 +28,7 @@ object Main extends LazyLogging {
         val loader: ClassLoader = loadClasspath(conf.classpath)
         val walker = new ReflectiveSingleProjectWalker(loader, conf.root)
         val res = walker(ReflectExtract)
-        Serializer.save(res, conf.root + "/res.dat")
+        JSONSerializer.save(res, conf.root + "/res.dat")
       }
       case None => {
         println("No arguments found. Closing")
