@@ -2,10 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Declaration
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  JSONSerializer,
-  Serializer
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import cz.cvut.fit.prl.scalaimplicit.macros.QueryEngineMacros._
 

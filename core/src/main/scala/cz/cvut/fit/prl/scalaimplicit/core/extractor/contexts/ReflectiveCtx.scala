@@ -1,3 +1,4 @@
+
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import scala.meta.{Database, Symbol}
@@ -104,6 +105,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           .stripPrefix("_root_.")
           .stripSuffix(".")
           .stripSuffix("#")
+          .replace("#", ".")
 
       def cleanName(raw: String): _root_.scala.Predef.String =
         raw
