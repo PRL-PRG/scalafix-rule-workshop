@@ -247,8 +247,11 @@ object Queries {
         breakdownTree(
           ctx
             .inSourceCallSite(synth.position.end)
-            .getOrElse(
-              throw new RuntimeException("No application found in source")))
+            .getOrElse {
+              println("REMOVE THIS")
+              throw new RuntimeException("No application found in source")
+            }
+        )
     }
   }
 

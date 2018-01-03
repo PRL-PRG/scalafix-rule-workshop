@@ -1,4 +1,3 @@
-
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import scala.meta.{Database, Symbol}

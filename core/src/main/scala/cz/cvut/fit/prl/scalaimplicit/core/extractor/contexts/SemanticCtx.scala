@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.collection.{immutable, mutable}
 import scala.meta._
 
 case class SemanticCtx(database: Database) extends LazyLogging {
@@ -65,15 +66,35 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     * There are some notable omissions, such as For and ForYield. The reason is that we
     * will not have symbols for them, and thus it is necessary to treat it as a special case
     *
-    * ''NOTE'' That toMap will override entries with the same position
+    * We also match from the outside in, so for each position we keep only the outermost term.
+    * This allows us to gather Term.Names only when there are no actual applications in that position.
+    * To gather this we trust the traversal order of collect to process the outer terms before the
+    * inner terms, as demonstrated in this Ammonite session:
+    * @ val tr = "my.fun.app(Hello)".parse[Stat].get
+    * @ tr.collect {case a: Term.Select => println(s"Sel ${a}"); case a: Term.Apply => println(s"App $a"); case a: Term.Name => println(s"Nam $a") }
+    * App my.fun.app(Hello)
+    * Sel my.fun.app
+    * Sel my.fun
+    * Nam my
+    * Nam fun
+    * Nam app
+    * Nam Hello
+    *
+    * Note that we can safely use toMap, since every position will be there only once.
     */
-  private lazy val _inSourceCallSites: Map[Int, Tree] =
+  private lazy val _inSourceCallSites: Map[Int, Tree] = {
+
+    val b = immutable.Map.newBuilder[Int, Tree]
+    var positions = mutable.MutableList[Int]()
     (tree collect {
       case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
           _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate |
-          _: Term.New | _: Term.NewAnonymous) =>
+          _: Term.New | _: Term.NewAnonymous | _: Term.Name)
+          if !positions.contains(x.pos.end) =>
+        positions += x.pos.end
         x.pos.end -> x
     }).toMap
+  }
   def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
 
   /**
