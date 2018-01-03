@@ -41,8 +41,8 @@ object ReflectiveVisitor
       val sdb = s.Database.parseFrom(Files.readAllBytes(filePath))
       val mdb = sdb.toDb(None)
       val ctx = new ReflectiveCtx(loader, mdb)
-      val res = f(ctx)
       logger.debug(s"Processing $filePath")
+      val res = f(ctx)
       res
     } catch {
       case NonFatal(e) =>

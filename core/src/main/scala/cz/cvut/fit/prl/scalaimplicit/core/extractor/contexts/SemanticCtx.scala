@@ -59,6 +59,35 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   implicit val index = database.documents.head
 
   /**
+    * Fix for:
+    * https://github.com/PRL-PRG/scalafix-rule-workshop/issues/39
+    *
+    * Tuned on purpose to be as narrow as possible
+    *
+    * We search for the function that the recursive call refers to.
+    *
+    * Starting from the position of the term, we go backwards the list of names
+    * until we find one that (1) isDefinition and (2) has a denotation.name that
+    * coincides with the one on t.name
+    * @param t
+    * @return
+    */
+  def unrecurse(t: Term.Name): Option[Symbol] = {
+    val sortedNames =
+      names.filter(_.position.end <= t.pos.end).sortBy(_.position.end).reverse
+    val symbol = sortedNames
+      .find(x => {
+        val d = denotation(x.symbol)
+        x.isDefinition && d.isDefined && d.get.name == t.value
+      })
+      .getOrElse {
+        throw new RuntimeException(s"Could not unrecurse ${t}")
+      }
+      .symbol
+    Some(symbol)
+  }
+
+  /**
     * We capture every instance of function applications
     * that may have implicit parameters.
     *

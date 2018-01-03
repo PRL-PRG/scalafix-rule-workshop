@@ -385,4 +385,32 @@ class NewSchemaTest extends SemanticdbTest {
   def debugPrint(res: ExtractionResult) = {
     println(res.callSites.map(x => prettyPrint(x)))
   }
+
+  checkContext(
+    "SHould be deleted",
+    """
+      |object sdf {
+      | implicit val b: String = "HH"
+      | def a(implicit v: String) = ???
+      | a
+      | val s = (2 to 6).map(a)
+      |}
+    """.stripMargin, { ctx =>
+      println(ctx)
+    }
+  )
+
+  checkContext(
+    "Recurring nightmatre",
+    """
+      |object sdfREC {
+      | def a(i: Int)(implicit v: String): Unit = {
+      |   val s = (2 to 6).map(a)
+      | }
+      | a(0)("HH")
+      |}
+    """.stripMargin, { ctx =>
+      println(ctx)
+    }
+  )
 }

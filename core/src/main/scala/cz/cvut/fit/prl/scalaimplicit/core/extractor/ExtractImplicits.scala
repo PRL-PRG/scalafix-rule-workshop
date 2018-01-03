@@ -227,13 +227,25 @@ object Queries {
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
         // A symbol from the tree will never be synthetic
-        QualifiedSymbol(
-          Some(
-            ctx
-              .symbol(t)
-              .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
-          isSynthetic = false
-        )
+        t match {
+          // Special case: https://github.com/PRL-PRG/scalafix-rule-workshop/issues/39
+          case tree: Term.Name
+              if ctx
+                .symbol(tree)
+                .isDefined && ctx
+                .symbol(tree)
+                .get
+                .isInstanceOf[Symbol.Local] =>
+            QualifiedSymbol(ctx.unrecurse(tree), isSynthetic = false)
+          case tree =>
+            QualifiedSymbol(
+              Some(
+                ctx
+                  .symbol(t)
+                  .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
+              isSynthetic = false
+            )
+        }
       }
 
       TermDecomposer(term.asInstanceOf[Term], finder)
@@ -248,10 +260,8 @@ object Queries {
           ctx
             .inSourceCallSite(synth.position.end)
             .getOrElse {
-              println("REMOVE THIS")
               throw new RuntimeException("No application found in source")
-            }
-        )
+            })
     }
   }
 
