@@ -1,11 +1,26 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import scala.meta.{Database, Symbol}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
+  BreakDown,
+  Reflection
+}
+import org.langmeta.inputs.Position
+
+import scala.meta.{Database, Denotation, Symbol}
 
 class ReflectiveCtx(loader: ClassLoader, db: Database)
     extends SemanticCtx(db) {
   import scala.reflect.runtime.{universe => u}
   val _mirror = u.runtimeMirror(loader)
+
+  def findReflection(bd: BreakDown): Reflection = {
+    val metaSymbol = bd.symbol.app.getOrElse(throw new RuntimeException(
+      s"Breakdown ${bd.symbol} has no application and reached reflection. This should never happen"))
+    val den = denotation(metaSymbol)
+    val ref = findReflectSymbol(metaSymbol)
+    if (den.isDefined) Reflection(this, bd, den.get, ref)
+    else Reflection(this, bd, ref)
+  }
 
   def findReflectSymbol(symbol: Symbol): u.Symbol = {
     object Finders {

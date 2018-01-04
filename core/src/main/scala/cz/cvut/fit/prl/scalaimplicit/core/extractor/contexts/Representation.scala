@@ -5,17 +5,14 @@ import java.nio.file.{Files, Paths}
 
 import boopickle.DefaultBasic
 import boopickle.DefaultBasic.PicklerGenerator
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractionResult,
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
   Param,
-  Queries
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Queries.{
-  ReflectiveBreakdown,
+  Reflection,
   ReflectiveTArg
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
 import org.langmeta.inputs.{Input, Position}
+import org.langmeta.semanticdb.Denotation
 
 /**
   * Module to hold the internal representation of extracted information
@@ -76,10 +73,10 @@ object Factories {
     }
     Some(Location(file, pos.endLine, pos.endColumn))
   }
-  def createLocation(pos: Option[Position]): Option[Location] = {
-    /* pos.map(createLocation)*/
-    // TODO Uncomment the code above when we have normalized test results
-    None
+
+  def createLocation(reflection: Reflection): Option[Location] = {
+    if (reflection.hasLocation) createLocation(reflection.pos)
+    else None
   }
   import scala.reflect.runtime.{universe => u}
   def createLocation(pos: u.Position): Option[Location] = {
@@ -98,21 +95,20 @@ object Factories {
     * @param ctx
     * @return
     */
-  def createParent(child: u.Symbol,
-                   parent: u.Symbol,
+  def createParent(child: Reflection,
+                   parent: Reflection,
                    ctx: ReflectiveCtx): Parent = {
-    val parentType = child.typeSignature.baseType(parent)
     Parent(
       name = parent.fullName,
       declaration = Declaration(
         name = parent.fullName,
-        kind = ctx.getReflectiveKind(parent.asClass),
-        location = Factories.createLocation(parent.pos),
+        kind = parent.kind,
+        location = Factories.createLocation(parent),
         isImplicit = parent.isImplicit,
         signature = createSignature(ctx, parent),
         parents = Seq()
       ),
-      typeArguments = parentType.typeArgs.map(createTypeArgument)
+      typeArguments = parent.typeArguments.map(createTypeArgument)
     )
   }
 
@@ -132,54 +128,29 @@ object Factories {
   }
 
   def createSignature(ctx: ReflectiveCtx,
-                      reflection: u.Symbol): Option[Signature] = {
+                      reflection: Reflection): Option[Signature] = {
 
     val typeParams = reflection.typeSignature.typeParams.map(t =>
       createTypeParameter(t.asType))
 
-    val params = reflection match {
-      case r if r.isMethod => r.asMethod.paramLists
-      case _ => List()
-    }
-    reflection match {
-      case refl if refl.isMethod =>
-        Some(
-          Signature(
-            typeParams = typeParams,
-            parameterLists =
-              refl.asMethod.paramLists.map(createParamList(ctx, _)),
-            returnType = Some(createTypeArgument(refl.asMethod.returnType))
-          ))
-      case refl =>
-        Some(
-          Signature(typeParams = typeParams,
-                    parameterLists = Seq(),
-                    returnType = Some(createTypeArgument(refl.typeSignature))))
-    }
+    Some(
+      Signature(
+        typeParams = typeParams,
+        parameterLists = reflection.paramLists.map(createParamList(ctx, _)),
+        returnType = Some(createTypeArgument(reflection.returnType))
+      ))
   }
 
   def createDeclaration(ctx: ReflectiveCtx,
-                        reflection: ReflectiveBreakdown): Declaration = {
-    def firstLevelBaseClasses(bases: List[u.Symbol]) = {
-      // Take the tail because the first one is the self definition
-      // Remove the classes that are parents of some class in bases
-      bases match {
-        case bases if bases.isEmpty => Seq()
-        case bases =>
-          bases.tail.filterNot(cls =>
-            bases.tail.exists(_.typeSignature.baseClasses.tail.contains(cls)))
-      }
-    }
-    val symbol = reflection.reflection
-
+                        reflection: Reflection): Declaration = {
     Declaration(
-      name = symbol.fullName,
-      kind = ctx.getReflectiveKind(symbol),
-      location = Factories.createLocation(symbol.pos),
-      isImplicit = symbol.isImplicit,
-      parents = firstLevelBaseClasses(symbol.typeSignature.baseClasses)
-        .map(createParent(symbol, _, ctx)),
-      signature = createSignature(ctx, symbol)
+      name = reflection.fullName,
+      kind = reflection.kind,
+      location = Factories.createLocation(reflection),
+      isImplicit = reflection.isImplicit,
+      parents = reflection.baseClasses
+        .map(createParent(reflection, _, ctx)),
+      signature = createSignature(ctx, reflection)
     )
   }
 
@@ -195,22 +166,20 @@ object Factories {
   }
 
   def createTypeArgument(targ: ReflectiveTArg): Type = {
-    val symbol = targ.symbol
     Type(
-      name = symbol.fullName,
+      name = targ.reflection.fullName,
       parameters = targ.args.map(createTypeArgument)
     )
   }
 
   def createImplicitArgument(ctx: ReflectiveCtx, param: Param): ArgumentLike = {
     param match {
-      case reflection: ReflectiveBreakdown => {
+      case reflection: Reflection => {
         val original = reflection.originalSymbol
-        val reflect = reflection.reflection
         ImplicitArgument(
           location = Factories.createLocation(reflection.pos),
-          name = reflect.fullName,
-          code = "<No Code Yet>",
+          name = reflection.fullName,
+          code = reflection.code,
           declaration = createDeclaration(ctx, reflection),
           typeArguments = reflection.typeArguments.map(createTypeArgument),
           arguments = reflection.params.map(createImplicitArgument(ctx, _))
@@ -223,15 +192,13 @@ object Factories {
 
   }
 
-  def createCallSite(ctx: ReflectiveCtx,
-                     reflection: Queries.ReflectiveBreakdown): CallSite = {
+  def createCallSite(ctx: ReflectiveCtx, reflection: Reflection): CallSite = {
 
     val original = reflection.originalSymbol
-    val reflect = reflection.reflection
 
     CallSite(
-      location = Factories.createLocation(reflection.pos),
-      name = reflect.fullName,
+      location = Factories.createLocation(reflection),
+      name = reflection.fullName,
       code = reflection.code,
       isSynthetic = original.isSynthetic,
       declaration = createDeclaration(ctx, reflection),

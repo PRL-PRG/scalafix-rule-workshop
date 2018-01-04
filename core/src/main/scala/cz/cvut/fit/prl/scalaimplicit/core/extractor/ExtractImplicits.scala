@@ -6,43 +6,20 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
   FunApplyWithImplicitParam,
   ImplicitParam
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  Factories,
-  Gatherer,
-  ReflectiveCtx,
-  SemanticCtx
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
   CallSite,
   Declaration
 }
-import sext._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
+  BreakDown,
+  TArg,
+  Param,
+  QualifiedSymbol,
+  RawCode
+}
 
 import scala.meta._
-import scala.reflect.runtime.{universe => u}
-
-case class TArg(symbol: Symbol, args: Seq[TArg])
-case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean)
-object QualifiedSymbol {
-  val Empty = QualifiedSymbol(None, false)
-}
-
-// Common interface for all parameters (implicit and non-implicit)
-// that can be passed to function applications
-trait Param {
-  def code: String
-  def pos: Position
-}
-// Represents non-named parameters of synthetic function applications such as
-// Hello(*)("Hihi") -> "Hihi" does not have a symbol
-case class RawCode(code: String, pos: Position) extends Param
-
-case class BreakDown(symbol: QualifiedSymbol,
-                     typeParams: Seq[TArg],
-                     params: Seq[Param],
-                     pos: Position,
-                     code: String = "")
-    extends Param
 
 /**
   * Common interface for objects that decompose terms
@@ -264,52 +241,6 @@ object Queries {
             })
     }
   }
-
-  case class ReflectiveTArg(symbol: u.Symbol, args: Seq[ReflectiveTArg])
-  case class ReflectiveBreakdown(originalSymbol: QualifiedSymbol,
-                                 reflection: u.Symbol,
-                                 params: Seq[Param],
-                                 typeArguments: Seq[ReflectiveTArg],
-                                 pos: Position,
-                                 code: String)
-      extends Param
-
-  /**
-    * Query the context to fetch the reflective symbols of every relevant
-    * scala.meta symbol in the synthetic
-    * @param ctx
-    * @param breakdown
-    * @return
-    */
-  def getReflectiveSymbols(ctx: ReflectiveCtx,
-                           breakdown: BreakDown): ReflectiveBreakdown = {
-
-    def getReflectiveTArg(ctx: ReflectiveCtx, targ: TArg): ReflectiveTArg = {
-      ReflectiveTArg(
-        symbol = ctx.findReflectSymbol(targ.symbol),
-        args = targ.args.map(getReflectiveTArg(ctx, _))
-      )
-    }
-
-    def getReflectiveParam(ctx: ReflectiveCtx, param: Param): Param = {
-      param match {
-        case p: BreakDown => getReflectiveSymbols(ctx, p)
-        case p: Param => p
-      }
-    }
-
-    val app = breakdown.symbol.app.getOrElse(throw new RuntimeException(
-      s"Breakdown ${breakdown.symbol} has no application and reached reflection. This should never happen"))
-
-    ReflectiveBreakdown(
-      originalSymbol = breakdown.symbol,
-      reflection = ctx.findReflectSymbol(app),
-      params = breakdown.params.map(getReflectiveParam(ctx, _)),
-      typeArguments = breakdown.typeParams.map(getReflectiveTArg(ctx, _)),
-      breakdown.pos,
-      breakdown.code
-    )
-  }
 }
 
 case class ExtractionResult(callSites: Seq[CallSite],
@@ -323,7 +254,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
     val callSites =
       ctx.syntheticsWithImplicits
         .map(Queries.breakDownSynthetic(ctx, _))
-        .map(Queries.getReflectiveSymbols(ctx, _))
+        .map(ctx.findReflection)
         .map(Factories.createCallSite(ctx, _))
 
     val declarations = Gatherer.gatherDeclarations(callSites)
