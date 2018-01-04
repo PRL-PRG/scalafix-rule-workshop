@@ -5,12 +5,7 @@ import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractImplicits,
-  Location,
-  ReflectExtract,
-  Result
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
   Apply,
   DeclaredImplicit
@@ -19,9 +14,14 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.Pret
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   PrettyPrinters,
   ReflectiveCtx,
+  Representation,
   SemanticCtx
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+  Location => _,
+  _
+}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.exceptions.TestFailedException
@@ -175,6 +175,40 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
 
       f(ctx)
     }
+  }
+
+  implicit class NormalizedRes(that: ExtractionResult) {
+    def normalizedCallSites = {
+      that.callSites.map(
+        x =>
+          x.copy(
+            location = normalizedLocation(x.location),
+            declaration = normalizedDeclaration(x.declaration),
+            implicitArguments = x.implicitArguments.map(normalizedArgument)
+        ))
+    }
+
+    private def normalizedDeclaration(d: Declaration): Declaration = d.copy(
+      location = normalizedLocation(d.location),
+      parents = d.parents.map(normalizedParent)
+    )
+
+    private def normalizedParent(p: Parent) = p.copy(
+      declaration = normalizedDeclaration(p.declaration)
+    )
+
+    private def normalizedArgument(arg: ArgumentLike): ArgumentLike =
+      arg match {
+        case a: Argument => a.copy(location = normalizedLocation(a.location))
+        case a: ImplicitArgument =>
+          a.copy(
+            location = normalizedLocation(a.location),
+            declaration = normalizedDeclaration(a.declaration),
+            arguments = a.arguments.map(normalizedArgument)
+          )
+      }
+    private def normalizedLocation(location: Option[Representation.Location]) =
+      location.map(_.copy(file = ""))
   }
 
   protected def checkPrettyReflRes(name: String,
