@@ -1,8 +1,5 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import java.nio.ByteBuffer
-import java.nio.file.{Files, Paths}
-
 import boopickle.DefaultBasic
 import boopickle.DefaultBasic.PicklerGenerator
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
@@ -13,6 +10,10 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
 }
 import org.langmeta.inputs.{Input, Position}
 import org.langmeta.semanticdb.Denotation
+import scala.reflect.runtime.{universe => u}
+
+import java.nio.file.Files
+import java.nio.file.Paths
 
 /**
   * Module to hold the internal representation of extracted information
@@ -49,13 +50,10 @@ object Representation {
                       implicitArguments: Seq[ArgumentLike])
   trait ArgumentLike {
     def code: String
-    def location: Option[Location]
   }
-  case class Argument(code: String, location: Option[Location])
-      extends ArgumentLike
+  case class Argument(code: String) extends ArgumentLike
   case class ImplicitArgument(name: String,
                               code: String,
-                              location: Option[Location],
                               declaration: Declaration,
                               typeArguments: Seq[Type],
                               arguments: Seq[ArgumentLike])
@@ -66,26 +64,17 @@ object Factories {
   import Representation._
 
   def createLocation(pos: Position): Option[Location] = {
-    val file: String = pos.input match {
-      case Input.VirtualFile(path, _) => path
-      case Input.File(path, _) => path.toString
-      case _ => s"<unknown file: ${pos.input}"
+    pos match {
+      case p: Position if p == Position.None => None
+      case p => {
+        val file: String = pos.input match {
+          case Input.VirtualFile(path, _) => path
+          case Input.File(path, _) => path.toString
+          case _ => s"<unknown file: ${pos.input}"
+        }
+        Some(Location(file, pos.endLine, pos.endColumn))
+      }
     }
-    Some(Location(file, pos.endLine, pos.endColumn))
-  }
-
-  def createLocation(reflection: Reflection): Option[Location] = {
-    if (reflection.hasLocation) createLocation(reflection.pos)
-    else None
-  }
-  import scala.reflect.runtime.{universe => u}
-  def createLocation(pos: u.Position): Option[Location] = {
-    /*pos match {
-      case p if p == u.NoPosition => None
-      case p => Some(Location("<Reflective File>", p.line, p.column))
-    }*/
-    // TODO Uncomment the code above when we have normalized test results
-    None
   }
 
   /**
@@ -103,7 +92,7 @@ object Factories {
       declaration = Declaration(
         name = parent.fullName,
         kind = parent.kind,
-        location = Factories.createLocation(parent),
+        location = Factories.createLocation(parent.declarationPos),
         isImplicit = parent.isImplicit,
         signature = createSignature(ctx, parent),
         parents = Seq()
@@ -146,7 +135,7 @@ object Factories {
     Declaration(
       name = reflection.fullName,
       kind = reflection.kind,
-      location = Factories.createLocation(reflection),
+      location = Factories.createLocation(reflection.declarationPos),
       isImplicit = reflection.isImplicit,
       parents = reflection.baseClasses
         .map(createParent(reflection, _, ctx)),
@@ -177,7 +166,6 @@ object Factories {
       case reflection: Reflection => {
         val original = reflection.originalSymbol
         ImplicitArgument(
-          location = Factories.createLocation(reflection.pos),
           name = reflection.fullName,
           code = reflection.code,
           declaration = createDeclaration(ctx, reflection),
@@ -186,7 +174,7 @@ object Factories {
         )
       }
       case p: Param => {
-        Argument(p.code, Factories.createLocation(p.pos))
+        Argument(p.code)
       }
     }
 
@@ -197,7 +185,7 @@ object Factories {
     val original = reflection.originalSymbol
 
     CallSite(
-      location = Factories.createLocation(reflection),
+      location = Factories.createLocation(reflection.pos),
       name = reflection.fullName,
       code = reflection.code,
       isSynthetic = original.isSynthetic,
@@ -335,10 +323,10 @@ object PrettyPrinters {
       override def pretty(arg: ArgumentLike, indent: Int): String = {
         arg match {
           case t: Argument => {
-            s"""${prettyPrint(t.location)}${" " * indent}arg: ${t.code}"""
+            s"""${" " * indent}arg: ${t.code}"""
           }
           case t: ImplicitArgument => {
-            s"""${prettyPrint(t.location)}${" " * indent}iarg: ${t.name}${wrapIfSome(
+            s"""${" " * indent}iarg: ${t.name}${wrapIfSome(
                  prettyPrint(t.typeArguments, indent + 2),
                  "[",
                  "]")}
@@ -539,8 +527,7 @@ object JSONSerializer {
     implicit object JArgument extends Jsonable[Argument] {
       def json(v: Argument): JValue =
         "argument" ->
-          ("code" -> JString(v.code)) ~
-            ("location" -> JLocationOption.json(v.location))
+          ("code" -> JString(v.code))
     }
 
     implicit object JImplicitArgument extends Jsonable[ImplicitArgument] {
@@ -548,7 +535,6 @@ object JSONSerializer {
         "argument" ->
           ("name" -> v.name) ~
             ("code" -> v.code) ~
-            ("location" -> JLocationOption.json(v.location)) ~
             ("declaration" -> JDeclaration.json(v.declaration)) ~
             ("targs" -> JTypeSeq.json(v.typeArguments)) ~
             ("impl_args" -> JArgSeq.json(v.arguments))

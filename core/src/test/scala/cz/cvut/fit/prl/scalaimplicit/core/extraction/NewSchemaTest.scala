@@ -130,7 +130,7 @@ class NewSchemaTest extends SemanticdbTest {
         name = "nested.a2c",
         code =
           "nested.this.a2c(*)({\n  ((a: A) => nested.this.a2b(a))\n}, {\n  ((b: B) => nested.this.b2c(b))\n})",
-        location = Some(Location("", 8, -1)),
+        location = Some(Location("", 8, 15)),
         isSynthetic = true,
         typeArguments = Seq(),
         declaration = Declaration(
@@ -174,7 +174,6 @@ class NewSchemaTest extends SemanticdbTest {
         ),
         implicitArguments = Seq(
           ImplicitArgument(
-            location = None,
             name = "nested.a2b",
             code = "<No Code Yet>",
             typeArguments = Seq(),
@@ -202,7 +201,6 @@ class NewSchemaTest extends SemanticdbTest {
             )
           ),
           ImplicitArgument(
-            location = None,
             name = "nested.b2c",
             code = "<No Code Yet>",
             typeArguments = Seq(),
@@ -229,7 +227,7 @@ class NewSchemaTest extends SemanticdbTest {
               )
             )
           )
-        ),
+        )
       )
       val res = ReflectExtract(ctx).normalizedCallSites
 
@@ -296,7 +294,6 @@ class NewSchemaTest extends SemanticdbTest {
           ImplicitArgument(
             name = "classConv.IntWriter",
             code = "<No Code Yet>",
-            location = None,
             declaration = Declaration(
               name = "classConv.IntWriter",
               kind = "object",
@@ -336,7 +333,7 @@ class NewSchemaTest extends SemanticdbTest {
           )
         )
       )
-      val res = ReflectExtract(ctx).callSites
+      val res = ReflectExtract(ctx).normalizedCallSites
       res should contain(expected)
 
       val resStrings =

@@ -199,10 +199,9 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
 
     private def normalizedArgument(arg: ArgumentLike): ArgumentLike =
       arg match {
-        case a: Argument => a.copy(location = normalizedLocation(a.location))
+        case a: Argument => a
         case a: ImplicitArgument =>
           a.copy(
-            location = normalizedLocation(a.location),
             declaration = normalizedDeclaration(a.declaration),
             arguments = a.arguments.map(normalizedArgument)
           )

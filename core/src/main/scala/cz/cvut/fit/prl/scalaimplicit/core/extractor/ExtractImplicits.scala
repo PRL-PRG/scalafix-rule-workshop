@@ -181,7 +181,9 @@ object Queries {
     }
      */
 
-    val processedSynthetic = TermDecomposer(parse(synth.text), finder)
+    val processedSynthetic = TermDecomposer(parse(synth.text), finder).copy(
+      pos = synth.position
+    )
     val res = processedSynthetic.symbol.app match {
       case Some(app) => processedSynthetic
       case None => {
