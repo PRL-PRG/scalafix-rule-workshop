@@ -128,10 +128,50 @@ class NewSchemaTest extends SemanticdbTest {
     """.trim.stripMargin, { ctx =>
       val expected = CallSite(
         name = "nested.a2c",
-        code = "<No Code Yet>",
-        location = None,
+        code =
+          "nested.this.a2c(*)({\n  ((a: A) => nested.this.a2b(a))\n}, {\n  ((b: B) => nested.this.b2c(b))\n})",
+        location = Some(Location("", 8, -1)),
         isSynthetic = true,
         typeArguments = Seq(),
+        declaration = Declaration(
+          name = "nested.a2c",
+          kind = "def",
+          location = Some(Location("", 6, -1)),
+          isImplicit = true,
+          signature = Some(
+            Signature(
+              typeParams = Seq(),
+              parameterLists = Seq(
+                DeclaredParameterList(
+                  isImplicit = false,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "a",
+                      tipe = Type("nested.A")
+                    ))
+                ),
+                DeclaredParameterList(
+                  isImplicit = true,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "b",
+                      tipe = Type(name = "scala.Function1",
+                                  parameters = Seq(Type("scala.Function1.T1"),
+                                                   Type("scala.Function1.R")))
+                    ),
+                    DeclaredParameter(
+                      name = "c",
+                      tipe = Type(name = "scala.Function1",
+                                  parameters = Seq(Type("scala.Function1.T1"),
+                                                   Type("scala.Function1.R")))
+                    )
+                  )
+                )
+              ),
+              returnType = Some(Type("nested.C"))
+            )
+          )
+        ),
         implicitArguments = Seq(
           ImplicitArgument(
             location = None,
@@ -190,47 +230,8 @@ class NewSchemaTest extends SemanticdbTest {
             )
           )
         ),
-        declaration = Declaration(
-          name = "nested.a2c",
-          kind = "def",
-          location = None,
-          isImplicit = true,
-          signature = Some(
-            Signature(
-              typeParams = Seq(),
-              parameterLists = Seq(
-                DeclaredParameterList(
-                  isImplicit = false,
-                  params = Seq(
-                    DeclaredParameter(
-                      name = "a",
-                      tipe = Type("nested.A")
-                    ))
-                ),
-                DeclaredParameterList(
-                  isImplicit = true,
-                  params = Seq(
-                    DeclaredParameter(
-                      name = "b",
-                      tipe = Type(name = "scala.Function1",
-                                  parameters = Seq(Type("scala.Function1.T1"),
-                                                   Type("scala.Function1.R")))
-                    ),
-                    DeclaredParameter(
-                      name = "c",
-                      tipe = Type(name = "scala.Function1",
-                                  parameters = Seq(Type("scala.Function1.T1"),
-                                                   Type("scala.Function1.R")))
-                    )
-                  )
-                )
-              ),
-              returnType = Some(Type("nested.C"))
-            )
-          )
-        )
       )
-      val res = ReflectExtract(ctx).callSites
+      val res = ReflectExtract(ctx).normalizedCallSites
 
       //debugPrint(Seq(expected), res)
 

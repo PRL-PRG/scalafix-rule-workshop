@@ -72,10 +72,10 @@ object TermDecomposer {
         }
         case t: Term.Function => {
           // A generated function (e.g. `(a: A) => nested.this.a2b(a)`)
-          // We assume that the body is a single function call, as is the most typical in passing parameters
-          // We also ignore the parameters for now, since they will appear in other call sites,
-          // when the function gets executed
-          breakDown(t.body)
+          // If the function appears in a parameter list, it is safe to consider it
+          // as raw code, since implicit defs passed as implicit parameters will be passed in blocks
+          // (See `case t: Term.Block`)
+          RawCode(t.syntax, t.pos)
         }
         case t: Term.PartialFunction => {
           // A generated partial function application (e.g. `{ case (_, v) => v.head }`)
@@ -138,6 +138,13 @@ object TermDecomposer {
           case n: Name.Anonymous => finder(t.init.tpe)
         }
         BreakDown(app, Seq(), Seq(), pos = t.pos, code = t.syntax)
+      }
+      case t: Term.Function => {
+        // A generated function (e.g. `(a: A) => nested.this.a2b(a)`)
+        // We assume that the body is a single function call, as is the most typical in passing parameters
+        // We also ignore the parameters for now, since they will appear in other call sites,
+        // when the function gets executed
+        breakDown(t.body)
       }
       case t: Term.NewAnonymous => ???
     }
