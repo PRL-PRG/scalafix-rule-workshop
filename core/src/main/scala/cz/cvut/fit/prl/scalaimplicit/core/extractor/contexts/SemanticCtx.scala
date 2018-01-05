@@ -126,6 +126,11 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   }
   def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
 
+  val inSourceDefinitions: Map[Position, ResolvedName] = {
+    _names.filter(_._2.isDefinition)
+  }
+  def inSourceDefinition(pos: Int) = inSourceDefinitions.find(_._1.end == pos)
+
   /**
     * Filter for the synthetic function applications.
     * Captures all "apply()" functions inserted by the compiler.

@@ -1,10 +1,8 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
-  BreakDown,
-  Reflection
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{BreakDown, Reflection}
 import org.langmeta.inputs.Position
+import org.langmeta.semanticdb.ResolvedName
 
 import scala.meta.{Database, Denotation, Symbol}
 
@@ -20,6 +18,9 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     val ref = findReflectSymbol(metaSymbol)
     if (den.isDefined) Reflection(this, bd, den.get, ref)
     else Reflection(this, bd, ref)
+  }
+  def findReflection(pos: Position, symbol: Symbol) = {
+
   }
 
   def findReflectSymbol(symbol: Symbol): u.Symbol = {
@@ -184,5 +185,30 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       if (symbol.asTerm.isLazy) kind = s"lazy $kind"
     }
     kind
+  }
+
+  def firstLevelBaseClasses(baseClasses: List[u.Symbol]): List[u.Symbol] = {
+    // Take the tail because the first one is the self definition
+    // Remove the classes that are parents of some class in bases
+    baseClasses match {
+      case bases if bases.isEmpty => List()
+      case bases =>
+        bases.tail.filterNot(cls =>
+          bases.tail.exists(_.typeSignature.baseClasses.tail.contains(cls)))
+    }
+  }
+
+  def returnType(ref: u.Symbol) = {
+    ref match {
+      case r if r.isMethod => r.asMethod.returnType
+      case r => r.typeSignature
+    }
+  }
+
+  def paramLists(ref: u.Symbol) = {
+    ref match {
+      case r if r.isMethod => r.asMethod.paramLists
+      case _ => List()
+    }
   }
 }

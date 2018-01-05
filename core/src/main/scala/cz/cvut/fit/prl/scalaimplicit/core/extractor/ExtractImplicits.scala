@@ -274,6 +274,12 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   }
 }
 
+object ExtractDeclarations extends (ReflectiveCtx => Set[Declaration]) {
+  override def apply(ctx: ReflectiveCtx): Set[Declaration] = {
+    ctx.inSourceDefinitions.map(ctx.findReflection).map(Factories.createDeclaration(ctx, _))
+  }
+}
+
 // TODO Remove once the thing above is stable
 
 import org.langmeta.inputs.Input

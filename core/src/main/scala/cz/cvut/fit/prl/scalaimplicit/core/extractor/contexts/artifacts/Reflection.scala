@@ -42,8 +42,8 @@ object Reflection {
       params = bd.params.map(reflectiveParam(ctx, _)),
       typeArguments = bd.typeParams.map(ReflectiveTArg(ctx, _)),
       typeSignature = ref.typeSignature,
-      paramLists = paramLists(ref),
-      returnType = returnType(ref)
+      paramLists = ctx.paramLists(ref),
+      returnType = ctx.returnType(ref)
     )
 
   def apply(ctx: ReflectiveCtx,
@@ -53,7 +53,7 @@ object Reflection {
     new Reflection(
       originalSymbol = bd.symbol,
       isImplicit = den.isImplicit,
-      fullName = den.name,
+      fullName = ref.fullName,
       kind = ctx.getKind(den),
       baseClasses = baseClasses(ctx, bd, ref),
       pos = bd.pos,
@@ -62,23 +62,10 @@ object Reflection {
       params = bd.params.map(reflectiveParam(ctx, _)),
       typeArguments = bd.typeParams.map(ReflectiveTArg(ctx, _)),
       typeSignature = ref.typeSignature,
-      paramLists = paramLists(ref),
-      returnType = returnType(ref)
+      paramLists = ctx.paramLists(ref),
+      returnType = ctx.returnType(ref)
     )
 
-  def returnType(ref: u.Symbol) = {
-    ref match {
-      case r if r.isMethod => r.asMethod.returnType
-      case r => r.typeSignature
-    }
-  }
-
-  def paramLists(ref: u.Symbol) = {
-    ref match {
-      case r if r.isMethod => r.asMethod.paramLists
-      case _ => List()
-    }
-  }
 
   def reflectiveParam(ctx: ReflectiveCtx, param: Param): Param = {
     param match {
@@ -90,17 +77,34 @@ object Reflection {
   def baseClasses(ctx: ReflectiveCtx,
                   bd: BreakDown,
                   ref: u.Symbol): List[Reflection] = {
-    def firstLevelBaseClasses(baseClasses: List[u.Symbol]): List[u.Symbol] = {
-      // Take the tail because the first one is the self definition
-      // Remove the classes that are parents of some class in bases
-      baseClasses match {
-        case bases if bases.isEmpty => List()
-        case bases =>
-          bases.tail.filterNot(cls =>
-            bases.tail.exists(_.typeSignature.baseClasses.tail.contains(cls)))
-      }
-    }
-    firstLevelBaseClasses(ref.typeSignature.baseClasses)
+    ctx.firstLevelBaseClasses(ref.typeSignature.baseClasses)
       .map(Reflection(ctx, bd, _))
   }
+}
+
+
+case class DeclarationReflection(
+                                fullName: String,
+                                kind: String,
+                                position: Position,
+                                isImplicit: Boolean,
+                                baseClasses: List[DeclarationReflection],
+                                typeSignature: u.Type,
+                                paramLists: List[List[u.Symbol]],
+                                returnType: u.Type
+                                )
+
+object DeclarationReflection{
+  def apply(ctx: ReflectiveCtx, pos: Position, denot: Denotation, sym: u.Symbol): DeclarationReflection =
+    DeclarationReflection(
+      fullName = sym.fullName,
+      kind = ctx.getKind(denot),
+      position = pos,
+      isImplicit = denot.isImplicit,
+      baseClasses = baseClasses(ctx, sym),
+      typeSignature = sym.typeSignature,
+      paramLists = ctx.paramLists(sym),
+      returnType = ctx.returnType(sym)
+    )
+  def baseClasses(ctx: ReflectiveCtx, symbol: u.Symbol): List[DeclarationReflection] = ???
 }
