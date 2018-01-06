@@ -66,7 +66,6 @@ object Reflection {
       returnType = ctx.returnType(ref)
     )
 
-
   def reflectiveParam(ctx: ReflectiveCtx, param: Param): Param = {
     param match {
       case bd: BreakDown => ctx.findReflection(bd)
@@ -77,25 +76,28 @@ object Reflection {
   def baseClasses(ctx: ReflectiveCtx,
                   bd: BreakDown,
                   ref: u.Symbol): List[Reflection] = {
-    ctx.firstLevelBaseClasses(ref.typeSignature.baseClasses)
+    ctx
+      .firstLevelBaseClasses(ref.typeSignature.baseClasses)
       .map(Reflection(ctx, bd, _))
   }
 }
 
-
 case class DeclarationReflection(
-                                fullName: String,
-                                kind: String,
-                                position: Position,
-                                isImplicit: Boolean,
-                                baseClasses: List[DeclarationReflection],
-                                typeSignature: u.Type,
-                                paramLists: List[List[u.Symbol]],
-                                returnType: u.Type
-                                )
+    fullName: String,
+    kind: String,
+    position: Position,
+    isImplicit: Boolean,
+    baseClasses: List[DeclarationReflection],
+    typeSignature: u.Type,
+    paramLists: List[List[u.Symbol]],
+    returnType: u.Type
+)
 
-object DeclarationReflection{
-  def apply(ctx: ReflectiveCtx, pos: Position, denot: Denotation, sym: u.Symbol): DeclarationReflection =
+object DeclarationReflection {
+  def apply(ctx: ReflectiveCtx,
+            pos: Position,
+            denot: Denotation,
+            sym: u.Symbol): DeclarationReflection =
     DeclarationReflection(
       fullName = sym.fullName,
       kind = ctx.getKind(denot),
@@ -106,5 +108,6 @@ object DeclarationReflection{
       paramLists = ctx.paramLists(sym),
       returnType = ctx.returnType(sym)
     )
-  def baseClasses(ctx: ReflectiveCtx, symbol: u.Symbol): List[DeclarationReflection] = ???
+  def baseClasses(ctx: ReflectiveCtx,
+                  symbol: u.Symbol): List[DeclarationReflection] = ???
 }

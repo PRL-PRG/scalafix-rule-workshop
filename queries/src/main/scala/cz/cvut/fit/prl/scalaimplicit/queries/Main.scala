@@ -6,8 +6,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.Pret
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
-    val res = JSONSerializer.load("./res.dat")
+    val res = JSONSerializer.loadJSON("./tmp/res.json")
     println(s"Found ${res.callSites.size} call sites")
-    res.callSites.map(prettyPrint(_)(PrettyCallSite))
+    res.callSites.map(prettyPrint(_)(PrettyCallSite)).map(println)
   }
 }

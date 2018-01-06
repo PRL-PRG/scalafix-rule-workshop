@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{BreakDown, Reflection}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
+  BreakDown,
+  Reflection
+}
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.ResolvedName
 
@@ -18,9 +21,6 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     val ref = findReflectSymbol(metaSymbol)
     if (den.isDefined) Reflection(this, bd, den.get, ref)
     else Reflection(this, bd, ref)
-  }
-  def findReflection(pos: Position, symbol: Symbol) = {
-
   }
 
   def findReflectSymbol(symbol: Symbol): u.Symbol = {
