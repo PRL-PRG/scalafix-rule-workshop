@@ -146,12 +146,22 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         .productElement(0)
         .toString)
     val name = symbol.productElement(1).toString.split("""\(""").head
-    val reflection = (owner, name) match {
+    val reflection: u.Symbol = (owner, name) match {
       case (o, n) if isType(n) =>
         Finders.findTypeSymbol(o, Cleaners.cleanName(n))
       case (o, n) if isTypeParam(n) =>
         Finders.findTypeParam(o, Cleaners.cleanName(n))
-      case (o, n) => Finders.findTerm(o, Cleaners.cleanName(n))
+      case (o, n) =>
+        Finders.findTerm(o, Cleaners.cleanName(n)) match {
+          case u.NoSymbol =>
+            Finders
+              .getWholeSymbol(symbol.syntax)
+              .getOrElse(
+                throw new RuntimeException(
+                  s"Reflection for Term ${symbol} not found")
+              )
+          case s => s
+        }
     }
     assert(reflection != u.NoSymbol, s"Reflection for $symbol not found")
     reflection
