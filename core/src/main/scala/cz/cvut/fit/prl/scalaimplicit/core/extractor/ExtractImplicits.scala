@@ -87,6 +87,13 @@ object TermDecomposer {
           val tpe = processType(t.tpe)
           app.copy(typeParams = Seq(tpe), pos = t.pos, code = t.syntax)
         }
+        case t: Term if t.toString() != "*" => {
+          val bd = breakDown(t)
+          bd.symbol.app match {
+            case Some(s) => bd
+            case None => RawCode(t.syntax, t.pos)
+          }
+        }
       }
     }
 

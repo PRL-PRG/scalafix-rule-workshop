@@ -5,11 +5,7 @@ import java.nio.ByteBuffer
 import boopickle.{DefaultBasic, PicklerHelper}
 import boopickle.DefaultBasic.PicklerGenerator
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
-  Param,
-  Reflection,
-  ReflectiveTArg
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
 import org.langmeta.inputs.{Input, Position}
 import org.langmeta.semanticdb.Denotation
 
@@ -89,17 +85,17 @@ object Factories {
     * @param ctx
     * @return
     */
-  def createParent(child: Reflection,
-                   parent: Reflection,
+  def createParent(child: DeclarationReflection,
+                   parent: ParentReflection,
                    ctx: ReflectiveCtx): Parent = {
     Parent(
       name = parent.fullName,
       declaration = Declaration(
-        name = parent.fullName,
-        kind = parent.kind,
-        location = Factories.createLocation(parent.declarationPos),
-        isImplicit = parent.isImplicit,
-        signature = createSignature(ctx, parent),
+        name = parent.declaration.fullName,
+        kind = parent.declaration.kind,
+        location = Factories.createLocation(parent.declaration.position),
+        isImplicit = parent.declaration.isImplicit,
+        signature = createSignature(ctx, parent.declaration),
         parents = Seq()
       ),
       typeArguments = parent.typeArguments.map(createTypeArgument)
@@ -122,7 +118,7 @@ object Factories {
   }
 
   def createSignature(ctx: ReflectiveCtx,
-                      reflection: Reflection): Option[Signature] = {
+                      reflection: DeclarationReflection): Option[Signature] = {
 
     val typeParams = reflection.typeSignature.typeParams.map(t =>
       createTypeParameter(t.asType))
@@ -136,11 +132,11 @@ object Factories {
   }
 
   def createDeclaration(ctx: ReflectiveCtx,
-                        reflection: Reflection): Declaration = {
+                        reflection: DeclarationReflection): Declaration = {
     Declaration(
       name = reflection.fullName,
       kind = reflection.kind,
-      location = Factories.createLocation(reflection.declarationPos),
+      location = Factories.createLocation(reflection.position),
       isImplicit = reflection.isImplicit,
       parents = reflection.baseClasses
         .map(createParent(reflection, _, ctx)),
@@ -161,19 +157,19 @@ object Factories {
 
   def createTypeArgument(targ: ReflectiveTArg): Type = {
     Type(
-      name = targ.reflection.fullName,
+      name = targ.fullName,
       parameters = targ.args.map(createTypeArgument)
     )
   }
 
   def createImplicitArgument(ctx: ReflectiveCtx, param: Param): ArgumentLike = {
     param match {
-      case reflection: Reflection => {
+      case reflection: CallSiteReflection => {
         val original = reflection.originalSymbol
         ImplicitArgument(
           name = reflection.fullName,
           code = reflection.code,
-          declaration = createDeclaration(ctx, reflection),
+          declaration = createDeclaration(ctx, reflection.declaration),
           typeArguments = reflection.typeArguments.map(createTypeArgument),
           arguments = reflection.params.map(createImplicitArgument(ctx, _))
         )
@@ -185,7 +181,8 @@ object Factories {
 
   }
 
-  def createCallSite(ctx: ReflectiveCtx, reflection: Reflection): CallSite = {
+  def createCallSite(ctx: ReflectiveCtx,
+                     reflection: CallSiteReflection): CallSite = {
 
     val original = reflection.originalSymbol
 
@@ -194,7 +191,7 @@ object Factories {
       name = reflection.fullName,
       code = reflection.code,
       isSynthetic = original.isSynthetic,
-      declaration = createDeclaration(ctx, reflection),
+      declaration = createDeclaration(ctx, reflection.declaration),
       typeArguments = reflection.typeArguments.map(createTypeArgument),
       implicitArguments = reflection.params.map(createImplicitArgument(ctx, _))
     )

@@ -256,8 +256,8 @@ class NewSchemaTest extends SemanticdbTest {
     """.trim.stripMargin, { ctx =>
       val expected = CallSite(
         name = "classConv.Hello",
-        code = "<No Code Yet>",
-        location = None,
+        code = "classConv.this.Hello[Int](*)(classConv.this.IntWriter)",
+        location = Some(Location("", 10, 11)),
         isSynthetic = true,
         declaration = Declaration(
           name = "classConv.Hello",
@@ -299,7 +299,10 @@ class NewSchemaTest extends SemanticdbTest {
               kind = "object",
               location = None,
               isImplicit = true,
-              signature = Some(Signature()),
+              signature = Some(
+                Signature(
+                  returnType = Some(Type("classConv.IntWriter.type"))
+                )),
               parents = Seq(
                 Parent(
                   name = "classConv.Useless",
@@ -334,13 +337,17 @@ class NewSchemaTest extends SemanticdbTest {
         )
       )
       val res = ReflectExtract(ctx).normalizedCallSites
-      res should contain(expected)
+      //res should contain(expected)
 
-      val resStrings =
-        res.map(x => prettyPrint(x.asInstanceOf[CallSite])(PrettyCallSite))
+      val resStrings: Seq[String] =
+        res
+          .filter(_.code.startsWith("classConv"))
+          .map(x => prettyPrint(x)(PrettyCallSite))
+      val expectedStrings: Seq[String] =
+        Seq(prettyPrint(expected)(PrettyCallSite))
 
-      val expectedStrings = prettyPrint(expected)(PrettyCallSite)
-      resStrings should contain(prettyPrint(expected)(PrettyCallSite))
+      val diff = compareContents(lines(resStrings), lines(expectedStrings))
+      diff shouldBe empty
       println("End")
     }
   )
@@ -348,7 +355,7 @@ class NewSchemaTest extends SemanticdbTest {
   checkPrettyReflRes(
     "Class Conversion with pretty Printing",
     """
-      |object classConvPretty {
+      |object classConv {
       |trait UselessParent {}
       |trait Useless extends UselessParent {}
       | trait Writer[A] {
@@ -362,15 +369,16 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     Seq(
-      """|?:scs: classConvPretty.Hello[scala.Int]
-        |?:  implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
-        |?:  iarg: classConvPretty.IntWriter
-        |?:    implicit object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
-        """.trim.stripMargin,
-      """?:cs: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
+      """|[:10:11]:scs: classConv.Hello[scala.Int]
+         |?:  implicit def classConv.Hello[classConv.T](s: classConv.T), (implicit evidence$1: classConv.Writer[classConv.Writer.A]): classConv.Hello[T][T]
+         |  iarg: classConv.IntWriter
+         |?:    implicit object classConv.IntWriter: classConv.IntWriter.type extends (abstract trait classConv.Useless, abstract trait classConv.Writer[classConv.Writer.A = scala.Int])
+         |""".trim.stripMargin,
+      """[:9:84]:cs: scala.Predef.implicitly[classConv.Writer[classConv.Hello.T]]
         |?:  def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T
-        |?:  iarg: classConvPretty.Hello.
-        |?:    final object classConvPretty.Hello.: classConvPretty.Hello..type""".trim.stripMargin
+        |  iarg: classConv.Hello.
+        |?:    final object classConv.Hello.: classConv.Hello..type
+        |""".trim.stripMargin
     )
   )
 

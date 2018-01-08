@@ -1,9 +1,5 @@
 package cz.cvut.fit.prl.scalaimplicit.core.framework
 
-import java.io.{File, UncheckedIOException}
-import java.net.URLClassLoader
-import java.nio.file.{AccessDeniedException, Files}
-
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
@@ -39,6 +35,9 @@ import scala.tools.cmd.CommandLineParser
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.{CompilerCommand, Global, Settings}
 import scala.util.{Failure, Success, Try}
+import java.io.{File, UncheckedIOException}
+import java.net.URLClassLoader
+import java.nio.file.{AccessDeniedException, Files}
 
 abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   private val workingDir =
@@ -210,40 +209,40 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       location.map(_.copy(file = ""))
   }
 
+  /**
+    * Copied from scala.meta.testkit.DiffAssertions.
+    */
+  def compareContents(original: Seq[String], revised: Seq[String]): String = {
+    import collection.JavaConverters._
+    def trim(lines: Seq[String]) = lines.map(_.trim).asJava
+    val diff =
+      difflib.DiffUtils.diff(trim(lines(original)), trim(lines(revised)))
+    if (diff.getDeltas.isEmpty) ""
+    else
+      difflib.DiffUtils
+        .generateUnifiedDiff(
+          "original",
+          "revised",
+          original.asJava,
+          diff,
+          1
+        )
+        .asScala
+        .drop(3)
+        .mkString("\n")
+  }
+
+  /**
+    * Get all the lines of the results.
+    * We sort by length just so that all the callsites appear in the same order
+    * in both result and expected values
+    */
+  def lines(content: Seq[String]): Seq[String] =
+    content.sortBy(_.length).flatMap(_.split("\n").map(_.trim))
+
   protected def checkPrettyReflRes(name: String,
                                    code: String,
                                    expected: Seq[String]): Unit = {
-
-    /**
-      * Copied from scala.meta.testkit.DiffAssertions.
-      */
-    def compareContents(original: Seq[String], revised: Seq[String]): String = {
-      import collection.JavaConverters._
-      def trim(lines: Seq[String]) = lines.map(_.trim).asJava
-      val diff =
-        difflib.DiffUtils.diff(trim(lines(original)), trim(lines(revised)))
-      if (diff.getDeltas.isEmpty) ""
-      else
-        difflib.DiffUtils
-          .generateUnifiedDiff(
-            "original",
-            "revised",
-            original.asJava,
-            diff,
-            1
-          )
-          .asScala
-          .drop(3)
-          .mkString("\n")
-    }
-
-    /**
-      * Get all the lines of the results.
-      * We sort by length just so that all the callsites appear in the same order
-      * in both result and expected values
-      */
-    def lines(content: Seq[String]) =
-      content.sortBy(_.length).flatMap(_.split("\n").map(_.trim))
 
     test(name) {
       val db = computeSemanticdbFromCode(code)
