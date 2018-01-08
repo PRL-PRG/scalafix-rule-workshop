@@ -347,7 +347,9 @@ object PrettyPrinters {
              "[",
              "]")}
            |${prettyPrint(cs.declaration, indent + 2)}
-           |${prettyPrint(cs.implicitArguments, indent + 2)}""".stripMargin
+           |${cs.implicitArguments
+             .map(PrettyArgument.pretty(_, indent + 2))
+             .mkString("\n")}""".stripMargin
       }
     }
 

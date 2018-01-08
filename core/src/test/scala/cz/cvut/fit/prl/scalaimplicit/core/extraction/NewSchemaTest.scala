@@ -136,7 +136,7 @@ class NewSchemaTest extends SemanticdbTest {
         declaration = Declaration(
           name = "nested.a2c",
           kind = "def",
-          location = Some(Location("", 6, -1)),
+          location = None,
           isImplicit = true,
           signature = Some(
             Signature(
@@ -175,9 +175,13 @@ class NewSchemaTest extends SemanticdbTest {
         implicitArguments = Seq(
           ImplicitArgument(
             name = "nested.a2b",
-            code = "<No Code Yet>",
+            code = "nested.this.a2b(a)",
             typeArguments = Seq(),
-            arguments = Seq(),
+            arguments = Seq(
+              Argument(
+                code = "a"
+              )
+            ),
             declaration = Declaration(
               name = "nested.a2b",
               kind = "def",
@@ -202,9 +206,13 @@ class NewSchemaTest extends SemanticdbTest {
           ),
           ImplicitArgument(
             name = "nested.b2c",
-            code = "<No Code Yet>",
+            code = "nested.this.b2c(b)",
             typeArguments = Seq(),
-            arguments = Seq(),
+            arguments = Seq(
+              Argument(
+                code = "b"
+              )
+            ),
             declaration = Declaration(
               name = "nested.b2c",
               kind = "def",
@@ -233,6 +241,14 @@ class NewSchemaTest extends SemanticdbTest {
 
       //debugPrint(Seq(expected), res)
 
+      val resStrings: Seq[String] =
+        res
+          .map(x => prettyPrint(x)(PrettyCallSite))
+      val expectedStrings: Seq[String] =
+        Seq(prettyPrint(expected)(PrettyCallSite))
+
+      val diff = compareContents(lines(resStrings), lines(expectedStrings))
+      diff shouldBe empty
       res should contain only expected
       println("End")
     }
@@ -293,7 +309,7 @@ class NewSchemaTest extends SemanticdbTest {
         implicitArguments = Seq(
           ImplicitArgument(
             name = "classConv.IntWriter",
-            code = "<No Code Yet>",
+            code = "classConv.this.IntWriter",
             declaration = Declaration(
               name = "classConv.IntWriter",
               kind = "object",
@@ -311,7 +327,11 @@ class NewSchemaTest extends SemanticdbTest {
                     kind = "abstract trait",
                     location = None,
                     isImplicit = false,
-                    signature = Some(Signature())
+                    signature = Some(
+                      Signature(
+                        returnType =
+                          Some(Type("classConv.UselessParent {\n  \n}"))
+                      ))
                   ),
                   typeArguments = Seq()
                 ),
@@ -324,7 +344,9 @@ class NewSchemaTest extends SemanticdbTest {
                     isImplicit = false,
                     signature = Some(
                       Signature(
-                        typeParams = Seq(Type("classConv.Writer.A"))
+                        typeParams = Seq(Type("classConv.Writer.A")),
+                        returnType = Some(Type(
+                          "[A]scala.AnyRef {\n  def write(x: A): String\n}"))
                       ))
                   ),
                   typeArguments = Seq(Type("scala.Int"))
@@ -337,17 +359,17 @@ class NewSchemaTest extends SemanticdbTest {
         )
       )
       val res = ReflectExtract(ctx).normalizedCallSites
-      //res should contain(expected)
+        .filter(_.code.startsWith("classConv"))
 
       val resStrings: Seq[String] =
         res
-          .filter(_.code.startsWith("classConv"))
           .map(x => prettyPrint(x)(PrettyCallSite))
       val expectedStrings: Seq[String] =
         Seq(prettyPrint(expected)(PrettyCallSite))
 
       val diff = compareContents(lines(resStrings), lines(expectedStrings))
       diff shouldBe empty
+      res should contain only (expected)
       println("End")
     }
   )
