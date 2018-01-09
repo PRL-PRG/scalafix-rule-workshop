@@ -500,9 +500,16 @@ def condense_reports(
     def write_header(report_file):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
 
+    def write_summary(reports, total, report_file):
+        report_file.write("Summary --------------------------\n Total projects: %d\n" % total)
+        for report in reports:
+            report_file.write(" - %s: Success: %d, Failure: %d\n" % (report, reports[report][0], reports[report][1]))
+        report_file.write("----------------------------")
+
     def append_report(project_path, report_file, report_kind):
         status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
+        return status
 
     def get_project_list(projects_path, depth):
         if depth == 0:
@@ -518,15 +525,24 @@ def condense_reports(
     P.info("[Reports] Generating analysis report")
     with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
+        reports = {
+            "compilation_report": (0, 0),
+            "semanticdb_report": (0, 0),
+            "analyzer_report": (0, 0),
+            "cleanup_report": (0, 0),
+            "db_push_report": (0, 0)
+        }
+        total_projects = 0
         for project_path in get_project_list(projects_path, int(float(project_depth))):
             P.info("[Reports] Extracting from %s" % project_path)
             project_name = project_path
-
+            total_projects += 1
             report_file.write("%s:\n" % project_name)
-            reports = ["compilation_report", "semanticdb_report", "analyzer_report", "cleanup_report", "db_push_report"]
             for report in reports:
-                append_report(project_path, report_file, report)
-
+                status = append_report(project_path, report_file, report)
+                res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
+                reports[report] = tuple(map(sum, zip(reports[report], res)))
+        write_summary(reports, total_projects, report_file)
 
 @task
 def cleanup_reports(project_path):
