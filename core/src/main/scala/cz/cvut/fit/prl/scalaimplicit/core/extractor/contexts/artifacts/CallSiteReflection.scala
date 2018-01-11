@@ -7,15 +7,47 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.Denotation
 
+import scala.meta.{Term, Tree, Type}
+import scala.{meta => m}
 import scala.reflect.runtime.{universe => u}
 
 case class ReflectiveTArg(fullName: String, args: Seq[ReflectiveTArg])
 object ReflectiveTArg {
-  def apply(ctx: ReflectiveCtx, targ: TArg): ReflectiveTArg =
-    new ReflectiveTArg(
-      fullName = ctx.findReflectSymbol(targ.symbol).fullName,
-      args = targ.args.map(ReflectiveTArg(ctx, _))
-    )
+  def processType(ctx: ReflectiveCtx, targ: Type)(
+      implicit finder: Type => m.Symbol): ReflectiveTArg = targ match {
+    case t: Type.Apply => {
+      val pt = processType(ctx, t.tpe)
+      val targs = t.args.map(processType(ctx, _))
+      ReflectiveTArg(pt.fullName, targs)
+    }
+    case t: Type.Name => {
+      val symbol = ctx.findReflectSymbol(finder(t)).fullName
+      ReflectiveTArg(symbol, Seq())
+    }
+  }
+
+  def apply(ctx: ReflectiveCtx,
+            targ: m.Type,
+            synthSource: Option[m.Synthetic]): ReflectiveTArg = {
+    def typeFinder(t: Type): m.Symbol = {
+      synthSource match {
+        // The application came from a synthetic
+        case Some(synth) => {
+          synth.names.find(_.position.end == t.pos.end) match {
+            case Some(name) => name.symbol
+            case None =>
+              throw new MatchError(s"No name found in types for ${targ}")
+          }
+        }
+        // We are looking for data from an application
+        // that is in the source, so there is no synthetic
+        case None => {
+          ctx.names.find(_.position.end == t.pos.end).get.symbol
+        }
+      }
+    }
+    processType(ctx, targ)(typeFinder)
+  }
   def apply(tpe: u.Type): ReflectiveTArg = ReflectiveTArg(
     fullName = tpe.typeSymbol.fullName,
     args = tpe.typeArgs.map(ReflectiveTArg(_))
@@ -37,7 +69,8 @@ case class CallSiteReflection(originalSymbol: QualifiedSymbol,
 object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
             bd: BreakDown,
-            ref: u.Symbol): CallSiteReflection =
+            ref: u.Symbol,
+            origin: Option[m.Synthetic]): CallSiteReflection =
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       isImplicit = ref.isImplicit,
@@ -46,8 +79,8 @@ object CallSiteReflection {
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,
-      params = bd.params.map(reflectiveParam(ctx, _)),
-      typeArguments = bd.typeParams.map(ReflectiveTArg(ctx, _)),
+      params = bd.args.map(ctx.reflectiveParam(_, origin)),
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origin)),
       typeSignature = ref.typeSignature,
       paramLists = ctx.paramLists(ref),
       returnType = ctx.returnType(ref)
@@ -56,7 +89,8 @@ object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
             bd: BreakDown,
             den: Denotation,
-            ref: u.Symbol): CallSiteReflection =
+            ref: u.Symbol,
+            origin: Option[m.Synthetic]): CallSiteReflection =
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       isImplicit = den.isImplicit,
@@ -65,20 +99,12 @@ object CallSiteReflection {
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,
-      params = bd.params.map(reflectiveParam(ctx, _)),
-      typeArguments = bd.typeParams.map(ReflectiveTArg(ctx, _)),
+      params = bd.args.map(ctx.reflectiveParam(_, origin)),
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origin)),
       typeSignature = ref.typeSignature,
       paramLists = ctx.paramLists(ref),
       returnType = ctx.returnType(ref)
     )
-
-  def reflectiveParam(ctx: ReflectiveCtx, param: Param): Param = {
-    param match {
-      case bd: BreakDown => ctx.findReflection(bd)
-      case p: Param => p
-    }
-  }
-
 }
 
 case class ParentReflection(

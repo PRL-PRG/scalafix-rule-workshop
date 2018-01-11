@@ -254,7 +254,6 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       val resStrings: Seq[String] =
         res.normalizedCallSites.map(
           PrettyPrinters.prettyPrint(_)(PrettyCallSite).trim)
-      println(resStrings.mkString("\n"))
       compareContents(lines(resStrings), lines(expected)) shouldBe empty
     }
   }

@@ -33,21 +33,6 @@ object TermDecomposer {
     breakDown(tree)(finder)
   }
 
-  private def processType(tree: Type)(
-      implicit finder: Tree => QualifiedSymbol): TArg = {
-    tree match {
-      case t: Type.Apply => {
-        val pt = processType(t.tpe)
-        val targs = t.args.map(processType)
-        TArg(pt.symbol, targs)
-      }
-      case t: Type.Name => {
-        val symbol = finder(t).app.get
-        TArg(symbol, Seq())
-      }
-    }
-  }
-
   private def breakDown(tree: Term)(
       implicit finder: Tree => QualifiedSymbol): BreakDown = {
     def getParameter(term: Tree): Param = term match {
@@ -84,10 +69,9 @@ object TermDecomposer {
       case t: Term.Ascribe => {
         // Type ascriptions: `((ClassTag.apply[String](classOf[java.lang.String])): ClassTag[String])`
         val app = getParameter(t.expr)
-        val tpe = processType(t.tpe)
         app match {
           case app: BreakDown =>
-            app.copy(typeParams = Seq(tpe), pos = t.pos, code = t.syntax)
+            app.copy(targs = Seq(t.tpe), pos = t.pos, code = t.syntax)
           case app: Param => app
         }
       }
@@ -114,29 +98,24 @@ object TermDecomposer {
       case t: Term.Apply => {
         // Anything with a parameter list (`hello(*)`, `hello[String](*)`, `hello[String](*)(stringConverter)`...)
         val bd = breakDown(t.fun)
-        bd.copy(params = processParamList(t.args),
-                pos = t.pos,
-                code = t.syntax)
+        bd.copy(args = processParamList(t.args), pos = t.pos, code = t.syntax)
       }
       case t: Term.ApplyType => {
         // An application with type parameters but no parameter list
         // examples: `test.this.JsonWriter[Seq[Student]]`
         val bd = breakDown(t.fun)
-        val targs = t.targs.map(processType)
-        bd.copy(typeParams = targs, pos = t.pos, code = t.syntax)
+        bd.copy(targs = t.targs, pos = t.pos, code = t.syntax)
       }
       case t: Term.ApplyInfix => {
         // Infix function applications (e.g. `list map f1`).
         // We take the operation and the ''implicit'' parameters
         val bd = breakDown(t.op)
-        bd.copy(params = processParamList(t.args),
-                pos = t.pos,
-                code = t.syntax)
+        bd.copy(args = processParamList(t.args), pos = t.pos, code = t.syntax)
       }
       case t: Term.ApplyUnary => {
         // Unary functions
         val bd = breakDown(t.op)
-        bd.copy(params = processParamList(Seq(t.arg)),
+        bd.copy(args = processParamList(Seq(t.arg)),
                 pos = t.pos,
                 code = t.syntax)
       }
@@ -177,13 +156,15 @@ object TermDecomposer {
 
 object Queries {
 
-  def breakDownSynthetic(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
+  def breakDownSynthetic(ctx: SemanticCtx,
+                         synth: Synthetic): SyntheticBreakdown = {
 
     def parse(text: String): Term = text.parse[Term].get
 
     def finder(tree: Tree): QualifiedSymbol = {
       synth.names.find(_.position.end == tree.pos.end) match {
         // Filter out the _star_ names
+        // TODO: I don't think this case is relevant anymore, see processParamList()
         case Some(n) if n.symbol.syntax.contains("_star_") =>
           QualifiedSymbol.Empty
         case Some(name) =>
@@ -205,20 +186,32 @@ object Queries {
     }
      */
 
-    val processedSynthetic =
-      TermDecomposer(parse(synth.text), finder, ctx).copy(
+    val processedSynthetic = {
+      val bd = TermDecomposer(parse(synth.text), finder).copy(
         pos = synth.position
       )
-    val res = processedSynthetic.symbol.app match {
+      SyntheticBreakdown(
+        breakDown = bd,
+        paramListSynthetic = Some(synth),
+        applicationSynthetic =
+          if (bd.symbol.app.isDefined) Some(synth) else None
+      )
+    }
+    val res = processedSynthetic.breakDown.symbol.app match {
       case Some(app) => processedSynthetic
       case None => {
         val matchedApplication = findApplication(ctx, synth)
         //assertWeCanEraseParams(matchedApplication)
-        matchedApplication.copy(params = processedSynthetic.params)
+        matchedApplication.copy(
+          matchedApplication.breakDown.copy(
+            args = processedSynthetic.breakDown.args
+          ),
+          paramListSynthetic = processedSynthetic.paramListSynthetic
+        )
       }
     }
     assert(
-      res.symbol.app.isDefined,
+      res.breakDown.symbol.app.isDefined,
       s"Couldn't find an application for synthetic ${synth.text}"
     )
     res
@@ -233,7 +226,7 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def findApplication(ctx: SemanticCtx, synth: Synthetic): BreakDown = {
+  def findApplication(ctx: SemanticCtx, synth: Synthetic): SyntheticBreakdown = {
 
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
@@ -241,12 +234,8 @@ object Queries {
         t match {
           // Special case: https://github.com/PRL-PRG/scalafix-rule-workshop/issues/39
           case tree: Term.Name
-              if ctx
-                .symbol(tree)
-                .isDefined && ctx
-                .symbol(tree)
-                .get
-                .isInstanceOf[Symbol.Local] =>
+              if ctx.symbol(tree).isDefined &&
+                ctx.symbol(tree).get.isInstanceOf[Symbol.Local] =>
             QualifiedSymbol(ctx.unrecurse(tree), isSynthetic = false)
           case tree =>
             QualifiedSymbol(
@@ -267,12 +256,14 @@ object Queries {
       case Some(syntheticApply) => breakDownSynthetic(ctx, syntheticApply)
       // Parse from the tree itself
       case None =>
-        breakdownTree(
-          ctx
-            .inSourceCallSite(synth.position.end)
-            .getOrElse {
-              throw new RuntimeException("No application found in source")
-            })
+        SyntheticBreakdown(
+          breakdownTree(
+            ctx
+              .inSourceCallSite(synth.position.end)
+              .getOrElse {
+                throw new RuntimeException("No application found in source")
+              })
+        )
     }
   }
 }
@@ -288,7 +279,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
     val callSites =
       ctx.syntheticsWithImplicits
         .map(Queries.breakDownSynthetic(ctx, _))
-        .map(ctx.findReflection)
+        .map(ctx.reflectOnBreakdown)
         .map(Factories.createCallSite(ctx, _))
 
     val declarations = Gatherer.gatherDeclarations(callSites)
