@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
+}
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.Denotation
 
@@ -58,7 +61,7 @@ object CallSiteReflection {
       originalSymbol = bd.symbol,
       isImplicit = den.isImplicit,
       fullName = ref.fullName,
-      kind = ctx.getKind(den),
+      kind = SemanticCtx.getKind(den),
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,

@@ -49,7 +49,7 @@ object Serializables {
     ImplicitParam(
       fqn = s"${symbol.syntax}",
       signature = resolve(denot, symbol),
-      kind = ctx.getKind(denot)
+      kind = SemanticCtx.getKind(denot)
     )
   }
 
@@ -145,10 +145,10 @@ object Serializables {
                           line = name.position.endLine,
                           col = name.position.endColumn),
       fqn = name.symbol.syntax,
-      kind = ctx.getKind(denot),
+      kind = SemanticCtx.getKind(denot),
       signature = resolve(denot, name.symbol),
       nargs =
-        if (ctx.getKind(denot) == "def") denot.members.toString
+        if (SemanticCtx.getKind(denot) == "def") denot.members.toString
         else "-1"
     )
   }

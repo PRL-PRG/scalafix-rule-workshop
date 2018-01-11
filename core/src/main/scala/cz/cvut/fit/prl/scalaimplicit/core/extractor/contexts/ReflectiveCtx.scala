@@ -185,6 +185,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           case t if t.isVal => "var"
           case t if t.isModule => "object"
           case t if t.isPackage => "package"
+          case t if t.toString.startsWith("value") => "value"
         }
       case x if x.isMacro => "macro"
       case x => throw new RuntimeException(s"<unknown: ${x.toString}>")

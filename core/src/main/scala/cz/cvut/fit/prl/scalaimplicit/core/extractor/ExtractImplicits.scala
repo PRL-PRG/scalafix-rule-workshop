@@ -11,13 +11,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
   CallSite,
   Declaration
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
-  BreakDown,
-  TArg,
-  Param,
-  QualifiedSymbol,
-  RawCode
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
 
 import scala.meta._
 
@@ -56,45 +50,64 @@ object TermDecomposer {
 
   private def breakDown(tree: Term)(
       implicit finder: Tree => QualifiedSymbol): BreakDown = {
-    def processParamList(params: Seq[Term]): Seq[Param] = {
-      params.collect {
-        case t: Term.Assign => {
-          RawCode(t.syntax, t.pos)
-        }
-        case t: Term.Block => {
-          // A block inside the synthetic (e.g. `nested.this.a2c(*)({((a: A) => nested.this.a2b(a))})`)
-          // We assume it has only one stat inside, and that it is a Term.
-          assert(t.stats.size == 1,
-                 s"Body ${t.stats} of block $t has more than one stat")
+    def getParameter(term: Tree): Param = term match {
+      case t: Term.Assign => {
+        RawCode(t.syntax, t.pos)
+      }
+      case t: Term.Block => {
+        // A block inside the synthetic (e.g. `nested.this.a2c(*)({((a: A) => nested.this.a2b(a))})`)
+        // We assume it has only one stat inside, and that it is a Term.
+        // If it has more than one stat, we just regard it as a parameter
+        if (t.stats.size == 1) {
           assert(t.stats.forall(_.isInstanceOf[Term]),
                  s"Stat (${t.stats.head}) from block ${t} is not a term")
-          breakDown(t.stats.head.asInstanceOf[Term])
-        }
-        case t: Term.Function => {
-          // A generated function (e.g. `(a: A) => nested.this.a2b(a)`)
-          // If the function appears in a parameter list, it is safe to consider it
-          // as raw code, since implicit defs passed as implicit parameters will be passed in blocks
-          // (See `case t: Term.Block`)
+          getParameter(t.stats.head.asInstanceOf[Term])
+        } else {
           RawCode(t.syntax, t.pos)
-        }
-        case t: Term.PartialFunction => {
-          // A generated partial function application (e.g. `{ case (_, v) => v.head }`)
-          RawCode(t.syntax, t.pos)
-        }
-        case t: Term.Ascribe => {
-          // Type ascriptions: `((ClassTag.apply[String](classOf[java.lang.String])): ClassTag[String])`
-          val app = breakDown(t.expr)
-          val tpe = processType(t.tpe)
-          app.copy(typeParams = Seq(tpe), pos = t.pos, code = t.syntax)
-        }
-        case t: Term if t.toString() != "*" => {
-          val bd = breakDown(t)
-          bd.symbol.app match {
-            case Some(s) => bd
-            case None => RawCode(t.syntax, t.pos)
-          }
         }
       }
+      case t: Term.Function => {
+        // A generated function (e.g. `(a: A) => nested.this.a2b(a)`)
+        // If the function appears in a parameter list, it is safe to consider it
+        // as raw code, since implicit defs passed as implicit parameters will be passed in blocks
+        // (See `case t: Term.Block`)
+        t.body match {
+          case application if SemanticCtx.isApplication(application) =>
+            breakDown(application)
+          case body => RawCode(t.syntax, t.pos)
+        }
+      }
+      case t: Term.PartialFunction => {
+        // A generated partial function application (e.g. `{ case (_, v) => v.head }`)
+        RawCode(t.syntax, t.pos)
+      }
+      case t: Term.Ascribe => {
+        // Type ascriptions: `((ClassTag.apply[String](classOf[java.lang.String])): ClassTag[String])`
+        val app = getParameter(t.expr)
+        val tpe = processType(t.tpe)
+        app match {
+          case app: BreakDown =>
+            app.copy(typeParams = Seq(tpe), pos = t.pos, code = t.syntax)
+          case app: Param => app
+        }
+      }
+      case t: Term.Placeholder => RawCode(t.syntax, t.pos)
+      case t: Term.Interpolate => RawCode(t.syntax, t.pos)
+      case t: Lit => RawCode(t.syntax, t.pos)
+      case t: Term => {
+        val bd = breakDown(t)
+        bd.symbol.app match {
+          case Some(s) => bd
+          case None => RawCode(t.syntax, t.pos)
+        }
+      }
+    }
+    def processParamList(params: Seq[Term]): Seq[Param] = {
+      params
+        .filterNot(x => {
+          x.toString() == "*"
+        })
+        .map(getParameter)
     }
 
     tree match {
@@ -154,6 +167,10 @@ object TermDecomposer {
         breakDown(t.body)
       }
       case t: Term.NewAnonymous => ???
+      case t => {
+        println(t.structure)
+        throw new MatchError(s"Unknown match ${t}")
+      }
     }
   }
 }
@@ -188,9 +205,10 @@ object Queries {
     }
      */
 
-    val processedSynthetic = TermDecomposer(parse(synth.text), finder).copy(
-      pos = synth.position
-    )
+    val processedSynthetic =
+      TermDecomposer(parse(synth.text), finder, ctx).copy(
+        pos = synth.position
+      )
     val res = processedSynthetic.symbol.app match {
       case Some(app) => processedSynthetic
       case None => {

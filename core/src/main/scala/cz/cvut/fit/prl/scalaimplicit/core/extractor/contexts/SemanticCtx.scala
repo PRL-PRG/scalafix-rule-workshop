@@ -116,12 +116,11 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     val b = immutable.Map.newBuilder[Int, Tree]
     var positions = mutable.MutableList[Int]()
     (tree collect {
-      case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
-          _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate |
-          _: Term.New | _: Term.NewAnonymous | _: Term.Name)
-          if !positions.contains(x.pos.end) =>
+      case x
+          if SemanticCtx.isApplication(x) && !positions.contains(x.pos.end) => {
         positions += x.pos.end
         x.pos.end -> x
+      }
     }).toMap
   }
   def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
@@ -187,6 +186,18 @@ case class SemanticCtx(database: Database) extends LazyLogging {
         throw new RuntimeException()
       }
     }
+  }
+}
+
+// Static functions, mostly that provide checks with semanticdb
+// That do not require state
+object SemanticCtx {
+  def isApplication(t: Tree) = t match {
+    case x @ (_: Term.Apply | _: Term.ApplyInfix | _: Term.Select |
+        _: Term.ApplyType | _: Term.ApplyUnary | _: Term.Interpolate |
+        _: Term.New | _: Term.NewAnonymous | _: Term.Name) =>
+      true
+    case x => false
   }
 
   def getKind(denot: Denotation): String = {
