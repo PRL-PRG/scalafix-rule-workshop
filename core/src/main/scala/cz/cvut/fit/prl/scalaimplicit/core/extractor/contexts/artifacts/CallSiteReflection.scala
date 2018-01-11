@@ -11,7 +11,7 @@ import scala.meta.{Term, Tree, Type}
 import scala.{meta => m}
 import scala.reflect.runtime.{universe => u}
 
-case class ReflectiveTArg(fullName: String, args: Seq[ReflectiveTArg])
+case class ReflectiveTArg(fullName: String, args: Seq[ReflectiveTArg] = Seq())
 object ReflectiveTArg {
   def processType(ctx: ReflectiveCtx, targ: Type)(
       implicit finder: Type => m.Symbol): ReflectiveTArg = targ match {
@@ -22,8 +22,9 @@ object ReflectiveTArg {
     }
     case t: Type.Name => {
       val symbol = ctx.findReflectSymbol(finder(t)).fullName
-      ReflectiveTArg(symbol, Seq())
+      ReflectiveTArg(symbol)
     }
+    case t: Type.Select => ReflectiveTArg(t.syntax)
   }
 
   def apply(ctx: ReflectiveCtx,
@@ -70,7 +71,7 @@ object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
             bd: BreakDown,
             ref: u.Symbol,
-            origin: Option[m.Synthetic]): CallSiteReflection =
+            origins: SyntheticOrigins): CallSiteReflection =
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       isImplicit = ref.isImplicit,
@@ -79,8 +80,8 @@ object CallSiteReflection {
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,
-      params = bd.args.map(ctx.reflectiveParam(_, origin)),
-      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origin)),
+      params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
       typeSignature = ref.typeSignature,
       paramLists = ctx.paramLists(ref),
       returnType = ctx.returnType(ref)
@@ -90,7 +91,7 @@ object CallSiteReflection {
             bd: BreakDown,
             den: Denotation,
             ref: u.Symbol,
-            origin: Option[m.Synthetic]): CallSiteReflection =
+            origins: SyntheticOrigins): CallSiteReflection =
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       isImplicit = den.isImplicit,
@@ -99,8 +100,8 @@ object CallSiteReflection {
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,
-      params = bd.args.map(ctx.reflectiveParam(_, origin)),
-      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origin)),
+      params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
       typeSignature = ref.typeSignature,
       paramLists = ctx.paramLists(ref),
       returnType = ctx.returnType(ref)

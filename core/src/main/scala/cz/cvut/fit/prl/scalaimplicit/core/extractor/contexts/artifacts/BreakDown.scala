@@ -13,8 +13,13 @@ case class BreakDown(symbol: QualifiedSymbol,
                      pos: Position,
                      code: String = "")
     extends Param
+
+case class SyntheticOrigins(application: Option[Synthetic] = None,
+                            paramList: Option[Synthetic] = None)
+object SyntheticOrigins {
+  val Empty = SyntheticOrigins()
+}
 case class SyntheticBreakdown(
     breakDown: BreakDown,
-    applicationSynthetic: Option[Synthetic] = None,
-    paramListSynthetic: Option[Synthetic] = None
+    origins: SyntheticOrigins = SyntheticOrigins.Empty
 )

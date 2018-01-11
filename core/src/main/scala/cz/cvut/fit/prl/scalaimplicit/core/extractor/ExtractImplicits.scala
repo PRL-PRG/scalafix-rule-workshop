@@ -192,9 +192,10 @@ object Queries {
       )
       SyntheticBreakdown(
         breakDown = bd,
-        paramListSynthetic = Some(synth),
-        applicationSynthetic =
-          if (bd.symbol.app.isDefined) Some(synth) else None
+        SyntheticOrigins(
+          application = if (bd.symbol.app.isDefined) Some(synth) else None,
+          paramList = Some(synth)
+        )
       )
     }
     val res = processedSynthetic.breakDown.symbol.app match {
@@ -206,7 +207,9 @@ object Queries {
           matchedApplication.breakDown.copy(
             args = processedSynthetic.breakDown.args
           ),
-          paramListSynthetic = processedSynthetic.paramListSynthetic
+          matchedApplication.origins.copy(
+            paramList = processedSynthetic.origins.paramList
+          )
         )
       }
     }

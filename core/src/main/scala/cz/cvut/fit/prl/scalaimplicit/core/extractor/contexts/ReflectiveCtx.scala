@@ -1,11 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
-  BreakDown,
-  CallSiteReflection,
-  Param,
-  SyntheticBreakdown
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.ResolvedName
 
@@ -17,24 +12,23 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
   val _mirror = u.runtimeMirror(loader)
 
   def reflectOnBreakdown(x: SyntheticBreakdown): CallSiteReflection = {
-    findReflection(x.breakDown, x.applicationSynthetic).copy(
-      params = x.breakDown.args.map(reflectiveParam(_, x.paramListSynthetic))
-    )
+    findReflection(x.breakDown, x.origins)
   }
 
   def findReflection(bd: BreakDown,
-                     origin: Option[Synthetic]): CallSiteReflection = {
+                     origins: SyntheticOrigins): CallSiteReflection = {
     val metaSymbol = bd.symbol.app.getOrElse(throw new RuntimeException(
       s"Breakdown ${bd.symbol} has no application and reached reflection. This should never happen"))
     val den = denotation(metaSymbol)
     val ref = findReflectSymbol(metaSymbol)
-    if (den.isDefined) CallSiteReflection(this, bd, den.get, ref, origin)
-    else CallSiteReflection(this, bd, ref, origin)
+    if (den.isDefined) CallSiteReflection(this, bd, den.get, ref, origins)
+    else CallSiteReflection(this, bd, ref, origins)
   }
 
   def reflectiveParam(param: Param, origin: Option[Synthetic]): Param = {
     param match {
-      case bd: BreakDown => findReflection(bd, origin)
+      case bd: BreakDown =>
+        findReflection(bd, SyntheticOrigins(origin, origin))
       case p: Param => p
     }
   }
