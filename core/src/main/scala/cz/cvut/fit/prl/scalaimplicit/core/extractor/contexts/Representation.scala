@@ -376,37 +376,6 @@ object PrettyPrinters {
   }
 }
 
-/*
-object Serializer {
-  object Picklers {
-    import Representation._
-    import boopickle.Default._
-    implicit val typepickler = PicklerGenerator.generatePickler[Type]
-    implicit val signpickler = PicklerGenerator.generatePickler[Signature]
-    implicit val iargpickler =
-      PicklerGenerator.generatePickler[ImplicitArgument]
-    implicit val argpicler = PicklerGenerator.generatePickler[Argument]
-    implicit val locpickler = PicklerGenerator.generatePickler[Location]
-    implicit val declpickler = PicklerGenerator.generatePickler[Declaration]
-    implicit val cspickler = PicklerGenerator.generatePickler[CallSite]
-    implicit val respickler =
-      PicklerGenerator.generatePickler[ExtractionResult]
-    implicit val Pi
-  }
-
-  import boopickle.DefaultBasic._
-  import Picklers._
-  def save(res: ExtractionResult, file: String) =
-    Files.write(Paths.get(file), Pickle.intoBytes(res.callSites).array())
-
-  def load(file: String): ExtractionResult = {
-    val css = Unpickle[Seq[CallSite]]
-      .fromBytes(ByteBuffer.wrap(Files.readAllBytes(Paths.get(file))))
-    ExtractionResult(css, Set())
-  }
-}
- */
-
 object JSONSerializer {
   import org.json4s._
   import org.json4s.native.JsonMethods._
@@ -416,37 +385,16 @@ object JSONSerializer {
 
   import Representation._
 
-  class ArgumentLikeSerializer
-      extends CustomSerializer[ArgumentLike](
-        format =>
-          (
-            {
-              case JObject(JField("code", JString(s)) :: Nil) => Argument(s)
-              case o: JObject => {
-                implicit val formats = Serialization.formats(NoTypeHints)
-                org.json4s.native.Serialization.read[ImplicitArgument](
-                  org.json4s.native.Serialization.write(o))
-              }
-            }, {
-              case x: Argument => {
-                implicit val formats = Serialization.formats(NoTypeHints)
-                parse(org.json4s.native.Serialization.write(x))
-              }
-              case x: ImplicitArgument => {
-                implicit val formats = Serialization.formats(NoTypeHints)
-                parse(org.json4s.native.Serialization.write(x))
-              }
-            }
-        ))
-
   def saveJSON(res: ExtractionResult, file: String) = {
-    implicit val formats = Serialization.formats(NoTypeHints) + new ArgumentLikeSerializer
+    implicit val formats = Serialization.formats(
+      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
     val ser = write(res)
     Files.write(Paths.get(file), ser.getBytes)
   }
 
   def loadJSON(file: String): ExtractionResult = {
-    implicit val formats = Serialization.formats(NoTypeHints) + new ArgumentLikeSerializer
+    implicit val formats = Serialization.formats(
+      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
     val source = io.Source.fromFile(file).mkString
     read[ExtractionResult](source)
   }

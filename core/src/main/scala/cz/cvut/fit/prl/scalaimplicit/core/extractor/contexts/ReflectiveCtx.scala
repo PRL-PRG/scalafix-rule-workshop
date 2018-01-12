@@ -173,7 +173,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           case s => s
         }
     }
-    assert(reflection != u.NoSymbol, s"Reflection for $symbol not found")
+    assert(reflection != u.NoSymbol,
+           s"Reflection for Symbol $symbol not found")
     reflection
   }
 

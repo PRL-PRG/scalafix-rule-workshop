@@ -18,6 +18,8 @@ object ReflectiveTArg {
     symbol match {
       case s: m.Symbol.Local => s"_local_.${t.syntax}"
       case s: m.Symbol.Global => ctx.findReflectSymbol(s).fullName
+      case s => ??? // This is to prevent a warning, for incomplete matching
+                    // This warning malforms the semanticdb file.
     }
   }
 
