@@ -13,6 +13,14 @@ import scala.reflect.runtime.{universe => u}
 
 case class ReflectiveTArg(fullName: String, args: Seq[ReflectiveTArg] = Seq())
 object ReflectiveTArg {
+
+  def symbolName(ctx: ReflectiveCtx, t: Tree, symbol: m.Symbol): String = {
+    symbol match {
+      case s: m.Symbol.Local => s"_local_.${t.syntax}"
+      case s: m.Symbol.Global => ctx.findReflectSymbol(s).fullName
+    }
+  }
+
   def processType(ctx: ReflectiveCtx, targ: Type)(
       implicit finder: Type => m.Symbol): ReflectiveTArg = targ match {
     case t: Type.Apply => {
@@ -21,7 +29,7 @@ object ReflectiveTArg {
       ReflectiveTArg(pt.fullName, targs)
     }
     case t: Type.Name => {
-      val symbol = ctx.findReflectSymbol(finder(t)).fullName
+      val symbol = symbolName(ctx, t, finder(t))
       ReflectiveTArg(symbol)
     }
     case t: Type.Select => ReflectiveTArg(t.syntax)

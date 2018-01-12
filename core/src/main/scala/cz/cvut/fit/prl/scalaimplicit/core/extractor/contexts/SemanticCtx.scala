@@ -112,7 +112,6 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     * Note that we can safely use toMap, since every position will be there only once.
     */
   private lazy val _inSourceCallSites: Map[Int, Tree] = {
-
     var positions = mutable.MutableList[Int]()
     (tree collect {
       case x
