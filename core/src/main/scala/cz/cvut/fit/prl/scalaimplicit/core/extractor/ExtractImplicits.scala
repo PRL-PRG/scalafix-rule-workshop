@@ -33,8 +33,8 @@ object TermDecomposer {
     breakDown(tree)(finder)
   }
 
-  private def breakDown(tree: Term)(
-      implicit finder: Tree => QualifiedSymbol): BreakDown = {
+  def processParamList(params: Seq[Term])(
+      implicit finder: Tree => QualifiedSymbol): Seq[Param] = {
     def getParameter(term: Tree): Param = term match {
       case t: Term.Assign => {
         RawCode(t.syntax, t.pos)
@@ -75,25 +75,27 @@ object TermDecomposer {
           case app: Param => app
         }
       }
-      case t: Term.Name        => RawCode(t.syntax, t.pos)
+      case t: Term.Name => RawCode(t.syntax, t.pos)
       case t: Term.Placeholder => RawCode(t.syntax, t.pos)
       case t: Term.Interpolate => RawCode(t.syntax, t.pos)
-      case t: Lit              => RawCode(t.syntax, t.pos)
+      case t: Lit => RawCode(t.syntax, t.pos)
       case t: Term => {
         val bd = breakDown(t)
         bd.symbol.app match {
           case Some(s) => bd
-          case None    => RawCode(t.syntax, t.pos)
+          case None => RawCode(t.syntax, t.pos)
         }
       }
     }
-    def processParamList(params: Seq[Term]): Seq[Param] = {
-      params
-        .filterNot(x => {
-          x.toString() == "*"
-        })
-        .map(getParameter)
-    }
+    params
+      .filterNot(x => {
+        x.toString() == "*"
+      })
+      .map(getParameter)
+  }
+
+  private def breakDown(tree: Term)(
+      implicit finder: Tree => QualifiedSymbol): BreakDown = {
 
     tree match {
       case t: Term.Apply => {
@@ -159,6 +161,16 @@ object TermDecomposer {
   }
 }
 
+object InitDecomposer {
+  def apply(init: Init, finder: Tree => QualifiedSymbol): BreakDown =
+    BreakDown(
+      symbol = finder(init.name),
+      targs = Seq(init.tpe), //TODO not entirely sure about this, it will appear like [fun[Targs]]
+      args = TermDecomposer.processParamList(init.argss.flatten)(finder),
+      pos = init.pos
+    )
+}
+
 object Queries {
 
   def breakDownSynthetic(ctx: SemanticCtx,
@@ -221,8 +233,7 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def findApplication(ctx: SemanticCtx,
-                      synth: Synthetic): SyntheticBreakdown = {
+  def findApplication(ctx: SemanticCtx, synth: Synthetic): SyntheticBreakdown = {
 
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
@@ -244,7 +255,10 @@ object Queries {
         }
       }
 
-      TermDecomposer(term.asInstanceOf[Term], finder)
+      term match {
+        case t: Init => InitDecomposer(term.asInstanceOf[Init], finder)
+        case t: Term => TermDecomposer(term.asInstanceOf[Term], finder)
+      }
     }
 
     ctx.syntheticApplication(synth.position.end) match {
@@ -253,12 +267,12 @@ object Queries {
       // Parse from the tree itself
       case None =>
         SyntheticBreakdown(
-          breakdownTree(
-            ctx
-              .inSourceCallSite(synth.position.end)
-              .getOrElse {
-                throw new RuntimeException("No application found in source")
-              })
+          breakdownTree(ctx
+            .inSourceCallSite(synth.position.end)
+            .getOrElse {
+              throw new RuntimeException(
+                s"No application found in source for ${synth.text}@${synth.position.endLine}:${synth.position.endColumn}")
+            })
         )
     }
   }
@@ -307,8 +321,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _)        => path.toString
-      case _                          => ""
+      case Input.File(path, _) => path.toString
+      case _ => ""
     }
 
     /**

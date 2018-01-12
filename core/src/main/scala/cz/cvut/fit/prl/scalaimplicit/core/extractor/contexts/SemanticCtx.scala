@@ -113,13 +113,32 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     */
   private lazy val _inSourceCallSites: Map[Int, Tree] = {
 
-    val b = immutable.Map.newBuilder[Int, Tree]
     var positions = mutable.MutableList[Int]()
     (tree collect {
       case x
-          if SemanticCtx.isApplication(x) && !positions.contains(x.pos.end) => {
+          if SemanticCtx.isApplication(x) && !positions
+            .contains(x.pos.end) => {
         positions += x.pos.end
         x.pos.end -> x
+      }
+      case x: Init
+          if (x.argss.isEmpty || x.argss.last.isEmpty) && !positions.contains(
+            x.pos.end - 1) => {
+        // For Inits without parameters, we take the last position minus one,
+        // which seems consistent with empiric observations
+        val truePos = x.pos.end - 1
+        positions += truePos
+        truePos -> x
+      }
+      case x: Init
+          if x.argss.nonEmpty && !positions.contains(
+            x.argss.last.last.pos.end) => {
+        // For Inits, the position where an implicit param list
+        // will be inserted is the same as the end position
+        // of the last parameter
+        val truePos = x.argss.last.last.pos.end
+        positions += truePos
+        truePos -> x
       }
     }).toMap
   }
