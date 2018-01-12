@@ -1,14 +1,15 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx.Cleaners
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.ResolvedName
 
 import scala.meta.{Database, Denotation, Symbol, Synthetic}
+import scala.reflect.runtime.{universe => u}
 
 class ReflectiveCtx(loader: ClassLoader, db: Database)
     extends SemanticCtx(db) {
-  import scala.reflect.runtime.{universe => u}
   val _mirror = u.runtimeMirror(loader)
 
   def reflectOnBreakdown(x: SyntheticBreakdown): CallSiteReflection = {
@@ -123,30 +124,6 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       }
     }
 
-    object Cleaners {
-      def cleanOwner(raw: String): String =
-        raw
-          .stripPrefix("_empty_.")
-          .stripPrefix("_root_.")
-          .stripSuffix(".")
-          .stripSuffix("#")
-          .replace("#", ".")
-
-      def cleanName(raw: String): _root_.scala.Predef.String =
-        raw
-          .stripPrefix("[")
-          .stripSuffix("]")
-          .stripSuffix("#")
-          .stripSuffix(".")
-
-      def separateLastPart(fullName: String): (String, String) = {
-        val base = fullName.replace("#", ".")
-        val lastName = base.split("""\.""").last
-        val theRest = base.substring(0, fullName.lastIndexOf("."))
-        (theRest, lastName)
-      }
-    }
-
     def isType(name: String) =
       name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
     def isTypeParam(name: String) = name.matches("""\[.*\]""")
@@ -168,14 +145,46 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
               .getWholeSymbol(symbol.syntax)
               .getOrElse(
                 throw new RuntimeException(
-                  s"Reflection for Term ${symbol} not found")
-              )
+                  {
+                    println("asdf")
+                    s"Reflection for Term ${symbol} not found"
+                  }
+                ))
           case s => s
         }
     }
-    assert(reflection != u.NoSymbol,
-           s"Reflection for Symbol $symbol not found")
+    assert(reflection != u.NoSymbol, {
+      println("ASDf")
+      s"Reflection for Symbol $symbol not found"
+    })
     reflection
+  }
+
+}
+
+object ReflectiveCtx {
+  object Cleaners {
+    def cleanOwner(raw: String): String =
+      raw
+        .stripPrefix("_empty_.")
+        .stripPrefix("_root_.")
+        .stripSuffix(".")
+        .stripSuffix("#")
+        .replace("#", ".")
+
+    def cleanName(raw: String): _root_.scala.Predef.String =
+      raw
+        .stripPrefix("[")
+        .stripSuffix("]")
+        .stripSuffix("#")
+        .stripSuffix(".")
+
+    def separateLastPart(fullName: String): (String, String) = {
+      val base = fullName.replace("#", ".")
+      val lastName = base.split("""\.""").last
+      val theRest = base.substring(0, fullName.lastIndexOf("."))
+      (theRest, lastName)
+    }
   }
 
   def getReflectiveKind(symbol: u.Symbol): String = {

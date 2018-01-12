@@ -258,4 +258,8 @@ object SemanticCtx {
       }
     }
   }
+
+  // Detect local type references [...] A => some.Code()L/Ret;.A#
+  def isLocalTypeReference(s: Symbol.Global): Boolean =
+    s.signature.isInstanceOf[Signature.Type] && s.owner.syntax.endsWith(";.")
 }

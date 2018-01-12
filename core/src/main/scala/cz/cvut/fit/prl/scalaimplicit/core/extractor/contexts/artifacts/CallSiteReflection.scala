@@ -15,11 +15,19 @@ case class ReflectiveTArg(fullName: String, args: Seq[ReflectiveTArg] = Seq())
 object ReflectiveTArg {
 
   def symbolName(ctx: ReflectiveCtx, t: Tree, symbol: m.Symbol): String = {
+    def handleLocalTypeReference(ltr: m.Symbol.Global): String = {
+      s"${ReflectiveCtx.Cleaners.cleanOwner(
+        ltr.productElement(0).asInstanceOf[m.Symbol.Global].productElement(0).toString)}.${ltr.syntax}"
+    }
+
     symbol match {
       case s: m.Symbol.Local => s"_local_.${t.syntax}"
-      case s: m.Symbol.Global => ctx.findReflectSymbol(s).fullName
+      case s: m.Symbol.Global => {
+        if (SemanticCtx.isLocalTypeReference(s)) handleLocalTypeReference(s)
+        else ctx.findReflectSymbol(s).fullName
+      }
       case s => ??? // This is to prevent a warning, for incomplete matching
-                    // This warning malforms the semanticdb file.
+      // This warning malforms the semanticdb file.
     }
   }
 
@@ -86,15 +94,15 @@ object CallSiteReflection {
       originalSymbol = bd.symbol,
       isImplicit = ref.isImplicit,
       fullName = ref.fullName,
-      kind = ctx.getReflectiveKind(ref),
+      kind = ReflectiveCtx.getReflectiveKind(ref),
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref),
       code = bd.code,
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
       typeSignature = ref.typeSignature,
-      paramLists = ctx.paramLists(ref),
-      returnType = ctx.returnType(ref)
+      paramLists = ReflectiveCtx.paramLists(ref),
+      returnType = ReflectiveCtx.returnType(ref)
     )
 
   def apply(ctx: ReflectiveCtx,
@@ -113,8 +121,8 @@ object CallSiteReflection {
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
       typeSignature = ref.typeSignature,
-      paramLists = ctx.paramLists(ref),
-      returnType = ctx.returnType(ref)
+      paramLists = ReflectiveCtx.paramLists(ref),
+      returnType = ReflectiveCtx.returnType(ref)
     )
 }
 
@@ -130,7 +138,7 @@ object ParentReflection {
     val sym = tpe.typeSymbol
     ParentReflection(
       fullName = sym.fullName,
-      kind = ctx.getReflectiveKind(sym),
+      kind = ReflectiveCtx.getReflectiveKind(sym),
       declaration = DeclarationReflection(ctx, pos, sym),
       typeArguments = tpe.typeArgs.map(ReflectiveTArg(_))
     )
@@ -154,19 +162,19 @@ object DeclarationReflection {
             sym: u.Symbol): DeclarationReflection =
     DeclarationReflection(
       fullName = sym.fullName,
-      kind = ctx.getReflectiveKind(sym),
+      kind = ReflectiveCtx.getReflectiveKind(sym),
       position = pos,
       isImplicit = sym.isImplicit,
       baseClasses = baseClasses(ctx, pos, sym),
       typeSignature = sym.typeSignature,
-      paramLists = ctx.paramLists(sym),
-      returnType = ctx.returnType(sym)
+      paramLists = ReflectiveCtx.paramLists(sym),
+      returnType = ReflectiveCtx.returnType(sym)
     )
 
   def baseClasses(ctx: ReflectiveCtx,
                   pos: Position,
                   ref: u.Symbol): List[ParentReflection] = {
-    ctx
+    ReflectiveCtx
       .firstLevelBaseClasses(ref.typeSignature.baseClasses)
       .map(ref.typeSignature.baseType(_))
       .map(ParentReflection(ctx, pos, _))
