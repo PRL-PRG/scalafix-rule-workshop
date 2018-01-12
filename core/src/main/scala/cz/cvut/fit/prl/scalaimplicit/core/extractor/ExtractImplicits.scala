@@ -75,14 +75,15 @@ object TermDecomposer {
           case app: Param => app
         }
       }
+      case t: Term.Name        => RawCode(t.syntax, t.pos)
       case t: Term.Placeholder => RawCode(t.syntax, t.pos)
       case t: Term.Interpolate => RawCode(t.syntax, t.pos)
-      case t: Lit => RawCode(t.syntax, t.pos)
+      case t: Lit              => RawCode(t.syntax, t.pos)
       case t: Term => {
         val bd = breakDown(t)
         bd.symbol.app match {
           case Some(s) => bd
-          case None => RawCode(t.syntax, t.pos)
+          case None    => RawCode(t.syntax, t.pos)
         }
       }
     }
@@ -145,6 +146,10 @@ object TermDecomposer {
         // when the function gets executed
         breakDown(t.body)
       }
+      case t: Term.Interpolate => {
+        val bd = breakDown(t.prefix)
+        bd.copy(args = processParamList(t.args), pos = t.pos, code = t.syntax)
+      }
       case t: Term.NewAnonymous => ???
       case t => {
         println(t.structure)
@@ -172,19 +177,6 @@ object Queries {
         case None => QualifiedSymbol.Empty
       }
     }
-
-    /*
-    def assertWeCanEraseParams(application: BreakDown) = {
-      // Assert that no parameter of the matched application is implicit.
-      // This way, we ensure that we are not losing information when replacing
-      // that parameter list with the synthetic one
-      assert(
-        application.params.isEmpty || application.params.forall(x =>
-          !ctx.denotation(x.symbol.app.get).get.isImplicit),
-        s"Some parameter of matched application ${application} is implicit"
-      )
-    }
-     */
 
     val processedSynthetic = {
       val bd = TermDecomposer(parse(synth.text), finder).copy(
@@ -229,7 +221,8 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def findApplication(ctx: SemanticCtx, synth: Synthetic): SyntheticBreakdown = {
+  def findApplication(ctx: SemanticCtx,
+                      synth: Synthetic): SyntheticBreakdown = {
 
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
@@ -314,8 +307,8 @@ object ExtractImplicits extends (SemanticCtx => Result) {
   def apply(ctx: SemanticCtx): Result = {
     val file: String = ctx.input match {
       case Input.VirtualFile(path, _) => path
-      case Input.File(path, _) => path.toString
-      case _ => ""
+      case Input.File(path, _)        => path.toString
+      case _                          => ""
     }
 
     /**
