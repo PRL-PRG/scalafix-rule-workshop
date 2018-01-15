@@ -125,130 +125,133 @@ class NewSchemaTest extends SemanticdbTest {
       | val mc: C = ma
       |}
     """.trim.stripMargin, { ctx =>
-      val expected = CallSite(
-        name = "nested.a2c",
-        code =
-          "nested.this.a2c(*)({\n  ((a: A) => nested.this.a2b(a))\n}, {\n  ((b: B) => nested.this.b2c(b))\n})",
-        location = Some(Location("", 8, 15)),
-        isSynthetic = true,
-        typeArguments = Seq(),
-        declaration = Declaration(
+      val expected = Seq(
+        CallSite(
           name = "nested.a2c",
-          kind = "def",
-          location = None,
-          isImplicit = true,
-          signature = Some(
-            Signature(
-              typeParams = Seq(),
-              parameterLists = Seq(
-                DeclaredParameterList(
-                  isImplicit = false,
-                  params = Seq(
-                    DeclaredParameter(
-                      name = "a",
-                      tipe = Type("nested.A")
-                    ))
-                ),
-                DeclaredParameterList(
-                  isImplicit = true,
-                  params = Seq(
-                    DeclaredParameter(
-                      name = "b",
-                      tipe = Type(name = "scala.Function1",
-                                  parameters = Seq(Type("scala.Function1.T1"),
-                                                   Type("scala.Function1.R")))
-                    ),
-                    DeclaredParameter(
-                      name = "c",
-                      tipe = Type(name = "scala.Function1",
-                                  parameters = Seq(Type("scala.Function1.T1"),
-                                                   Type("scala.Function1.R")))
+          code =
+            "nested.this.a2c(*)({\n  ((a: A) => nested.this.a2b(a))\n}, {\n  ((b: B) => nested.this.b2c(b))\n})",
+          location = Some(Location("", 8, 15)),
+          isSynthetic = true,
+          typeArguments = Seq(),
+          declaration = Declaration(
+            name = "nested.a2c",
+            kind = "def",
+            location = None,
+            isImplicit = true,
+            signature = Some(
+              Signature(
+                typeParams = Seq(),
+                parameterLists = Seq(
+                  DeclaredParameterList(
+                    isImplicit = false,
+                    params = Seq(
+                      DeclaredParameter(
+                        name = "a",
+                        tipe = Type("nested.A")
+                      ))
+                  ),
+                  DeclaredParameterList(
+                    isImplicit = true,
+                    params = Seq(
+                      DeclaredParameter(
+                        name = "b",
+                        tipe = Type(name = "scala.Function1",
+                                    parameters =
+                                      Seq(Type("scala.Function1.T1"),
+                                          Type("scala.Function1.R")))
+                      ),
+                      DeclaredParameter(
+                        name = "c",
+                        tipe = Type(name = "scala.Function1",
+                                    parameters =
+                                      Seq(Type("scala.Function1.T1"),
+                                          Type("scala.Function1.R")))
+                      )
                     )
                   )
-                )
-              ),
-              returnType = Some(Type("nested.C"))
-            )
-          )
-        ),
-        implicitArguments = Seq(
-          ImplicitArgument(
-            name = "nested.a2b",
-            code = "nested.this.a2b(a)",
-            typeArguments = Seq(),
-            arguments = Seq(
-              Argument(
-                code = "a"
-              )
-            ),
-            declaration = Declaration(
-              name = "nested.a2b",
-              kind = "def",
-              location = None,
-              isImplicit = true,
-              signature = Some(
-                Signature(
-                  typeParams = Seq(),
-                  parameterLists = Seq(
-                    DeclaredParameterList(
-                      isImplicit = false,
-                      params = Seq(
-                        DeclaredParameter(
-                          name = "a",
-                          tipe = Type("nested.A")
-                        ))
-                    )),
-                  returnType = Some(Type("nested.B"))
-                )
+                ),
+                returnType = Some(Type("nested.C"))
               )
             )
           ),
-          ImplicitArgument(
-            name = "nested.b2c",
-            code = "nested.this.b2c(b)",
-            typeArguments = Seq(),
-            arguments = Seq(
-              Argument(
-                code = "b"
+          implicitArguments = Seq(
+            ImplicitArgument(
+              name = "nested.a2b",
+              code = "nested.this.a2b(a)",
+              typeArguments = Seq(),
+              arguments = Seq(
+                Argument(
+                  code = "a"
+                )
+              ),
+              declaration = Declaration(
+                name = "nested.a2b",
+                kind = "def",
+                location = None,
+                isImplicit = true,
+                signature = Some(
+                  Signature(
+                    typeParams = Seq(),
+                    parameterLists = Seq(
+                      DeclaredParameterList(
+                        isImplicit = false,
+                        params = Seq(DeclaredParameter(
+                          name = "a",
+                          tipe = Type("nested.A")
+                        ))
+                      )),
+                    returnType = Some(Type("nested.B"))
+                  )
+                )
               )
             ),
-            declaration = Declaration(
+            ImplicitArgument(
               name = "nested.b2c",
-              kind = "def",
-              location = None,
-              isImplicit = true,
-              signature = Some(
-                Signature(
-                  typeParams = Seq(),
-                  parameterLists = Seq(
-                    DeclaredParameterList(
-                      isImplicit = false,
-                      params = Seq(
-                        DeclaredParameter(
+              code = "nested.this.b2c(b)",
+              typeArguments = Seq(),
+              arguments = Seq(
+                Argument(
+                  code = "b"
+                )
+              ),
+              declaration = Declaration(
+                name = "nested.b2c",
+                kind = "def",
+                location = None,
+                isImplicit = true,
+                signature = Some(
+                  Signature(
+                    typeParams = Seq(),
+                    parameterLists = Seq(
+                      DeclaredParameterList(
+                        isImplicit = false,
+                        params = Seq(DeclaredParameter(
                           name = "b",
                           tipe = Type("nested.B")
                         ))
-                    )),
-                  returnType = Some(Type("nested.C"))
+                      )),
+                    returnType = Some(Type("nested.C"))
+                  )
                 )
               )
             )
           )
-        )
-      )
+        ))
       val res = ReflectExtract(ctx).normalizedCallSites
 
-      //debugPrint(Seq(expected), res)
+      val jsondiff = compareJSON(res, expected)
+      jsondiff shouldBe empty
 
       val resStrings: Seq[String] =
         res
           .map(x => prettyPrint(x)(PrettyCallSite))
       val expectedStrings: Seq[String] =
-        Seq(prettyPrint(expected)(PrettyCallSite))
+        Seq(prettyPrint(expected.head)(PrettyCallSite))
 
       val diff = compareContents(lines(resStrings), lines(expectedStrings))
       diff shouldBe empty
-      res should contain only expected
+
+      res should contain only expected.head
     }
   )
 

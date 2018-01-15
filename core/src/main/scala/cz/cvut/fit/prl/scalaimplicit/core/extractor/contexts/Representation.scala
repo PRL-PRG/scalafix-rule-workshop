@@ -398,4 +398,10 @@ object JSONSerializer {
     val source = io.Source.fromFile(file).mkString
     read[ExtractionResult](source)
   }
+
+  def prettyJSON(res: ExtractionResult): String = {
+    implicit val formats = Serialization.formats(
+      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
+    pretty(render(parse(write(res))))
+  }
 }

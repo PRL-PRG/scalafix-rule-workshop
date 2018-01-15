@@ -7,12 +7,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
   DeclaredImplicit
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  PrettyPrinters,
-  ReflectiveCtx,
-  Representation,
-  SemanticCtx
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
   Location => _,
@@ -269,6 +264,18 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       f(result)
     }
   }
+
+  /*
+  Return the diff between the prettified JSONs of two results
+   */
+  protected def compareJSON(one: Seq[CallSite], other: Seq[CallSite]): String = {
+    def JSONLines(from: Seq[CallSite]): Seq[String] = {
+      val mock = ExtractionResult(from, Set())
+      lines(Seq(JSONSerializer.prettyJSON(mock)))
+    }
+    compareContents(JSONLines(one), JSONLines(other))
+  }
+
   implicit class NormalizedResult(that: Result) {
     def normalizedImplicits: Set[DeclaredImplicit] =
       that.implicits.map(_.copy(location = Location.Empty))
@@ -277,5 +284,4 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     def normalizedFuns: Seq[Apply] =
       that.funs.map(_.copy(location = Location.Empty))
   }
-
 }
