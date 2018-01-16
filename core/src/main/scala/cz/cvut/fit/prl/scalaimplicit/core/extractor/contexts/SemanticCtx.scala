@@ -143,10 +143,14 @@ case class SemanticCtx(database: Database) extends LazyLogging {
   }
   def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
 
-  val inSourceDefinitions: Map[Position, ResolvedName] = {
-    _names.filter(_._2.isDefinition)
+  // This assumes that every symbol has a denotation.
+  // If a symbol doesn't, the .get method fails
+  val inSourceDefinitions: Seq[(Position, Symbol, Denotation)] = {
+    _names
+      .filter(_._2.isDefinition)
+      .map(x => (x._1, x._2.symbol, denotation(x._2.symbol).get))
+      .toSeq
   }
-  def inSourceDefinition(pos: Int) = inSourceDefinitions.find(_._1.end == pos)
 
   /**
     * Filter for the synthetic function applications.

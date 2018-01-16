@@ -98,7 +98,7 @@ object CallSiteReflection {
       fullName = ref.fullName,
       kind = ReflectiveCtx.getReflectiveKind(ref),
       pos = bd.pos,
-      declaration = DeclarationReflection(ctx, Position.None, ref),
+      declaration = DeclarationReflection(ctx, Position.None, ref, None),
       code = bd.code,
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
@@ -118,7 +118,7 @@ object CallSiteReflection {
       fullName = ref.fullName,
       kind = SemanticCtx.getKind(den),
       pos = bd.pos,
-      declaration = DeclarationReflection(ctx, Position.None, ref),
+      declaration = DeclarationReflection(ctx, Position.None, ref, Some(den)),
       code = bd.code,
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
@@ -141,7 +141,7 @@ object ParentReflection {
     ParentReflection(
       fullName = sym.fullName,
       kind = ReflectiveCtx.getReflectiveKind(sym),
-      declaration = DeclarationReflection(ctx, pos, sym),
+      declaration = DeclarationReflection(ctx, pos, sym, None),
       typeArguments = tpe.typeArgs.map(ReflectiveTArg(_))
     )
   }
@@ -161,12 +161,19 @@ case class DeclarationReflection(
 object DeclarationReflection {
   def apply(ctx: ReflectiveCtx,
             pos: Position,
-            sym: u.Symbol): DeclarationReflection =
+            sym: u.Symbol,
+            denot: Option[Denotation]): DeclarationReflection =
     DeclarationReflection(
       fullName = sym.fullName,
-      kind = ReflectiveCtx.getReflectiveKind(sym),
+      kind = denot match {
+        case Some(d) => SemanticCtx.getKind(d)
+        case None => ReflectiveCtx.getReflectiveKind(sym)
+      },
       position = pos,
-      isImplicit = sym.isImplicit,
+      isImplicit = denot match {
+        case Some(d) => d.isImplicit
+        case None => sym.isImplicit
+      },
       baseClasses = baseClasses(ctx, pos, sym),
       typeSignature = sym.typeSignature,
       paramLists = ReflectiveCtx.paramLists(sym),

@@ -198,32 +198,6 @@ object Factories {
   }
 }
 
-object Gatherer {
-  import Representation._
-  //TODO: We should actually gather declarations from the tree instead of the implicits
-
-  /*
-  private def gatherDeclarations(
-      implicitArgument: ImplicitArgument): Set[Declaration] = {
-    //TODO: We should actually gather declarations from the tree instead of the implicits
-    Set(implicitArgument.declaration) ++ implicitArgument.arguments.collect {
-      case a: ImplicitArgument => gatherDeclarations(a)
-    }
-  }
-
-  def gatherDeclarations(cs: CallSite): Set[Declaration] = {
-    //TODO: We should actually gather declarations from the tree instead of the implicits
-    Set(cs.declaration) ++ cs.implicitArguments.collect {
-      case a: ImplicitArgument => gatherDeclarations(a)
-    }.toSet
-  }
-   */
-
-  //TODO: We should actually gather declarations from the tree instead of the implicits
-  def gatherDeclarations(cs: Seq[CallSite]): Set[Declaration] = Set()
-
-}
-
 object PrettyPrinters {
   import Representation._
   trait PrettyPrintable[T] {

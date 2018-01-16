@@ -1,9 +1,14 @@
 package cz.cvut.fit.prl.scalaimplicit.core.heuristics
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractionResult,
+  ReflectExtract
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class TypeClassTest extends SemanticdbTest {
-  checkContext(
+  checkReflContext(
     "JsonableExample",
     """
       |package typeclass
@@ -48,7 +53,8 @@ class TypeClassTest extends SemanticdbTest {
       |}
       |// Example from Li Haoyi's blog: http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html#type-class-implicits
     """.trim.stripMargin, { ctx =>
-      // TODO: Custom assertions on the context
+      val res = ExtractionResult(ReflectExtract.extractCallSites(ctx), Set())
+      JSONSerializer.saveJSON(res, "./tmp/test.json")
     }
   )
 

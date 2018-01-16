@@ -172,15 +172,30 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   }
 
   implicit class NormalizedRes(that: ExtractionResult) {
+    def normalized = that.copy(
+      callSites = normalizedCallSites,
+      declarations = normalizedDeclarations
+    )
+
     def normalizedCallSites = {
-      that.callSites.map(
-        x =>
-          x.copy(
-            location = normalizedLocation(x.location),
-            declaration = normalizedDeclaration(x.declaration),
-            implicitArguments = x.implicitArguments.map(normalizedArgument)
-        ))
+      that.callSites
+        .map(
+          x =>
+            x.copy(
+              location = normalizedLocation(x.location),
+              declaration = normalizedDeclaration(x.declaration),
+              implicitArguments = x.implicitArguments.map(normalizedArgument)
+          ))
     }
+
+    def sortedCallSites: Seq[CallSite] =
+      that.callSites.sortBy(_.location.get.line)
+
+    def sortedDeclarations: Seq[Declaration] =
+      that.declarations.toSeq.sortBy(_.location.get.line)
+
+    def normalizedDeclarations: Set[Declaration] =
+      that.declarations.map(normalizedDeclaration)
 
     private def normalizedDeclaration(d: Declaration): Declaration = d.copy(
       location = normalizedLocation(d.location),
@@ -268,10 +283,10 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   /*
   Return the diff between the prettified JSONs of two results
    */
-  protected def compareJSON(one: Seq[CallSite], other: Seq[CallSite]): String = {
-    def JSONLines(from: Seq[CallSite]): Seq[String] = {
-      val mock = ExtractionResult(from, Set())
-      lines(Seq(JSONSerializer.prettyJSON(mock)))
+  protected def compareJSON(one: ExtractionResult,
+                            other: ExtractionResult): String = {
+    def JSONLines(from: ExtractionResult): Seq[String] = {
+      lines(Seq(JSONSerializer.prettyJSON(from)))
     }
     compareContents(JSONLines(one), JSONLines(other))
   }

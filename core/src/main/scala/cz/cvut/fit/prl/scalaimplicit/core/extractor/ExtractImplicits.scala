@@ -244,12 +244,13 @@ object Queries {
 
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
+        val sym = ctx.symbol(t)
         // A symbol from the tree will never be synthetic
         t match {
           // Special case: https://github.com/PRL-PRG/scalafix-rule-workshop/issues/39
           case tree: Term.Name
-              if ctx.symbol(tree).isDefined &&
-                ctx.symbol(tree).get.isInstanceOf[Symbol.Local] =>
+              if sym.isDefined &&
+                sym.get.isInstanceOf[Symbol.Local] =>
             QualifiedSymbol(ctx.unrecurse(tree), isSynthetic = false)
           case tree =>
             QualifiedSymbol(
@@ -283,6 +284,7 @@ object Queries {
         )
     }
   }
+
 }
 
 case class ExtractionResult(callSites: Seq[CallSite],
@@ -292,17 +294,25 @@ object ExtractionResult {
 }
 object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
 
-  def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    val callSites =
-      ctx.syntheticsWithImplicits
-        .map(Queries.breakDownSynthetic(ctx, _))
-        .map(ctx.reflectOnBreakdown)
-        .map(Factories.createCallSite(ctx, _))
+  def extractCallSites(ctx: ReflectiveCtx) =
+    ctx.syntheticsWithImplicits
+      .map(Queries.breakDownSynthetic(ctx, _))
+      .map(ctx.reflectOnBreakdown)
+      .map(Factories.createCallSite(ctx, _))
 
-    val declarations = Gatherer.gatherDeclarations(callSites)
-    // Can be turned on for debugging if needed
-    //println(res.treeString)
-    //println(res.valueTreeString)
+  def extractDeclarations(ctx: ReflectiveCtx) =
+    ctx.inSourceDefinitions
+      .filter(_._3.isImplicit)
+      .map(x => (x._1, ctx.findReflectSymbol(x._2), x._3))
+      .map(x => DeclarationReflection(ctx, x._1, x._2, Some(x._3)))
+      .map(Factories.createDeclaration(ctx, _))
+      .toSet
+
+  def apply(ctx: ReflectiveCtx): ExtractionResult = {
+    val callSites = extractCallSites(ctx)
+
+    val declarations: Set[Declaration] = extractDeclarations(ctx)
+
     ExtractionResult(callSites, declarations)
   }
 }

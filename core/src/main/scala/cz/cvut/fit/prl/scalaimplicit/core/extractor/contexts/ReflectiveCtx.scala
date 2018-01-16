@@ -143,18 +143,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           case u.NoSymbol =>
             Finders
               .getWholeSymbol(symbol.syntax)
-              .getOrElse(
-                throw new RuntimeException(
-                  {
-                    println("asdf")
-                    s"Reflection for Term ${symbol} not found"
-                  }
-                ))
+              .getOrElse(throw new RuntimeException({
+                s"Reflection for Term ${symbol} not found"
+              }))
           case s => s
         }
     }
     assert(reflection != u.NoSymbol, {
-      println("ASDf")
       s"Reflection for Symbol $symbol not found"
     })
     reflection
