@@ -404,6 +404,21 @@ class NewSchemaTest extends SemanticdbTest {
     )
   )
 
+  checkReflContext(
+    "Infix application corner case",
+    """
+      |object inAppl {
+      | val a = Seq(1, 2, 3)
+      | val b = Seq("a", "b", "c")
+      | (a zip b)
+      |}
+    """.trim.stripMargin,
+    ctx => {
+      val res = ReflectExtract(ctx)
+      res.callSites should have size 1
+    }
+  )
+
   /**
     * A small method to show the similarities between the expected and actual results.
     * Its main use is to see where the similarities start to break down.
