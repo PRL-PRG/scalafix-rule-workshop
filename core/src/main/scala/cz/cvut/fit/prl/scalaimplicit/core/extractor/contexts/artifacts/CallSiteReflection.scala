@@ -43,6 +43,7 @@ object ReflectiveTArg {
       ReflectiveTArg(symbol)
     }
     case t: Type.Select => ReflectiveTArg(t.syntax)
+    case t: Type.Refine => ReflectiveTArg(t.syntax)
   }
 
   def apply(ctx: ReflectiveCtx,

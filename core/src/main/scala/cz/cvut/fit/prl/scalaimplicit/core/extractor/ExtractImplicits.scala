@@ -141,6 +141,14 @@ object TermDecomposer {
         }
         BreakDown(app, Seq(), Seq(), pos = t.pos, code = t.syntax)
       }
+      case t: Term.NewAnonymous => {
+        // Anonymously constructed objects:
+        // `new SnapshotFixtures { val buffer = // ... }`
+        // We assume we have only one Init
+        assert(t.templ.inits.size == 1,
+               s"More than one init found for NewAnonymous ${t}")
+        InitDecomposer(t.templ.inits.head, finder)
+      }
       case t: Term.Function => {
         // A generated function (e.g. `(a: A) => nested.this.a2b(a)`)
         // We assume that the body is a single function call, as is the most typical in passing parameters
@@ -152,7 +160,6 @@ object TermDecomposer {
         val bd = breakDown(t.prefix)
         bd.copy(args = processParamList(t.args), pos = t.pos, code = t.syntax)
       }
-      case t: Term.NewAnonymous => ???
       case t => {
         println(t.structure)
         throw new MatchError(s"Unknown match ${t}")
