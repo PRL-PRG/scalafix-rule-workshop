@@ -9,10 +9,6 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
-  Location => _,
-  _
-}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.exceptions.TestFailedException
@@ -33,6 +29,11 @@ import scala.util.{Failure, Success, Try}
 import java.io.{File, UncheckedIOException}
 import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
+
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+  Location => _,
+  _
+}
 
 abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   private val workingDir =
@@ -189,10 +190,10 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
 
     def sortedCallSites: Seq[CallSite] =
-      that.callSites.sortBy(_.location.get.line)
+      that.callSites.sortBy(_.location.coords.get.line)
 
     def sortedDeclarations: Seq[Declaration] =
-      that.declarations.toSeq.sortBy(_.location.get.line)
+      that.declarations.toSeq.sortBy(_.location.coords.get.line)
 
     def normalizedDeclarations: Set[Declaration] =
       that.declarations.map(normalizedDeclaration)
@@ -215,8 +216,9 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
             arguments = a.arguments.map(normalizedArgument)
           )
       }
-    private def normalizedLocation(location: Option[Representation.Location]) =
-      location.map(_.copy(file = ""))
+    private def normalizedLocation(
+        location: Representation.Location): Representation.Location =
+      location.copy(coords = location.coords.map(_.copy(file = "")))
   }
 
   /**

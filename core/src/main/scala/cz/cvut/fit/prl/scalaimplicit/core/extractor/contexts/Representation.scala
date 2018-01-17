@@ -21,14 +21,15 @@ import org.json4s.native.Serialization
   */
 object Representation {
 
-  case class Location(file: String, line: Int, col: Int) {
+  case class Location(coords: Option[Coordinates], isExternal: Boolean)
+  case class Coordinates(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
   }
   case class Type(name: String, parameters: Seq[Type] = Seq())
 
   case class Declaration(name: String,
                          kind: String,
-                         location: Option[Location],
+                         location: Location,
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
@@ -44,7 +45,7 @@ object Representation {
 
   case class CallSite(name: String,
                       code: String,
-                      location: Option[Location],
+                      location: Location,
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
@@ -64,7 +65,7 @@ object Representation {
 object Factories {
   import Representation._
 
-  def createLocation(pos: Position): Option[Location] = {
+  def createCreateCoordinates(pos: Position): Option[Coordinates] = {
     pos match {
       case p: Position if p == Position.None => None
       case p => {
@@ -73,9 +74,18 @@ object Factories {
           case Input.File(path, _) => path.toString
           case _ => s"<unknown file: ${pos.input}"
         }
-        Some(Location(file, pos.endLine, pos.endColumn))
+        Some(Coordinates(file, pos.endLine, pos.endColumn))
       }
     }
+  }
+
+  def createLocation(ctx: ReflectiveCtx,
+                     sym: u.Symbol,
+                     pos: Position = Position.None): Location = {
+    Location(
+      createCreateCoordinates(pos),
+      ctx.isExternal(sym)
+    )
   }
 
   /**
@@ -93,7 +103,9 @@ object Factories {
       declaration = Declaration(
         name = parent.declaration.fullName,
         kind = parent.declaration.kind,
-        location = Factories.createLocation(parent.declaration.position),
+        location = createLocation(ctx,
+                                  parent.declaration.sym,
+                                  parent.declaration.position),
         isImplicit = parent.declaration.isImplicit,
         signature = createSignature(ctx, parent.declaration),
         parents = Seq()
@@ -136,7 +148,7 @@ object Factories {
     Declaration(
       name = reflection.fullName,
       kind = reflection.kind,
-      location = Factories.createLocation(reflection.position),
+      location = createLocation(ctx, reflection.sym, reflection.position),
       isImplicit = reflection.isImplicit,
       parents = reflection.baseClasses
         .map(createParent(reflection, _, ctx)),
@@ -187,7 +199,8 @@ object Factories {
     val original = reflection.originalSymbol
 
     CallSite(
-      location = Factories.createLocation(reflection.pos),
+      location =
+        createLocation(ctx, reflection.reflectiveSymbol, reflection.pos),
       name = reflection.fullName,
       code = reflection.code,
       isSynthetic = original.isSynthetic,
@@ -206,12 +219,19 @@ object PrettyPrinters {
 
   object PrettyInstances {
 
-    implicit object PrettyLocation extends PrettyPrintable[Option[Location]] {
-      override def pretty(t: Option[Location], indent: Int): String = {
+    implicit object PrettyCoords extends PrettyPrintable[Option[Coordinates]] {
+      override def pretty(t: Option[Coordinates], indent: Int): String = {
         t match {
           case Some(loc) => s"[${loc.toString}]:"
           case None => "?:"
         }
+      }
+    }
+
+    implicit object PrettyLocation extends PrettyPrintable[Location] {
+      override def pretty(t: Location, indent: Int): String = {
+        val prefix = if (t.isExternal) "<ext>" else ""
+        s"$prefix${PrettyCoords.pretty(t.coords, indent)}"
       }
     }
 

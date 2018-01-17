@@ -30,7 +30,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
           r.Declaration(
             name = "dI.basicInfo.m",
             kind = "def",
-            location = Some(r.Location("", 2, 15)),
+            location = r.Location(Some(r.Coordinates("", 2, 15)), false),
             isImplicit = true,
             signature = Some(
               Signature(
@@ -73,7 +73,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
         r.Declaration(
           name = "dI.m1.msgDeclaration",
           kind = "val",
-          location = Some(r.Location("", 2, 28)),
+          location = r.Location(Some(r.Coordinates("", 2, 28)), false),
           isImplicit = true,
           signature = Some(
             Signature(
@@ -84,7 +84,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
         r.Declaration(
           name = "dI.m2.msgDeclaration",
           kind = "val",
-          location = Some(r.Location("", 5, 28)),
+          location = r.Location(Some(r.Coordinates("", 5, 28)), false),
           isImplicit = true,
           signature = Some(
             Signature(

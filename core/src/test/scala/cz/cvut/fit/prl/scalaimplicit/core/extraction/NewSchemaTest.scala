@@ -131,13 +131,13 @@ class NewSchemaTest extends SemanticdbTest {
             name = "nested.a2c",
             code =
               "nested.this.a2c(*)({\n  ((a: A) => nested.this.a2b(a))\n}, {\n  ((b: B) => nested.this.b2c(b))\n})",
-            location = Some(Location("", 8, 15)),
+            location = Location(Some(Coordinates("", 8, 15)), false),
             isSynthetic = true,
             typeArguments = Seq(),
             declaration = Declaration(
               name = "nested.a2c",
               kind = "def",
-              location = None,
+              location = Location(None, false),
               isImplicit = true,
               signature = Some(
                 Signature(
@@ -188,7 +188,7 @@ class NewSchemaTest extends SemanticdbTest {
                 declaration = Declaration(
                   name = "nested.a2b",
                   kind = "def",
-                  location = None,
+                  location = Location(None, false),
                   isImplicit = true,
                   signature = Some(
                     Signature(
@@ -219,7 +219,7 @@ class NewSchemaTest extends SemanticdbTest {
                 declaration = Declaration(
                   name = "nested.b2c",
                   kind = "def",
-                  location = None,
+                  location = Location(None, false),
                   isImplicit = true,
                   signature = Some(
                     Signature(
@@ -280,12 +280,12 @@ class NewSchemaTest extends SemanticdbTest {
       val expected = CallSite(
         name = "classConv.Hello",
         code = "classConv.this.Hello[Int](*)(classConv.this.IntWriter)",
-        location = Some(Location("", 10, 11)),
+        location = Location(Some(Coordinates("", 10, 11)), false),
         isSynthetic = true,
         declaration = Declaration(
           name = "classConv.Hello",
           kind = "def",
-          location = None,
+          location = Location(None, false),
           isImplicit = true,
           signature = Some(
             Signature(
@@ -320,7 +320,7 @@ class NewSchemaTest extends SemanticdbTest {
             declaration = Declaration(
               name = "classConv.IntWriter",
               kind = "object",
-              location = None,
+              location = Location(None, false),
               isImplicit = true,
               signature = Some(
                 Signature(
@@ -332,7 +332,7 @@ class NewSchemaTest extends SemanticdbTest {
                   declaration = Declaration(
                     name = "classConv.Useless",
                     kind = "abstract trait",
-                    location = None,
+                    location = Location(None, false),
                     isImplicit = false,
                     signature = Some(
                       Signature(
@@ -347,7 +347,7 @@ class NewSchemaTest extends SemanticdbTest {
                   declaration = Declaration(
                     name = "classConv.Writer",
                     kind = "abstract trait",
-                    location = None,
+                    location = Location(None, false),
                     isImplicit = false,
                     signature = Some(
                       Signature(

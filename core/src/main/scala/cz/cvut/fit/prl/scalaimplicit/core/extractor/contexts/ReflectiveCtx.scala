@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
+import java.net.URL
+
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx.Cleaners
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
 import org.langmeta.inputs.Position
@@ -7,6 +9,7 @@ import org.langmeta.semanticdb.ResolvedName
 
 import scala.meta.{Database, Denotation, Symbol, Synthetic}
 import scala.reflect.runtime.{universe => u}
+import scala.util.{Failure, Success, Try}
 
 class ReflectiveCtx(loader: ClassLoader, db: Database)
     extends SemanticCtx(db) {
@@ -155,6 +158,61 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     reflection
   }
 
+  /**
+    * Helper method to determine whether a symbol from inside the project
+    * The heuristics used are that if we have a class loaded from a file,
+    * then it must be a source of the project.
+    * @param ref
+    * @return
+    */
+  def isExternal(ref: u.Symbol): Boolean = {
+    /* Code commented out until we figure out how to properly get the URLs
+    def getResource(s: String): URL = {
+      _mirror.classLoader.getResource(s) match {
+        case null =>
+          throw new ClassNotFoundException(s"Resource for $s not found")
+        case x => x
+      }
+    }
+
+    def getNearestClass(symbol: u.Symbol): u.ClassSymbol = {
+      assert(symbol != _mirror.RootPackage)
+      symbol match {
+        case s if s.isClass => s.asClass
+        case s              => getNearestClass(s.owner)
+      }
+    }
+    def getSelfType(symbol: u.Symbol): u.Type = {
+      getNearestClass(symbol).selfType
+    }
+    // Try to get the url from a symbol, looking up owners recursively.
+    // A symbol's owner is defined in the project iff the symbol is also defined in the project:
+    // http://docs.scala-lang.org/overviews/reflection/symbols-trees-types.html#the-symbol-owner-hierarchy
+    def tryOwnerChain(s: u.Symbol): URL = {
+      assert(s != u.NoSymbol, s"URL not found for symbol ${ref}")
+      Try(_mirror.runtimeClass(getSelfType(s))) match {
+        case Success(runtimeClass) =>  getResource(parseFullName(runtimeClass.getCanonicalName))
+        case Failure(exc) => tryOwnerChain(s.owner)
+      }
+    }
+    // Convert a string to a plausible path name for the classloader
+    def parseFullName(name: String): String = {
+      val header = name.split("""\(""").head
+      val i = header.lastIndexOf("#") match {
+        case -1 => header.length; case x => x
+      }
+      header
+        .substring(0, i)
+        .stripSuffix("#")
+        .replace("#", "/")
+        .replace(".", "/")
+        .concat(".class")
+    }
+    val url = tryOwnerChain(ref)
+    url.getProtocol() != "file"
+     */
+    false
+  }
 }
 
 object ReflectiveCtx {
