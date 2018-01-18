@@ -249,9 +249,8 @@ object Queries {
           case tree =>
             QualifiedSymbol(
               Some(
-                ctx
-                  .symbol(t)
-                  .getOrElse(Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
+                sym.getOrElse(
+                  Symbol(ctx.qualifiedName(t.asInstanceOf[Term])))),
               isSynthetic = false
             )
         }

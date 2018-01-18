@@ -11,17 +11,12 @@ import scala.reflect.runtime.{universe => u}
 
 case class CallSiteReflection(originalSymbol: QualifiedSymbol,
                               reflectiveSymbol: u.Symbol,
-                              isImplicit: Boolean,
                               fullName: String,
-                              kind: String,
-                              params: Seq[Param],
-                              typeArguments: Seq[ReflectiveTArg],
                               pos: Position,
                               code: String,
                               declaration: DeclarationReflection,
-                              typeSignature: u.Type,
-                              paramLists: List[List[u.Symbol]],
-                              returnType: u.Type)
+                              typeArguments: Seq[ReflectiveTArg],
+                              params: Seq[Param])
     extends Param
 object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
@@ -31,17 +26,12 @@ object CallSiteReflection {
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       reflectiveSymbol = ref,
-      isImplicit = ref.isImplicit,
       fullName = ref.fullName,
-      kind = ReflectiveCtx.getReflectiveKind(ref),
       pos = bd.pos,
-      declaration = DeclarationReflection(ctx, Position.None, ref, None),
       code = bd.code,
+      declaration = DeclarationReflection(ctx, Position.None, ref, None),
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
-      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
-      typeSignature = ref.typeSignature,
-      paramLists = ReflectiveCtx.paramLists(ref),
-      returnType = ReflectiveCtx.returnType(ref)
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application))
     )
 
   def apply(ctx: ReflectiveCtx,
@@ -52,17 +42,12 @@ object CallSiteReflection {
     new CallSiteReflection(
       originalSymbol = bd.symbol,
       reflectiveSymbol = ref,
-      isImplicit = den.isImplicit,
       fullName = ref.fullName,
-      kind = SemanticCtx.getKind(den),
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref, Some(den)),
       code = bd.code,
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
-      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application)),
-      typeSignature = ref.typeSignature,
-      paramLists = ReflectiveCtx.paramLists(ref),
-      returnType = ReflectiveCtx.returnType(ref)
+      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application))
     )
 }
 
