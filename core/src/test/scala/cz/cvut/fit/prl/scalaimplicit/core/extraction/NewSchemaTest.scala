@@ -243,7 +243,7 @@ class NewSchemaTest extends SemanticdbTest {
         ),
         Set()
       )
-      val res = ReflectExtract(ctx).normalized
+      val res = ReflectExtract(ctx).normalized.onlyCallSites
 
       val jsondiff = compareJSON(res, expected)
       jsondiff shouldBe empty
@@ -319,7 +319,7 @@ class NewSchemaTest extends SemanticdbTest {
             code = "classConv.this.IntWriter",
             declaration = Declaration(
               name = "classConv.IntWriter",
-              kind = "object",
+              kind = "final object",
               location = Location(None, false),
               isImplicit = true,
               signature = Some(
@@ -400,7 +400,7 @@ class NewSchemaTest extends SemanticdbTest {
       """|[:10:11]:scs: classConvPretty.Hello[scala.Int]
          |?:  implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
          |  iarg: classConvPretty.IntWriter
-         |?:    implicit object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
+         |?:    implicit final object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
          |""".trim.stripMargin,
       """[:9:84]:cs: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
         |?:  def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T

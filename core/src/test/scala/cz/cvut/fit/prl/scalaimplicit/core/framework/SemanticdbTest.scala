@@ -2,10 +2,6 @@ package cz.cvut.fit.prl.scalaimplicit.core.framework
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.{
-  Apply,
-  DeclaredImplicit
-}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
@@ -178,6 +174,16 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       declarations = normalizedDeclarations
     )
 
+    def onlyCallSites = that.copy(
+      callSites = that.callSites,
+      declarations = Set()
+    )
+
+    def onlyDeclarations = that.copy(
+      callSites = Seq(),
+      declarations = that.declarations
+    )
+
     def normalizedCallSites = {
       that.callSites
         .map(
@@ -270,18 +276,6 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
 
-  protected def checkExtraction(name: String,
-                                code: String,
-                                f: Result => Unit): Unit = {
-    test(name) {
-      val db = computeSemanticdbFromCode(code)
-      val ctx = SemanticCtx(db)
-      val result = ExtractImplicits(ctx)
-
-      f(result)
-    }
-  }
-
   /*
   Return the diff between the prettified JSONs of two results
    */
@@ -291,14 +285,5 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       lines(Seq(JSONSerializer.prettyJSON(from)))
     }
     compareContents(JSONLines(one), JSONLines(other))
-  }
-
-  implicit class NormalizedResult(that: Result) {
-    def normalizedImplicits: Set[DeclaredImplicit] =
-      that.implicits.map(_.copy(location = Location.Empty))
-    // Note that when using normalized funs we cannot make assertions over the links,
-    // Because the links are tied to the position of the application.
-    def normalizedFuns: Seq[Apply] =
-      that.funs.map(_.copy(location = Location.Empty))
   }
 }

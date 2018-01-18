@@ -6,10 +6,10 @@ import java.net.{URL, URLClassLoader}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{JSONSerializer}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.runners.ReflectiveSingleProjectWalker
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.JSONSerializer
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.runners.TreeWalker
 
-import scala.io.{Codec, Source}
+import scala.io.Source
 
 object Main extends LazyLogging {
   def loadClasspath(path: String): ClassLoader = {
@@ -26,7 +26,7 @@ object Main extends LazyLogging {
       case Some(conf) => {
         logger.debug(s"Root: ${conf.root}")
         val loader: ClassLoader = loadClasspath(conf.classpath)
-        val walker = new ReflectiveSingleProjectWalker(loader, conf.root)
+        val walker = new TreeWalker(loader, conf.root)
         val res = walker(ReflectExtract)
         JSONSerializer.saveJSON(res, conf.root + "/tmp/res.json")
       }

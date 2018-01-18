@@ -1,12 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractImplicits,
   ExtractionResult,
-  Location,
   ReflectExtract
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.Serializables.DeclaredImplicit
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Signature
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   Representation => r

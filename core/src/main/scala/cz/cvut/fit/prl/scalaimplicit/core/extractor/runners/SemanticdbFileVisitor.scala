@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.runners
 import java.nio.file.{Files, Path}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Result}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
 import org.langmeta.internal.semanticdb.{schema => s}
@@ -26,26 +26,6 @@ object DBOps {
   }
 }
 
-object SemanticDBFileVisitor
-    extends ((Path, (SemanticCtx => Result)) => Result)
-    with LazyLogging {
-  def apply(filePath: Path, f: SemanticCtx => Result): Result = {
-    try {
-      val mdb = DBOps.loadDB(filePath)
-      val ctx = SemanticCtx(mdb)
-      val res = f(ctx)
-      logger.debug(s"Processing $filePath")
-      res
-    } catch {
-      case NonFatal(e) =>
-        val st = e.getStackTrace
-        e.setStackTrace(st.take(10))
-        e.printStackTrace()
-        Result.Empty
-    }
-  }
-}
-
 object ReflectiveVisitor
     extends ((Path, ClassLoader, (ReflectiveCtx => ExtractionResult)) => ExtractionResult)
     with LazyLogging {
@@ -60,8 +40,6 @@ object ReflectiveVisitor
       res
     } catch {
       case NonFatal(e) =>
-        val st = e.getStackTrace
-        e.setStackTrace(st.take(10))
         e.printStackTrace()
         ExtractionResult.Empty
     }
