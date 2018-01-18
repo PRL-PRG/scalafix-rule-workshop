@@ -20,14 +20,15 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val res: ExtractionResult = ReflectExtract(ctx).normalized
+      val res: ExtractionResult =
+        ReflectExtract(ctx).normalized.onlyImplicitDeclarations
       val expected = ExtractionResult(
         Seq(),
         Set(
           r.Declaration(
             name = "dI.basicInfo.m",
             kind = "def",
-            location = r.Location(Some(r.Coordinates("", 2, 15)), false),
+            location = r.Location(Some(r.Coordinates("", 2, 40)), false),
             isImplicit = true,
             signature = Some(
               Signature(

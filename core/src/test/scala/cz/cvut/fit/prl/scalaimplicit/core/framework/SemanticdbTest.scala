@@ -184,6 +184,11 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       declarations = that.declarations
     )
 
+    def onlyImplicitDeclarations = that.copy(
+      callSites = Seq(),
+      declarations = that.declarations.filter(_.isImplicit)
+    )
+
     def normalizedCallSites = {
       that.callSites
         .map(

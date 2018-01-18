@@ -105,6 +105,10 @@ object DeclarationReflection {
       returnType = ReflectiveCtx.returnType(sym)
     )
 
+  def apply(ctx: ReflectiveCtx, bd: DefnBreakdown): DeclarationReflection = {
+    DeclarationReflection(ctx, bd.pos, bd.sym, bd.den)
+  }
+
   def baseClasses(ctx: ReflectiveCtx,
                   pos: Position,
                   ref: u.Symbol): List[ParentReflection] = {

@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts
 
-import scala.meta.{Position, Symbol, Type, Synthetic}
+import scala.meta.{Position, Symbol, Type, Synthetic, Denotation}
 
 case class QualifiedSymbol(app: Option[Symbol], isSynthetic: Boolean)
 object QualifiedSymbol {
@@ -22,4 +22,10 @@ object SyntheticOrigins {
 case class SyntheticBreakdown(
     breakDown: BreakDown,
     origins: SyntheticOrigins = SyntheticOrigins.Empty
+)
+
+case class DefnBreakdown(
+    pos: Position,
+    sym: scala.reflect.runtime.universe.Symbol,
+    den: Option[Denotation]
 )
