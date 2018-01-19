@@ -425,6 +425,24 @@ class NewSchemaTest extends SemanticdbTest {
     }
   )
 
+  checkReflContext(
+    "Call to local def with implicits",
+    """
+      |package loCall
+      |object r {
+      | trait A[T] { def a(implicit v: T): String }
+      | val aimpl = new A[Int] { def a(implicit v: Int): String = v.toString }
+      | implicit val iv: Int = 45
+      | aimpl.a
+      |}
+    """.trim.stripMargin,
+    ctx => {
+      println(ctx)
+      val css = ReflectExtract.extractCallSites(ctx)
+      println(ctx)
+    }
+  )
+
   /**
     * A small method to show the similarities between the expected and actual results.
     * Its main use is to see where the similarities start to break down.

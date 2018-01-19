@@ -13,8 +13,26 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.decomposers.{
 }
 
 import scala.meta._
+import scala.reflect.runtime.{universe => u}
 
 object Queries {
+  def hasImplicits(ctx: ReflectiveCtx, breakdown: DefnBreakdown): Boolean = {
+    def hasImplicitsRef(ref: u.Symbol): Boolean = {
+      ref.isImplicit || ref.typeSignature.paramLists.exists(ls =>
+        ls.exists(param => hasImplicitsRef(param)))
+    }
+
+    def hasImplicitsDen(den: Option[Denotation]): Boolean = {
+      den match {
+        case Some(d) =>
+          d.isImplicit || d.names.exists(n =>
+            hasImplicitsDen(ctx.denotation(n.symbol)))
+        case None => false
+      }
+    }
+
+    hasImplicitsDen(breakdown.den) || hasImplicitsRef(breakdown.sym)
+  }
 
   def breakDownSynthetic(ctx: SemanticCtx,
                          synth: Synthetic): SyntheticBreakdown = {
@@ -142,6 +160,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   def extractDeclarations(ctx: ReflectiveCtx): Set[Declaration] =
     ctx.inSourceDefinitions
       .flatMap(Queries.getDefn(ctx, _))
+      .filter(Queries.hasImplicits(ctx, _))
       .map(DeclarationReflection(ctx, _))
       .map(Factories.createDeclaration(ctx, _))
       .toSet
