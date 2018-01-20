@@ -520,9 +520,24 @@ def condense_reports(
                 paths = paths + get_project_list(os.path.join(projects_path, p), depth - 1)
             return paths
 
+    def write_manifest(manifest):
+       with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
+           manifest_file.write("{\"projects\":[\n")
+           for proj in manifest[:-1]:
+               if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
+                   manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" %
+                                      (proj[0], proj[1]))
+           if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
+               manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % 
+                                  (proj[0], proj[1]))
+           manifest_file.write("]}")
+
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
+
+    manifest = []
+ 
     with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
         reports = {
@@ -542,7 +557,10 @@ def condense_reports(
                 status = append_report(project_path, report_file, report)
                 res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
                 reports[report] = tuple(map(sum, zip(reports[report], res)))
+            full_path = os.path.join(cwd, project_path)
+            manifest.append(("%s/project.csv" % full_path, "%s/_reports/results.json" % full_path))
         write_summary(reports, total_projects, report_file)
+    write_manifest(manifest)
 
 @task
 def cleanup_reports(project_path):
