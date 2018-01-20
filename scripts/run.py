@@ -373,13 +373,13 @@ def analyze(
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
         P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
         title = "Semanticdb file analysis"
-        command = "java -jar %s %s ." % (jvm_options, tool_path)
+        command = "java -jar %s %s . ./classpath.dat ./_reports" % (jvm_options, tool_path)
         return analysis_command(project_path, project_name, title, command, "analyzer_report")
 
-    def run_cleanup_tool(project_name, project_path, tool_path):
-        P.info("[Analysis][%s] Cleaning up the data..." % project_name)
-        title = "Data cleanup"
-        command = "python %s ." % (tool_path)
+    def run_classpath_tool(project_name, project_path, tool_path):
+        P.info("[Analysis][%s] Generating classpath..." % project_name)
+        title = "Classpath generation"
+        command = "sbt -batch gcp" 
         return analysis_command(project_path, project_name, title, command, "cleanup_report")
 
     def upload_to_database(project_name, project_path, tool_path):
@@ -406,9 +406,9 @@ def analyze(
     compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
     continue_analysis = not compilation_failed
     if continue_analysis:
-        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
+        continue_analysis = run_classpath_tool(project_name, project_path, cleanup_tool_path)
     if continue_analysis:
-        continue_analysis = run_cleanup_tool(project_name, project_path, cleanup_tool_path)
+        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     if continue_analysis and push_to_db:
        continue_analysis = upload_to_database(project_name, project_path, db_tool_path)
     P.info("[Analysis][%s] Analysis concluded" % project_name)
