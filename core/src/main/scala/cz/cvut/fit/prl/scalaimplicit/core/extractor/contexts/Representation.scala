@@ -124,7 +124,7 @@ object Factories {
   def createParamList(ctx: ReflectiveCtx,
                       paramList: List[u.Symbol]): DeclaredParameterList = {
     DeclaredParameterList(
-      isImplicit = paramList.head.isImplicit, // We assume that if one param is implicit, every param is
+      isImplicit = paramList.nonEmpty && paramList.head.isImplicit, // We assume that if one param is implicit, every param is
       params = paramList.map(createParam(ctx, _))
     )
   }

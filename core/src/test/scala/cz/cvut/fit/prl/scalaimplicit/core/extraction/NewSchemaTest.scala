@@ -437,7 +437,7 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract.extractCallSites(ctx)
+      val css = ReflectExtract(ctx)
     }
   )
 

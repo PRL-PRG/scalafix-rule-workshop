@@ -7,6 +7,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts.DefnBreakdown
 
 import scala.meta.{Decl, Defn, Pat, Symbol, Term, Tree, Type}
+import scala.util.{Failure, Success, Try}
 
 object DefnDecomposer {
 
@@ -42,13 +43,22 @@ object DefnDecomposer {
       case d: Decl.Var => handlePats(d)
       case d: Decl.Def => handleTermName(d)
       case d: Decl.Type => handleTypeName(d)
-    }).filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
-    metaSymbols.map(
-      metaSymbol =>
-        DefnBreakdown(
-          pos = defn.pos,
-          den = ctx.denotation(metaSymbol),
-          sym = ctx.findReflectSymbol(metaSymbol)
-      ))
+    }) //.filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
+    metaSymbols.map(metaSymbol => {
+      Try(ctx.findReflectSymbol(metaSymbol)) match {
+        case Success(s) =>
+          DefnBreakdown(
+            pos = defn.pos,
+            den = ctx.denotation(metaSymbol),
+            sym = Some(s)
+          )
+        case Failure(f) =>
+          DefnBreakdown(
+            pos = defn.pos,
+            den = ctx.denotation(metaSymbol),
+            sym = None
+          )
+      }
+    })
   }
 }

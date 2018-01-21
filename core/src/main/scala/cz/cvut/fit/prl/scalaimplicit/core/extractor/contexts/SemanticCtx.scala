@@ -280,7 +280,7 @@ object SemanticCtx {
       case Some(p)
           if p.isInstanceOf[Term.NewAnonymous] || hasNewAnonParent(p) =>
         true
-      case None => false
+      case _ => false
     }
 
     sym match {

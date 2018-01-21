@@ -1,5 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Type
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   ReflectiveCtx,
   SemanticCtx
@@ -105,8 +106,24 @@ object DeclarationReflection {
       returnType = ReflectiveCtx.returnType(sym)
     )
 
+  def createFromLocal(pos: Position, denot: Denotation) =
+    new DeclarationReflection(
+      sym = u.NoSymbol,
+      fullName = s"_local_${denot.name}${denot.signature}",
+      kind = SemanticCtx.getKind(denot),
+      position = pos,
+      isImplicit = denot.isImplicit,
+      baseClasses = List(),
+      typeSignature = u.NoType,
+      paramLists = List(List()),
+      returnType = u.NoType
+    )
+
   def apply(ctx: ReflectiveCtx, bd: DefnBreakdown): DeclarationReflection = {
-    DeclarationReflection(ctx, bd.pos, bd.sym, bd.den)
+    bd.sym match {
+      case Some(s) => DeclarationReflection(ctx, bd.pos, s, bd.den)
+      case None => createFromLocal(bd.pos, bd.den.get)
+    }
   }
 
   def baseClasses(ctx: ReflectiveCtx,

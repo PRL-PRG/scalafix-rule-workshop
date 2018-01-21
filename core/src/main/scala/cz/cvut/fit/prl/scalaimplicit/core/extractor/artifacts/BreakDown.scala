@@ -26,6 +26,6 @@ case class SyntheticBreakdown(
 
 case class DefnBreakdown(
     pos: Position,
-    sym: scala.reflect.runtime.universe.Symbol,
+    sym: Option[scala.reflect.runtime.universe.Symbol],
     den: Option[Denotation]
 )

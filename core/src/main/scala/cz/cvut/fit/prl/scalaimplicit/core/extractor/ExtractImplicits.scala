@@ -31,7 +31,8 @@ object Queries {
       }
     }
 
-    hasImplicitsDen(breakdown.den) || hasImplicitsRef(breakdown.sym)
+    hasImplicitsDen(breakdown.den) || (breakdown.sym.isDefined && hasImplicitsRef(
+      breakdown.sym.get))
   }
 
   def breakDownSynthetic(ctx: SemanticCtx,
@@ -160,7 +161,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   def extractDeclarations(ctx: ReflectiveCtx): Set[Declaration] =
     ctx.inSourceDefinitions
       .flatMap(Queries.getDefn(ctx, _))
-      .filter(Queries.hasImplicits(ctx, _))
+      //.filter(Queries.hasImplicits(ctx, _))
       .map(DeclarationReflection(ctx, _))
       .map(Factories.createDeclaration(ctx, _))
       .toSet
