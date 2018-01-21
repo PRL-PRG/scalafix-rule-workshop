@@ -51,17 +51,7 @@ object Main extends App {
   def printResHTML(res: ExtractionResult) =
     Files.write(
       Paths.get("./tmp/res.html"), {
-        val mockData = ProjectMetadata(
-          reponame = "blorente/mockrepo",
-          name = "Mock",
-          url = "https://github.com/prl-prg/scalafix-rule-workshop",
-          lastCommit = "c2fed211cea8b46ddc855a05c6a5be498e4ffb21",
-          buildSystem = "sbt",
-          version = "v0.0",
-          ghStars = 0,
-          totalLOC = 0,
-          scalaLOC = 0
-        )
+        val mockData = ProjectMetadata.loadFromCSV("project.csv")
         HTMLSerializer.createDocument(res, mockData)
       }.getBytes
     )

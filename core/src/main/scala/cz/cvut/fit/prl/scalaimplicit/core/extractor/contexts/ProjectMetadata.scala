@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
+import java.nio.file.{Files, Paths}
+
 case class ProjectMetadata(
     reponame: String,
     name: String,
@@ -13,5 +15,19 @@ case class ProjectMetadata(
 )
 
 object ProjectMetadata {
-  def loadFrom(path: String): ProjectMetadata = ???
+  def loadFromCSV(path: String): ProjectMetadata = {
+    val lines: Seq[String] = io.Source.fromFile(path).getLines().toSeq
+    val info = (lines(0).split(",") zip lines(1).split(",")).groupBy(_._1)
+    ProjectMetadata(
+      reponame = info("reponame").head._2,
+      name = info("name").head._2,
+      url = info("url").head._2,
+      lastCommit = info("last_commit").head._2,
+      buildSystem = info("build_system").head._2,
+      version = info("version").head._2,
+      ghStars = info("gh_stars").head._2.toInt,
+      totalLOC = info("total_loc").head._2.toInt,
+      scalaLOC = info("scala_loc").head._2.toInt
+    )
+  }
 }
