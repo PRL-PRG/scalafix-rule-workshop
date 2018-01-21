@@ -209,9 +209,6 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   def apply(ctx: ReflectiveCtx): ExtractionResult = {
     val callSites: Seq[CallSite] = extractCallSites(ctx)
     val declarations: Set[Declaration] = extractDeclarations(ctx)
-
-    ErrorCollection().toFile("./tmp/errors.log")
-
     ExtractionResult(callSites, declarations)
   }
 }
