@@ -1,7 +1,7 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.decomposers
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.DefnBreakdown
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts.DefnBreakdown
 
 import scala.meta.{Decl, Defn, Pat, Term, Tree, Type, Symbol}
 

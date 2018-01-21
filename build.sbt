@@ -28,7 +28,8 @@ lazy val coreutils = (project in file("core"))
       "org.scalatest" %% "scalatest" % "3.0.4" % "test",
       "com.github.nikita-volkov" % "sext" % "0.2.4",
       "io.suzaku" %% "boopickle" % "1.2.6",
-      "org.json4s" %% "json4s-native" % "3.6.0-M2"
+      "org.json4s" %% "json4s-native" % "3.6.0-M2",
+      "com.lihaoyi" %% "scalatags" % "0.6.7"
     )
   )
 lazy val macros = (project in file("macros"))
@@ -40,6 +41,8 @@ lazy val macros = (project in file("macros"))
 
 lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
+  .settings(libraryDependencies +=
+    "com.lihaoyi" %% "scalatags" % "0.6.7")
   .dependsOn(coreutils % "test->test", macros)
 
 lazy val classpathExtractor =

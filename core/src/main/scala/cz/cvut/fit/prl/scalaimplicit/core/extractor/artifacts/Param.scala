@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts
 
 import scala.meta.Position
 

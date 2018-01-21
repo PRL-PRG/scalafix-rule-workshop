@@ -1,6 +1,6 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.decomposers
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts.{
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts.{
   BreakDown,
   QualifiedSymbol
 }

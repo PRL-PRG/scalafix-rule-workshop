@@ -2,9 +2,9 @@ package cz.cvut.fit.prl.scalaimplicit.core.framework
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
 import org.scalatest.exceptions.TestFailedException
@@ -29,6 +29,10 @@ import java.nio.file.{AccessDeniedException, Files}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
   Location => _,
   _
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
+  JSONSerializer,
+  PrettyPrinters
 }
 
 abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {

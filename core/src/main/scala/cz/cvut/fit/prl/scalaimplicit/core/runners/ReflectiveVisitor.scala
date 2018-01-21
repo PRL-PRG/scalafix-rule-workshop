@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.runners
+package cz.cvut.fit.prl.scalaimplicit.core.runners
 
 import java.nio.file.{Files, Path}
 

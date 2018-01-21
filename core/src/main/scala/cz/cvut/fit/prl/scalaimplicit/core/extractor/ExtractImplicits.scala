@@ -5,8 +5,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
   CallSite,
   Declaration
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.decomposers.{
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers.{
   DefnDecomposer,
   InitDecomposer,
   TermDecomposer

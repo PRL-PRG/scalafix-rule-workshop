@@ -4,9 +4,9 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
   ReflectExtract
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters.PrettyInstances.PrettyCallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class NewSchemaTest extends SemanticdbTest {
@@ -437,9 +437,7 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      println(ctx)
       val css = ReflectExtract.extractCallSites(ctx)
-      println(ctx)
     }
   )
 

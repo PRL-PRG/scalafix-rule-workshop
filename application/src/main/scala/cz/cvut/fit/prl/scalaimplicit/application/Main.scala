@@ -6,8 +6,8 @@ import java.net.{URL, URLClassLoader}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.JSONSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.runners.TreeWalker
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
+import cz.cvut.fit.prl.scalaimplicit.core.runners.TreeWalker
 
 import scala.io.Source
 

@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 import java.net.URL
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx.Cleaners
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.artifacts._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.ResolvedName
 

@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.decomposers
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers
 
 import scala.meta.{Pat, Tree, Symbol}
 
