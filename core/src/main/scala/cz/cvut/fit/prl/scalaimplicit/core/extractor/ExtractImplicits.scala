@@ -14,6 +14,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers.{
 
 import scala.meta._
 import scala.reflect.runtime.{universe => u}
+import scala.util.{Failure, Success, Try}
 
 object Queries {
   def hasImplicits(ctx: ReflectiveCtx, breakdown: DefnBreakdown): Boolean = {
@@ -152,24 +153,64 @@ object ExtractionResult {
 }
 object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
 
-  def extractCallSites(ctx: ReflectiveCtx) =
+  def extractCallSites(ctx: ReflectiveCtx): Seq[CallSite] =
     ctx.syntheticsWithImplicits
+      .map(
+        syn =>
+          Try(
+            Factories.createCallSite(ctx,
+                                     ctx.reflectOnBreakdown(
+                                       Queries.breakDownSynthetic(ctx, syn)
+                                     ))
+        )
+      )
+      .reportAndExtract
+  /* Replaced with instance-by-instance processing to be able to log exceptions easily
       .map(Queries.breakDownSynthetic(ctx, _))
       .map(ctx.reflectOnBreakdown)
       .map(Factories.createCallSite(ctx, _))
+   */
+
+  private implicit class TryCollection[A](from: Seq[Try[A]]) {
+    def reportAndExtract: Seq[A] =
+      from
+        .map {
+          case Failure(t) => ErrorCollection().report(t); Failure(t)
+          case t => t
+        }
+        .collect {
+          case Success(t) => t
+        }
+  }
 
   def extractDeclarations(ctx: ReflectiveCtx): Set[Declaration] =
     ctx.inSourceDefinitions
+      .map(
+        t =>
+          Try(
+            Queries
+              .getDefn(ctx, t)
+        )
+      )
+      .reportAndExtract
+      .flatten
+      .map(d =>
+        Factories.createDeclaration(ctx, DeclarationReflection(ctx, d)))
+      .toSet
+
+  /*
       .flatMap(Queries.getDefn(ctx, _))
       //.filter(Queries.hasImplicits(ctx, _))
       .map(DeclarationReflection(ctx, _))
       .map(Factories.createDeclaration(ctx, _))
       .toSet
+   */
 
   def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    val callSites = extractCallSites(ctx)
-
+    val callSites: Seq[CallSite] = extractCallSites(ctx)
     val declarations: Set[Declaration] = extractDeclarations(ctx)
+
+    ErrorCollection().toFile("./tmp/errors.log")
 
     ExtractionResult(callSites, declarations)
   }
