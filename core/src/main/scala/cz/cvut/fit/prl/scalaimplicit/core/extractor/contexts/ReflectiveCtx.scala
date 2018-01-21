@@ -13,6 +13,7 @@ import scala.util.{Failure, Success, Try}
 
 class ReflectiveCtx(loader: ClassLoader, db: Database)
     extends SemanticCtx(db) {
+
   val _mirror = u.runtimeMirror(loader)
 
   def reflectOnBreakdown(x: SyntheticBreakdown): CallSiteReflection = {

@@ -1,9 +1,12 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  ReflectiveCtx,
+  SemanticCtx
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts.DefnBreakdown
 
-import scala.meta.{Decl, Defn, Pat, Term, Tree, Type, Symbol}
+import scala.meta.{Decl, Defn, Pat, Symbol, Term, Tree, Type}
 
 object DefnDecomposer {
 
@@ -24,7 +27,7 @@ object DefnDecomposer {
 
   def apply(ctx: ReflectiveCtx, defn: Tree)(
       implicit finder: Tree => Symbol): Seq[DefnBreakdown] = {
-    val metaSymbols: Seq[Symbol] = defn match {
+    val metaSymbols: Seq[Symbol] = (defn match {
       // Definitions
       case d: Defn.Val => handlePats(d)
       case d: Defn.Var => handlePats(d)
@@ -39,7 +42,7 @@ object DefnDecomposer {
       case d: Decl.Var => handlePats(d)
       case d: Decl.Def => handleTermName(d)
       case d: Decl.Type => handleTypeName(d)
-    }
+    }).filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
     metaSymbols.map(
       metaSymbol =>
         DefnBreakdown(

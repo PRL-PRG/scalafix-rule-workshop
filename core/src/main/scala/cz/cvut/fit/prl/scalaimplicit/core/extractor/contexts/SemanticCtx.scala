@@ -141,7 +141,8 @@ case class SemanticCtx(database: Database) extends LazyLogging {
       }
     }).toMap
   }
-  def inSourceCallSite(at: Int): Option[Tree] = _inSourceCallSites.get(at)
+  def inSourceCallSite(at: Int): Option[Tree] =
+    _inSourceCallSites.get(at)
 
   /*
   // This assumes that every symbol has a denotation.
@@ -272,4 +273,24 @@ object SemanticCtx {
   // Detect local type references [...] A => some.Code()L/Ret;.A#
   def isLocalTypeReference(s: Symbol.Global): Boolean =
     s.signature.isInstanceOf[Signature.Type] && s.owner.syntax.endsWith(";.")
+
+  def isKnowCornerCase(tree: Tree, sym: Symbol): Boolean = {
+
+    def hasNewAnonParent(tree: Tree): Boolean = tree.parent match {
+      case Some(p)
+          if p.isInstanceOf[Term.NewAnonymous] || hasNewAnonParent(p) =>
+        true
+      case None => false
+    }
+
+    sym match {
+      /*
+        trait A[T] { def a(implicit v: T): String (1) }
+        val aimpl = new A[Int] { def a(implicit v: Int): String = "anonfun" /* 2 */ }
+        Call sites resolved at compile time will not see (2), so they will resolve to (1)
+       */
+      case s: Symbol.Local if hasNewAnonParent(tree) => true
+      case _ => false
+    }
+  }
 }
