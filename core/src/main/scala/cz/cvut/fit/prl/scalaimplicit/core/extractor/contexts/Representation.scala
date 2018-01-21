@@ -21,15 +21,14 @@ import org.json4s.native.Serialization
   */
 object Representation {
 
-  case class Location(coords: Option[Coordinates], isExternal: Boolean)
-  case class Coordinates(file: String, line: Int, col: Int) {
+  case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
   }
   case class Type(name: String, parameters: Seq[Type] = Seq())
 
   case class Declaration(name: String,
                          kind: String,
-                         location: Location,
+                         location: Option[Location],
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
@@ -45,7 +44,7 @@ object Representation {
 
   case class CallSite(name: String,
                       code: String,
-                      location: Location,
+                      location: Option[Location],
                       isSynthetic: Boolean,
                       declaration: Declaration,
                       typeArguments: Seq[Type],
@@ -65,7 +64,7 @@ object Representation {
 object Factories {
   import Representation._
 
-  def createCreateCoordinates(pos: Position): Option[Coordinates] = {
+  def createLocation(pos: Position = Position.None): Option[Location] = {
     pos match {
       case p: Position if p == Position.None => None
       case p => {
@@ -74,18 +73,9 @@ object Factories {
           case Input.File(path, _) => path.toString
           case _ => s"<unknown file: ${pos.input}"
         }
-        Some(Coordinates(file, pos.endLine, pos.endColumn))
+        Some(Location(file, pos.endLine, pos.endColumn))
       }
     }
-  }
-
-  def createLocation(ctx: ReflectiveCtx,
-                     sym: u.Symbol,
-                     pos: Position = Position.None): Location = {
-    Location(
-      createCreateCoordinates(pos),
-      ctx.isExternal(sym)
-    )
   }
 
   /**
@@ -103,9 +93,7 @@ object Factories {
       declaration = Declaration(
         name = parent.declaration.fullName,
         kind = parent.declaration.kind,
-        location = createLocation(ctx,
-                                  parent.declaration.sym,
-                                  parent.declaration.position),
+        location = createLocation(parent.declaration.position),
         isImplicit = parent.declaration.isImplicit,
         signature = createSignature(ctx, parent.declaration),
         parents = Seq()
@@ -148,7 +136,7 @@ object Factories {
     Declaration(
       name = reflection.fullName,
       kind = reflection.kind,
-      location = createLocation(ctx, reflection.sym, reflection.position),
+      location = createLocation(reflection.position),
       isImplicit = reflection.isImplicit,
       parents = reflection.baseClasses
         .map(createParent(reflection, _, ctx)),
@@ -199,8 +187,7 @@ object Factories {
     val original = reflection.originalSymbol
 
     CallSite(
-      location =
-        createLocation(ctx, reflection.reflectiveSymbol, reflection.pos),
+      location = createLocation(reflection.pos),
       name = reflection.fullName,
       code = reflection.code,
       isSynthetic = original.isSynthetic,

@@ -205,10 +205,10 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
 
     def sortedCallSites: Seq[CallSite] =
-      that.callSites.sortBy(_.location.coords.get.line)
+      that.callSites.sortBy(_.location.get.line)
 
     def sortedDeclarations: Seq[Declaration] =
-      that.declarations.toSeq.sortBy(_.location.coords.get.line)
+      that.declarations.toSeq.sortBy(_.location.get.line)
 
     def normalizedDeclarations: Set[Declaration] =
       that.declarations.map(normalizedDeclaration)
@@ -231,9 +231,9 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
             arguments = a.arguments.map(normalizedArgument)
           )
       }
-    private def normalizedLocation(
-        location: Representation.Location): Representation.Location =
-      location.copy(coords = location.coords.map(_.copy(file = "")))
+    private def normalizedLocation(location: Option[Representation.Location])
+      : Option[Representation.Location] =
+      location.map(loc => loc.copy(file = ""))
   }
 
   /**

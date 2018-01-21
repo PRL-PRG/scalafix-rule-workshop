@@ -10,19 +10,12 @@ object PrettyPrinters {
 
   object PrettyInstances {
 
-    implicit object PrettyCoords extends PrettyPrintable[Option[Coordinates]] {
-      override def pretty(t: Option[Coordinates], indent: Int): String = {
+    implicit object PrettyLocation extends PrettyPrintable[Option[Location]] {
+      override def pretty(t: Option[Location], indent: Int): String = {
         t match {
           case Some(loc) => s"[${loc.toString}]:"
           case None => "?:"
         }
-      }
-    }
-
-    implicit object PrettyLocation extends PrettyPrintable[Location] {
-      override def pretty(t: Location, indent: Int): String = {
-        val prefix = if (t.isExternal) "<ext>" else ""
-        s"$prefix${PrettyCoords.pretty(t.coords, indent)}"
       }
     }
 

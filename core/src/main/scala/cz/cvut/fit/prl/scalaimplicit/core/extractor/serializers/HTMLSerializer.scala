@@ -115,16 +115,17 @@ object HTMLSerializer {
       }
     }
   }
-  implicit object HLocation extends HTMLPrintable[Location] {
+  implicit object HLocation extends HTMLPrintable[Option[Location]] {
 
     def composeGHURL(what: Location, metadata: ProjectMetadata) =
       // Lines are 0-indexed on scalameta, but 1-indexed on Github, IntelliJ and everywhere else
-      s"${metadata.url}/blob/${metadata.lastCommit}/${what.coords.get.file}#L${what.coords.get.line + 1}"
+      s"${metadata.url}/blob/${metadata.lastCommit}/${what.file}#L${what.line + 1}"
 
-    override def print(what: Location)(implicit metadata: ProjectMetadata) = {
-      what.coords match {
-        case Some(coords) => {
-          val url = composeGHURL(what, metadata)
+    override def print(what: Option[Location])(
+        implicit metadata: ProjectMetadata) = {
+      what match {
+        case Some(loc) => {
+          val url = composeGHURL(loc, metadata)
           a(href := url,
             `class` := "secondary-content waves-effect waves-light btn-small",
             target := "_blank")(
