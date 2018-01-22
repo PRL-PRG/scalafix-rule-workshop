@@ -20,9 +20,10 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
-    val res = ProjectReport.loadFromManifest("./tmp/manifest.json")
+    val res = ProjectReport.loadFromManifest("../top-120-results/results/manifest.json")
     //println(s"Found ${res.callSites.size} call sites")
 
+    /*
     // Corpus-wide statistic queries
     val corpusqres =
       res
@@ -63,6 +64,8 @@ object Main extends App {
       res
     )
     printResHTML(qres)
+    */
+    printResHTML(res)
   }
 
   def printCallSites(css: Seq[CallSite]) = {

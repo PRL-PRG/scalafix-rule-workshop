@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import java.nio.file.{Files, Paths}
 
+import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s._
@@ -12,19 +13,20 @@ case class ProjectReport(
     result: ExtractionResult
 )
 
-object ProjectReport {
+object ProjectReport extends LazyLogging {
   def loadFromManifest(path: String): Seq[ProjectReport] = {
     val manifest = parse(
       Files.readAllLines(Paths.get(path)).toArray.mkString(""))
     manifest.children match {
       case List(JArray(children)) =>
-        children map {
+        children.toParArray.map {
           case JObject(
-              List(JField("metadata", JString(metadataPath)),
-                   JField("results", JString(resultsPath)))) =>
+          List(JField("metadata", JString(metadataPath)),
+          JField("results", JString(resultsPath)))) =>
+            logger.debug(s"Loading ${resultsPath}")
             ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
-                          JSONSerializer.loadJSON(resultsPath))
-        }
+              JSONSerializer.loadJSON(resultsPath))
+        }.arrayseq
     }
   }
 }
