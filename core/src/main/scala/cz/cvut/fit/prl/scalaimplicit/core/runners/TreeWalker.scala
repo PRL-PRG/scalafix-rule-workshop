@@ -3,7 +3,16 @@ package cz.cvut.fit.prl.scalaimplicit.core.runners
 import java.nio.file.Files
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ExtractionResult,
+  OrphanCallSites
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+  Argument,
+  ArgumentLike,
+  Declaration,
+  ImplicitArgument
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   ReflectiveCtx,
   SemanticCtx
@@ -38,6 +47,45 @@ class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
             callSites = acc.callSites ++ res.callSites,
             declarations = acc.declarations ++ res.declarations
         ))
-    results
+    DefnFiller(results)
+  }
+}
+
+object DefnFiller extends (ExtractionResult => ExtractionResult) {
+  def findDeclOrReport(target: {
+    def declaration: Declaration; def name: String
+  }, definitions: Set[Declaration]): Declaration =
+    definitions
+      .find(_.name == target.name)
+      .getOrElse({
+        OrphanCallSites().report("Orphan CallSite",
+                                 s"Declaration not found for {$target.name}")
+        target.declaration
+      })
+
+  def processArgList(args: Seq[ArgumentLike],
+                     definitions: Set[Declaration]): Seq[ArgumentLike] = {
+    args.map {
+      case arg: Argument => arg
+      case iarg: ImplicitArgument =>
+        iarg.copy(
+          declaration = findDeclOrReport(iarg, definitions),
+          arguments = processArgList(iarg.arguments, definitions)
+        )
+    }
+  }
+
+  def apply(result: ExtractionResult): ExtractionResult = {
+    val defns = result.declarations
+    val nres = result.copy(
+      declarations = defns,
+      callSites = result.callSites.map(
+        cs =>
+          cs.copy(
+            declaration = findDeclOrReport(cs, defns),
+            implicitArguments = processArgList(cs.implicitArguments, defns)
+        ))
+    )
+    nres
   }
 }

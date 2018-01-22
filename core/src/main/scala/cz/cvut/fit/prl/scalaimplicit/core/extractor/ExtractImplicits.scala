@@ -164,7 +164,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
                                      ))
         )
       )
-      .reportAndExtract
+      .reportAndExtract("CallSite")
   /* Replaced with instance-by-instance processing to be able to log exceptions easily
       .map(Queries.breakDownSynthetic(ctx, _))
       .map(ctx.reflectOnBreakdown)
@@ -172,10 +172,10 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
    */
 
   private implicit class TryCollection[A](from: Seq[Try[A]]) {
-    def reportAndExtract: Seq[A] =
+    def reportAndExtract(header: String): Seq[A] =
       from
         .map {
-          case Failure(t) => ErrorCollection().report(t); Failure(t)
+          case Failure(t) => ErrorCollection().report(header, t); Failure(t)
           case t => t
         }
         .collect {
@@ -192,7 +192,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
               .getDefn(ctx, t)
         )
       )
-      .reportAndExtract
+      .reportAndExtract("Definition")
       .flatten
       .map(d =>
         Factories.createDeclaration(ctx, DeclarationReflection(ctx, d)))
@@ -207,8 +207,6 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
    */
 
   def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    val callSites: Seq[CallSite] = extractCallSites(ctx)
-    val declarations: Set[Declaration] = extractDeclarations(ctx)
-    ExtractionResult(callSites, declarations)
+    ExtractionResult(extractCallSites(ctx), extractDeclarations(ctx))
   }
 }

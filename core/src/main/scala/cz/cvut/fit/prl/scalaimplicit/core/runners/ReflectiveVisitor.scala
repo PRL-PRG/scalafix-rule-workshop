@@ -42,51 +42,11 @@ object ReflectiveVisitor
       val ctx = new ReflectiveCtx(loader, mdb)
       logger.debug(s"Processing $filePath")
       val res = f(ctx)
-      DefnFiller(res)
       res
     } catch {
       case NonFatal(e) =>
         e.printStackTrace()
         ExtractionResult.Empty
     }
-  }
-}
-
-object DefnFiller extends (ExtractionResult => ExtractionResult) {
-  def findDeclOrReport(target: {
-    def declaration: Declaration; def name: String
-  }, definitions: Set[Declaration]): Declaration =
-    definitions
-      .find(_.name == target.name)
-      .getOrElse({
-        OrphanCallSites().report(s"Declaration not found for {$target.name}")
-        target.declaration
-      })
-
-  def processArgList(args: Seq[ArgumentLike],
-                     definitions: Set[Declaration]): Seq[ArgumentLike] = {
-    args.map {
-      case arg: Argument => arg
-      case iarg: ImplicitArgument =>
-        iarg.copy(
-          declaration = findDeclOrReport(iarg, definitions),
-          arguments = processArgList(iarg.arguments, definitions)
-        )
-    }
-  }
-
-  def apply(result: ExtractionResult): ExtractionResult = {
-    val defns = result.declarations
-    val nres = result.copy(
-      declarations = defns,
-      callSites = result.callSites.map(
-        cs =>
-          cs.copy(
-            declaration = findDeclOrReport(cs, defns),
-            implicitArguments = processArgList(cs.implicitArguments, defns)
-        ))
-    )
-    OrphanCallSites().toFile("./tmp/orphancallsites.log")
-    nres
   }
 }

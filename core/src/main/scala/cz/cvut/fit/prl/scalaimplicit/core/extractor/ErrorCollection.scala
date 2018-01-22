@@ -5,13 +5,13 @@ import java.nio.file.{Files, Paths}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
 
 class DebugLogger[A] {
-  private var _queue: List[A] = List()
-  def report(e: A) = _queue = e :: _queue
+  private var _queue: List[(String, A)] = List()
+  def report(header: String, e: A) = _queue = (header, e) :: _queue
   def toFile(file: String) =
     Files.write(Paths.get(file),
                 _queue
-                  .map(_.toString)
-                  .mkString("\n--------------------------------------\n")
+                  .map(x => s"${x._1}----------------\n${x._2.toString}")
+                  .mkString("\n")
                   .getBytes())
 }
 
