@@ -2,6 +2,33 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import java.nio.file.{Files, Paths}
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
+import org.json4s._
+import org.json4s.native.JsonMethods._
+
+case class ProjectReport(
+    metadata: ProjectMetadata,
+    result: ExtractionResult
+)
+
+object ProjectReport {
+  def loadFromManifest(path: String): Seq[ProjectReport] = {
+    val manifest = parse(
+      Files.readAllLines(Paths.get(path)).toArray.mkString(""))
+    manifest.children match {
+      case List(JArray(children)) =>
+        children map {
+          case JObject(
+              List(JField("metadata", JString(metadataPath)),
+                   JField("results", JString(resultsPath)))) =>
+            ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
+                          JSONSerializer.loadJSON(resultsPath))
+        }
+    }
+  }
+}
+
 case class ProjectMetadata(
     reponame: String,
     name: String,

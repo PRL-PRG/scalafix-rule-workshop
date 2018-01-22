@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ProjectMetadata
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  ProjectMetadata,
+  ProjectReport
+}
 
 import scalatags.Text.all.{script, _}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
@@ -141,7 +144,7 @@ object HTMLSerializer {
   def pprint[A](x: A)(implicit printer: HTMLPrintable[A],
                       metadata: ProjectMetadata) = printer.print(x)
 
-  def createDocument(x: ExtractionResult, metadata: ProjectMetadata): String = {
+  def createDocument(results: Seq[ProjectReport]): String = {
     html(
       head(
         link(
@@ -156,10 +159,39 @@ object HTMLSerializer {
           src := "https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js")
       ),
       body(
-        // Header and all
-        h1(s"Call Sites for ${metadata.name}"),
+        div(`class` := "")(
+          div(`class` := "row")(
+            // Header and all
+            div(`class` := "col s2 teal lighten-5")(
+              b("Projects"),
+              ul(id := "navbar")(
+                results.map(res =>
+                  li(a(href := s"#${res.metadata.reponame.replace("/", "-")}")(
+                    s"${res.metadata.reponame}")))
+              )
+            ),
+            div(`class` := "col s5")(
+              results.map(
+                res =>
+                  div(id := s"${res.metadata.reponame.replace("/", "-")}")(div(
+                    table(
+                      thead(b(s"Call sites for ${res.metadata.reponame}")),
+                      tbody(tr(td(div(
+                        p(pprint(res.result)(HExtractionResult, res.metadata))
+                      ))))
+                    )
+                  )))
+            ),
+            div(`class` := "col s4 offset-s6")(
+              iframe(src := "https://github.com/")()
+            )
+          ))
+
+        /*
+          h1 (s"Call Sites for ${metadata.name}"),
         h4(a(href := metadata.url)(metadata.url)),
         div(`class` := "container")(p(pprint(x)(HExtractionResult, metadata)))
+       */
       )
       // Footer
     ).render

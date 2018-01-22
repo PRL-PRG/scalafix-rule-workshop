@@ -5,7 +5,11 @@ import java.net.{URL, URLClassLoader}
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, OrphanCallSites, ReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ErrorCollection,
+  OrphanCallSites,
+  ReflectExtract
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.runners.TreeWalker
 
@@ -28,9 +32,9 @@ object Main extends LazyLogging {
         val loader: ClassLoader = loadClasspath(conf.classpath)
         val walker = new TreeWalker(loader, conf.root)
         val res = walker(ReflectExtract)
-        JSONSerializer.saveJSON(res, conf.outdir+"/results.json")
-        ErrorCollection().toFile(conf.outdir+"/errors.log")
-        OrphanCallSites().toFile(conf.outdir+"/orphan-callsites.log")
+        JSONSerializer.saveJSON(res, conf.outdir + "/results.json")
+        ErrorCollection().toFile(conf.outdir + "/errors.log")
+        OrphanCallSites().toFile(conf.outdir + "/orphan-callsites.log")
       }
       case None => {
         println("No arguments found. Closing")
