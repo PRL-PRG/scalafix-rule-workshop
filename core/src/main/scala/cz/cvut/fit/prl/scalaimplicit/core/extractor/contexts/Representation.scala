@@ -25,11 +25,14 @@ object Representation {
     override def toString: String = s"$file:$line:$col"
   }
   case class Type(name: String, parameters: Seq[Type] = Seq())
-  object Type{
-    def apply(name: String, parameters: Seq[Type] = Seq()): Type = new Type(
-      name.split("""\{""").head
-        .split("""\n""").head,
-      parameters)
+  object Type {
+    def apply(name: String, parameters: Seq[Type] = Seq()): Type =
+      new Type(name
+                 .split("""\{""")
+                 .head
+                 .split("""\n""")
+                 .head,
+               parameters)
   }
 
   case class Declaration(name: String,

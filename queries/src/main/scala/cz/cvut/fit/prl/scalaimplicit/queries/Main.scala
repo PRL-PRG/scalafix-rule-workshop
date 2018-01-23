@@ -8,7 +8,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   ProjectMetadata,
-  ProjectReport
+  ProjectReport,
+  SlimReport
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances._
@@ -20,7 +21,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
-    val res = ProjectReport.loadFromManifest("../top-120-results/results/manifest.json")
+    val res =
+      SlimReport.loadFromManifest("../top-120-results/results/manifest.json")
     //println(s"Found ${res.callSites.size} call sites")
 
     /*
@@ -64,8 +66,8 @@ object Main extends App {
       res
     )
     printResHTML(qres)
-    */
-    printResHTML(res)
+     */
+    printSlimHTML(res)
   }
 
   def printCallSites(css: Seq[CallSite]) = {
@@ -77,6 +79,14 @@ object Main extends App {
       Paths.get("./tmp/res.html"),
       HTMLSerializer
         .createDocument(data)
+        .getBytes
+    )
+
+  def printSlimHTML(data: Seq[SlimReport]) =
+    Files.write(
+      Paths.get("./tmp/res.html"),
+      HTMLSerializer
+        .createSlimDocument(data)
         .getBytes
     )
 }

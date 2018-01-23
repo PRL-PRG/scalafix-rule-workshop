@@ -2,7 +2,8 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   ProjectMetadata,
-  ProjectReport
+  ProjectReport,
+  SlimReport
 }
 
 import scalatags.Text.all.{script, _}
@@ -124,6 +125,10 @@ object HTMLSerializer {
       // Lines are 0-indexed on scalameta, but 1-indexed on Github, IntelliJ and everywhere else
       s"${metadata.url}/blob/${metadata.lastCommit}/${what.file}#L${what.line + 1}"
 
+    def composeGistItURL(what: Location, metadata: ProjectMetadata) =
+      // Lines are 0-indexed on scalameta, but 1-indexed on Github, IntelliJ and everywhere else
+      s"http://gist-it.appspot.com/${metadata.url}/blob/${metadata.lastCommit}/${what.file}?slice=${what.line + 1 - 5}:${what.line + 1 + 5}"
+
     override def print(what: Option[Location])(
         implicit metadata: ProjectMetadata) = {
       what match {
@@ -194,6 +199,68 @@ object HTMLSerializer {
        */
       )
       // Footer
+    ).render
+  }
+
+  def createSlimDocument(results: Seq[SlimReport]): String = {
+    html(
+      head(
+        link(rel := "stylesheet",
+             href := "https://www.w3schools.com/w3css/4/w3.css")
+      ),
+      body(
+        script(raw(s"""
+            |function changeCode(what) {
+            |  document.write = function(what) { document.getElementById('frame').innerHTML += what }
+            |  var x = document.createElement("SCRIPT");
+            |  x.src = what
+            |  document.getElementById('frame').innerHTML = ""
+            |  document.getElementById('frame').appendChild(x)
+            |}
+          """.stripMargin)),
+        div(`class` := "w3-sidebar w3-bar-block", style := "width:20%")(
+          results.map(res =>
+            a(href := s"#${res.metadata.reponame.replace("/", "-")}",
+              `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
+        ),
+        div(`class` := "content", style := "margin-left:20%")(
+          div(style := "width:80%")(
+            div(style := "width:50%")(
+              results.map(
+                res =>
+                  div(id := s"${res.metadata.reponame.replace("/", "-")}")(div(
+                    table(
+                      b(s"Call sites for ${res.metadata.reponame}"),
+                      ul(res.result.callSites.map(cs =>
+                        tr(td(
+                          cs.location match {
+                            case Some(l) =>
+                              div(onclick := s"changeCode('${HLocation
+                                .composeGistItURL(cs.location.get, res.metadata)}')")(
+                                li(s"${cs.name}:${cs.location.get.line}")
+                              )
+                            case None => li(cs.name)
+                          }
+                        ))))
+                    )
+                  )))
+            ),
+            div(
+              style := "width: 35%; background-color: white; z-index: 10; position: fixed; right: 20px; top: 0px; height: 100%;")(
+              p(b("Code Surrounding it:")),
+              div(style := "width:100%;", id := "frame")(
+                script(
+                  src := "http://gist-it.appspot.com/https://github.com/sksamuel/elastic4s/blob/c3bb17504a2d0d902e02c2a57b1873181f824e22/elastic4s-testkit/src/main/scala/com/sksamuel/elastic4s/testkit/HttpElasticSugar.scala?slice=10:20"
+                )
+                //iframe(style := "width:100%; height:100%", src:="https://web.archive.org/web/http://github.com/sksamuel/elastic4s/blob/c3bb17504a2d0d902e02c2a57b1873181f824e22/elastic4s-testkit/src/main/scala/com/sksamuel/elastic4s/testkit/HttpElasticSugar.scala#L10")
+              ),
+              div(style := "position:fixed; top: 8.4em; right: 36%")(
+                h2(">")
+              )
+            )
+          )
+        )
+      )
     ).render
   }
 }

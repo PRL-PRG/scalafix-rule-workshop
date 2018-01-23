@@ -4,6 +4,8 @@ import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ProjectReport.logger
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -21,11 +23,37 @@ object ProjectReport extends LazyLogging {
       case List(JArray(children)) =>
         children.toParArray.map {
           case JObject(
-          List(JField("metadata", JString(metadataPath)),
-          JField("results", JString(resultsPath)))) =>
+              List(JField("metadata", JString(metadataPath)),
+                   JField("results", JString(resultsPath)))) =>
             logger.debug(s"Loading ${resultsPath}")
             ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
-              JSONSerializer.loadJSON(resultsPath))
+                          JSONSerializer.loadJSON(resultsPath))
+        }.arrayseq
+    }
+  }
+}
+
+case class SlimReport(
+    metadata: ProjectMetadata,
+    result: SlimResult
+)
+object SlimReport extends LazyLogging {
+  def apply(report: ProjectReport): SlimReport =
+    new SlimReport(report.metadata, SlimResult(report.result))
+
+  def loadFromManifest(path: String): Seq[SlimReport] = {
+    val manifest = parse(
+      Files.readAllLines(Paths.get(path)).toArray.mkString(""))
+    manifest.children match {
+      case List(JArray(children)) =>
+        children.toParArray.map {
+          case JObject(
+              List(JField("metadata", JString(metadataPath)),
+                   JField("results", JString(resultsPath)))) =>
+            logger.debug(s"Loading ${resultsPath}")
+            SlimReport(
+              ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
+                            JSONSerializer.loadJSON(resultsPath)))
         }.arrayseq
     }
   }
