@@ -12,7 +12,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.p
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
   PrettyArgument,
   PrettyCallSite,
-  PrettyDeclaration
+  PrettyDeclaration,
+  PrettyLocation
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 
@@ -202,6 +203,15 @@ object HTMLSerializer {
     ).render
   }
 
+  def createOnClickMaybe(location: Option[Location],
+                         metadata: ProjectMetadata) = location match {
+    case Some(l) =>
+      Seq(
+        onclick := s"changeCode('${HLocation.composeGistItURL(l, metadata)}', ${l.line})",
+        style := "text-color:blue;text-decoration:underline;")
+    case None => Seq(onclick := "")
+  }
+
   def createSlimDocument(results: Seq[SlimReport]): String = {
     html(
       head(
@@ -210,7 +220,7 @@ object HTMLSerializer {
       ),
       body(
         script(raw(s"""
-            |function changeCode(what) {
+            |function changeCode(what, line) {
             |  document.write = function(what) { document.getElementById('frame').innerHTML += what }
             |  var x = document.createElement("SCRIPT");
             |  x.src = what
@@ -229,15 +239,21 @@ object HTMLSerializer {
               results.map(
                 res =>
                   div(id := s"${res.metadata.reponame.replace("/", "-")}")(div(
-                    table(
+                    table(style := "word-wrap:break-word")(
                       b(s"Call sites for ${res.metadata.reponame}"),
                       ul(res.result.callSites.map(cs =>
                         tr(td(
                           cs.location match {
                             case Some(l) =>
-                              div(onclick := s"changeCode('${HLocation
-                                .composeGistItURL(cs.location.get, res.metadata)}')")(
-                                li(s"${cs.name}:${cs.location.get.line}")
+                              div(
+                                li(createOnClickMaybe(
+                                  cs.location,
+                                  res.metadata): _*)(s"${cs.code}${PrettyLocation
+                                  .pretty(cs.location.map(l => l.copy(file = "")), 0)}"),
+                                li(createOnClickMaybe(cs.declaration.location,
+                                                      res.metadata): _*)(
+                                  s"->${cs.declaration.kind} ${cs.declaration.name}${PrettyLocation
+                                    .pretty(cs.declaration.location.map(l => l.copy(file = "")), 0)}")
                               )
                             case None => li(cs.name)
                           }
