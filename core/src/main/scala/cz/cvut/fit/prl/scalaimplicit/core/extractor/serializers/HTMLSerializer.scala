@@ -1,6 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
+  ReportSummary,
   ProjectMetadata,
   ProjectReport,
   SlimReport
@@ -17,7 +18,11 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.P
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 
+import scalatags.Text
+
 object HTMLSerializer {
+  type HTMLTag = scalatags.Text.all.ConcreteHtmlTag[String]
+
   trait HTMLPrintable[A] {
     def print(what: A)(implicit metadata: ProjectMetadata)
       : scalatags.Text.all.ConcreteHtmlTag[String]
@@ -212,71 +217,134 @@ object HTMLSerializer {
     case None => Seq(onclick := "")
   }
 
-  def createSlimDocument(results: Seq[SlimReport]): String = {
+  def createSlimDocument(results: Seq[SlimReport],
+                         generator: HTMLReport): String = {
     html(
       head(
         link(rel := "stylesheet",
              href := "https://www.w3schools.com/w3css/4/w3.css")
       ),
       body(
-        script(raw(s"""
-            |function changeCode(what, line) {
-            |  document.write = function(what) { document.getElementById('frame').innerHTML += what }
-            |  var x = document.createElement("SCRIPT");
-            |  x.src = what
-            |  document.getElementById('frame').innerHTML = ""
-            |  document.getElementById('frame').appendChild(x)
-            |}
-          """.stripMargin)),
         div(`class` := "w3-sidebar w3-bar-block", style := "width:20%")(
-          results.map(res =>
-            a(href := s"#${res.metadata.reponame.replace("/", "-")}",
-              `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
+          generator.sidebar(results)
         ),
         div(`class` := "content", style := "margin-left:20%")(
           div(style := "width:80%")(
-            div(style := "width:50%")(
-              results.map(
-                res =>
-                  div(id := s"${res.metadata.reponame.replace("/", "-")}")(div(
-                    table(style := "word-wrap:break-word")(
-                      b(s"Call sites for ${res.metadata.reponame}"),
-                      ul(res.result.callSites.map(cs =>
-                        tr(td(
-                          cs.location match {
-                            case Some(l) =>
-                              div(
-                                li(createOnClickMaybe(
-                                  cs.location,
-                                  res.metadata): _*)(s"${cs.code}${PrettyLocation
-                                  .pretty(cs.location.map(l => l.copy(file = "")), 0)}"),
-                                li(createOnClickMaybe(cs.declaration.location,
-                                                      res.metadata): _*)(
-                                  s"->${cs.declaration.kind} ${cs.declaration.name}${PrettyLocation
-                                    .pretty(cs.declaration.location.map(l => l.copy(file = "")), 0)}")
-                              )
-                            case None => li(cs.name)
-                          }
-                        ))))
-                    )
-                  )))
-            ),
-            div(
-              style := "width: 35%; background-color: white; z-index: 10; position: fixed; right: 20px; top: 0px; height: 100%;")(
-              p(b("Code Surrounding it:")),
-              div(style := "width:100%;", id := "frame")(
-                script(
-                  src := "http://gist-it.appspot.com/https://github.com/sksamuel/elastic4s/blob/c3bb17504a2d0d902e02c2a57b1873181f824e22/elastic4s-testkit/src/main/scala/com/sksamuel/elastic4s/testkit/HttpElasticSugar.scala?slice=10:20"
-                )
-                //iframe(style := "width:100%; height:100%", src:="https://web.archive.org/web/http://github.com/sksamuel/elastic4s/blob/c3bb17504a2d0d902e02c2a57b1873181f824e22/elastic4s-testkit/src/main/scala/com/sksamuel/elastic4s/testkit/HttpElasticSugar.scala#L10")
-              ),
-              div(style := "position:fixed; top: 8.4em; right: 36%")(
-                h2(">")
-              )
-            )
+            generator.body(results)
           )
         )
       )
     ).render
+  }
+
+  trait HTMLReport {
+    def sidebar(data: Seq[SlimReport]): Seq[HTMLTag]
+    def body(data: Seq[SlimReport]): Seq[HTMLTag]
+  }
+
+  object CoderefReport extends HTMLReport {
+    override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
+      data.map(
+        res =>
+          a(href := s"#${res.metadata.reponame.replace("/", "-")}",
+            `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
+
+    override def body(results: Seq[SlimReport]): Seq[HTMLTag] =
+      Seq(
+        script(raw(s"""
+                        |function changeCode(what, line) {
+                        |  document.write = function(what) { document.getElementById('frame').innerHTML += what }
+                        |  var x = document.createElement("SCRIPT");
+                        |  x.src = what
+                        |  document.getElementById('frame').innerHTML = ""
+                        |  document.getElementById('frame').appendChild(x)
+                        |}
+          """.stripMargin)),
+        div(style := "width:50%")(
+          results.map(
+            res =>
+              div(id := s"${res.metadata.reponame.replace("/", "-")}")(div(
+                table(style := "word-wrap:break-word")(
+                  b(s"Call sites for ${res.metadata.reponame}"),
+                  ul(res.result.callSites.map(cs =>
+                    tr(td(
+                      cs.location match {
+                        case Some(l) =>
+                          div(
+                            li(
+                              createOnClickMaybe(cs.location, res.metadata): _*)(
+                              s"${cs.code}${PrettyLocation
+                                .pretty(cs.location.map(l => l.copy(file = "")), 0)}"),
+                            li(createOnClickMaybe(cs.declaration.location,
+                                                  res.metadata): _*)(
+                              s"->${cs.declaration.kind} ${cs.declaration.name}${PrettyLocation
+                                .pretty(cs.declaration.location.map(l => l.copy(file = "")), 0)}")
+                          )
+                        case None => li(cs.name)
+                      }
+                    ))))
+                )
+              )))
+        ),
+        div(
+          style := "width: 35%; background-color: white; z-index: 10; position: fixed; right: 20px; top: 0px; height: 100%;")(
+          p(b("Code Surrounding it:")),
+          div(style := "width:100%;", id := "frame")(
+            script(
+              src := "http://gist-it.appspot.com/https://github.com/sksamuel/elastic4s/blob/c3bb17504a2d0d902e02c2a57b1873181f824e22/elastic4s-testkit/src/main/scala/com/sksamuel/elastic4s/testkit/HttpElasticSugar.scala?slice=10:20"
+            )
+          ),
+          div(style := "position:fixed; top: 8.4em; right: 36%")(
+            h2(">")
+          )
+        )
+      )
+  }
+
+  object SummaryReport extends HTMLReport {
+    override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
+      Seq(
+        a(href := s"#summary", `class` := "w3-bar-item w3-button")(
+          "all/summary")
+      ) ++
+        data.map(
+          res =>
+            a(href := s"#${res.metadata.reponame.replace("/", "-")}",
+              `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
+
+    override def body(results: Seq[SlimReport]): Seq[HTMLTag] = {
+      def cellMaybe(what: Option[(String, Int)]) = what match {
+        case Some(thing) => Seq(td(thing._2), td(thing._1))
+        case None => Seq(td(""), td(""))
+      }
+      val projectSummaries = results.map(res => ReportSummary(res))
+      val overallSummary = ReportSummary(projectSummaries)
+      Seq(
+        div(id := "summary", `class` := "w3-table w3-bordered")()(
+          h4(b("Summary")),
+          table(
+            tbody(
+              tr(td("Total call sites"), td(overallSummary.totalCallSites))
+            ))
+        )) ++
+        projectSummaries.map(
+          summary =>
+            div(id := s"${summary.reponame.replace("/", "-")}")(
+              b(s"Call sites for ${summary.reponame}"),
+              table(`class` := "w3-table w3-bordered")(
+                thead(
+                  td(summary.totalCallSites),
+                  td(b("Call Sites"))
+                ),
+                tbody(
+                  summary.callSites
+                    .map(row => {
+                      tr(td(row._2), td(row._1))
+                    })
+                    .toSeq
+                )
+              )
+          ))
+    }
   }
 }

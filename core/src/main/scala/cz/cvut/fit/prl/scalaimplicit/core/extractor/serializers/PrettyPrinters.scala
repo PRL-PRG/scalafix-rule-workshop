@@ -135,12 +135,14 @@ object PrettyPrinters {
     implicit def PrettySeq[T](
         implicit separator: String,
         printer: PrettyPrintable[T]): PrettyPrintable[Seq[T]] =
-      (seq: Seq[T], indent: Int) =>
-        if (seq.nonEmpty)
-          seq
-            .map(elem => s"${printer.pretty(elem, indent)}")
-            .mkString(separator)
-        else ""
+      new PrettyPrintable[Seq[T]] {
+        override def pretty(seq: Seq[T], indent: Int): String =
+          if (seq.nonEmpty)
+            seq
+              .map(elem => s"${printer.pretty(elem, indent)}")
+              .mkString(separator)
+          else ""
+      }
 
     def wrapIfSome(content: String, begin: String = "", end: String = "") =
       if (content.nonEmpty) begin + content + end

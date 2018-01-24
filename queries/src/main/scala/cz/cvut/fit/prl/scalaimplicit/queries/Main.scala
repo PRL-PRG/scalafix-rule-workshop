@@ -14,6 +14,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
   HTMLSerializer,
   JSONSerializer
@@ -39,7 +40,10 @@ object Main extends App {
         .reverse
 
     println(s"Most frequent implicit: ${corpusqres.head.toString()}")
-
+     */
+    val res =
+      ProjectReport.loadFromManifest(
+        "../top-120-results/results/manifest.json")
     // Fiter queries
     val qres = QueryEngine(
       {
@@ -65,9 +69,8 @@ object Main extends App {
       },
       res
     )
-    printResHTML(qres)
-     */
-    printSlimHTML(res)
+    printSlimHTML(qres.map(x => SlimReport(x)))
+
   }
 
   def printCallSites(css: Seq[CallSite]) = {
@@ -82,11 +85,18 @@ object Main extends App {
         .getBytes
     )
 
-  def printSlimHTML(data: Seq[SlimReport]) =
+  def printSlimHTML(data: Seq[SlimReport]) = {
     Files.write(
-      Paths.get("./tmp/res.html"),
+      Paths.get("./tmp/coderefs.html"),
       HTMLSerializer
-        .createSlimDocument(data)
+        .createSlimDocument(data, HTMLSerializer.CoderefReport)
         .getBytes
     )
+    Files.write(
+      Paths.get("./tmp/summary.html"),
+      HTMLSerializer
+        .createSlimDocument(data, HTMLSerializer.SummaryReport)
+        .getBytes
+    )
+  }
 }

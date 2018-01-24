@@ -24,7 +24,7 @@ object Representation {
   case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
   }
-  case class Type(name: String, parameters: Seq[Type] = Seq())
+  class Type(val name: String, val parameters: Seq[Type] = Seq())
   object Type {
     def apply(name: String, parameters: Seq[Type] = Seq()): Type =
       new Type(name

@@ -5,7 +5,10 @@ import java.nio.file.{Files, Paths}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ProjectReport.logger
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.{
+  SlimCallSite,
+  SlimResult
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -30,6 +33,45 @@ object ProjectReport extends LazyLogging {
                           JSONSerializer.loadJSON(resultsPath))
         }.arrayseq
     }
+  }
+}
+
+case class ReportSummary(
+    reponame: String,
+    callSites: Seq[(String, Int)],
+    totalCallSites: Int,
+    definitions: Seq[(String, Int)],
+    totalDefinitions: Int
+) {
+  def twoCols =
+    callSites.map(x => Some(x)) zipAll (definitions.map(x => Some(x)), None, None)
+}
+object ReportSummary {
+  def apply(parts: Seq[ReportSummary]) = {
+    parts.tail.fold(parts.head)(
+      (report, acc) =>
+        acc.copy(
+          callSites = acc.callSites ++ report.callSites,
+          totalCallSites = acc.totalCallSites + report.totalCallSites,
+          definitions = acc.definitions ++ report.definitions,
+          totalDefinitions = acc.totalDefinitions + report.totalDefinitions,
+          reponame = ""
+      ))
+  }
+  def apply(report: SlimReport): ReportSummary = {
+    def groupAndCount(
+        what: Iterable[{ def name: String }]): (Seq[(String, Int)], Int) = {
+      val groups = what
+        .groupBy(_.name)
+        .map(x => (x._1, x._2.size))
+        .toSeq
+        .sortBy(-_._2)
+      (groups, groups.map(x => x._2).sum)
+    }
+    val css = groupAndCount(report.result.callSites)
+    val decls = groupAndCount(report.result.definitions)
+
+    ReportSummary(report.metadata.reponame, css._1, css._2, decls._1, decls._2)
   }
 }
 
