@@ -317,34 +317,34 @@ object HTMLSerializer {
         case Some(thing) => Seq(td(thing._2), td(thing._1))
         case None => Seq(td(""), td(""))
       }
+
+      def printSummary(summary: ReportSummary) = {
+        div(id := s"${summary.reponame.replace("/", "-")}")(
+          b(s"Call sites for ${summary.reponame}"),
+          table(`class` := "w3-table w3-bordered")(
+            thead(
+              td(summary.totalCallSites),
+              td(b("Call Sites"))
+            ),
+            tbody(
+              summary.sortedCallSites
+                .map(row => {
+                  tr(td(row._2), td(row._1))
+                })
+                .toSeq
+            )
+          )
+        )
+      }
       val projectSummaries = results.map(res => ReportSummary(res))
       val overallSummary = ReportSummary(projectSummaries)
       Seq(
         div(id := "summary", `class` := "w3-table w3-bordered")()(
           h4(b("Summary")),
-          table(
-            tbody(
-              tr(td("Total call sites"), td(overallSummary.totalCallSites))
-            ))
+          printSummary(overallSummary.copy(
+            callSites = overallSummary.sortedCallSites.take(10).toMap))
         )) ++
-        projectSummaries.map(
-          summary =>
-            div(id := s"${summary.reponame.replace("/", "-")}")(
-              b(s"Call sites for ${summary.reponame}"),
-              table(`class` := "w3-table w3-bordered")(
-                thead(
-                  td(summary.totalCallSites),
-                  td(b("Call Sites"))
-                ),
-                tbody(
-                  summary.callSites
-                    .map(row => {
-                      tr(td(row._2), td(row._1))
-                    })
-                    .toSeq
-                )
-              )
-          ))
+        projectSummaries.map(printSummary)
     }
   }
 }

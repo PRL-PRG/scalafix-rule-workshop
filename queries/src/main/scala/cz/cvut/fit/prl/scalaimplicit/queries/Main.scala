@@ -41,6 +41,7 @@ object Main extends App {
 
     println(s"Most frequent implicit: ${corpusqres.head.toString()}")
      */
+    /*
     val res =
       ProjectReport.loadFromManifest(
         "../top-120-results/results/manifest.json")
@@ -70,7 +71,7 @@ object Main extends App {
       res
     )
     printSlimHTML(qres.map(x => SlimReport(x)))
-
+   */
   }
 
   def printCallSites(css: Seq[CallSite]) = {
