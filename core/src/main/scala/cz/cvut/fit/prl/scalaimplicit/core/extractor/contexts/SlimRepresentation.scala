@@ -12,26 +12,28 @@ object SlimRepresentation {
 
   case class SlimCallSite(name: String,
                           code: String,
-                          declaration: SlimDeclaration,
+                          declaration: SlimDefinition,
                           location: Option[Location])
   object SlimCallSite {
     def apply(from: CallSite): SlimCallSite = new SlimCallSite(
       name = from.name,
       code = from.code,
-      declaration = SlimDeclaration(from.declaration),
+      declaration = SlimDefinition(from.declaration),
       location = from.location
     )
   }
 
-  case class SlimDeclaration(
+  case class SlimDefinition(
       name: String,
       kind: String,
       signature: String,
       paramLists: Seq[SlimParamList],
       location: Option[Location]
-  )
-  object SlimDeclaration {
-    def apply(from: Declaration): SlimDeclaration = new SlimDeclaration(
+  ) {
+    def kindedName: String = s"$kind $name"
+  }
+  object SlimDefinition {
+    def apply(from: Declaration): SlimDefinition = new SlimDefinition(
       name = from.name,
       kind = from.kind,
       signature = from.signature.slim,
@@ -49,11 +51,11 @@ object SlimRepresentation {
   case class SlimParamList(paramNum: Int, isImplicit: Boolean)
 
   case class SlimResult(callSites: Seq[SlimCallSite],
-                        definitions: Set[SlimDeclaration])
+                        definitions: Set[SlimDefinition])
   object SlimResult {
     def apply(res: ExtractionResult): SlimResult = new SlimResult(
       callSites = res.callSites.map(x => SlimCallSite(x)),
-      definitions = res.declarations.map(x => SlimDeclaration(x))
+      definitions = res.declarations.map(x => SlimDefinition(x))
     )
   }
 }

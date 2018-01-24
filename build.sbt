@@ -1,5 +1,6 @@
 lazy val commonSettings = Seq(
-  scalaVersion := "2.12.4",
+  scalaVersion := "2.11.11",
+  crossScalaVersions := Vector("2.12.4", "2.11.11"),
   sbtVersion in Global := "1.0.4",
   crossSbtVersions := Vector("0.13.16", "1.0.4"),
   scalacOptions += "-Yno-adapted-args",
@@ -21,9 +22,11 @@ lazy val coreutils = (project in file("core"))
       "ch.qos.logback" % "logback-classic" % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
       "org.scalameta" %% "testkit" % "2.1.2",
-      "org.scalameta" % "semanticdb-scalac_2.12.4" % "2.1.2",
+      //"org.scalameta" % "semanticdb-scalac_2.12.4" % "2.1.2",
+      "org.scalameta" % "semanticdb-scalac_2.11.11" % "2.1.2",
       "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-      "com.github.scopt" % "scopt_2.12" % "3.7.0",
+      "com.github.scopt" % "scopt_2.11" % "3.7.0",
+      //"com.github.scopt" % "scopt_2.12" % "3.7.0",
       "org.scalactic" %% "scalactic" % "3.0.4",
       "org.scalatest" %% "scalatest" % "3.0.4" % "test",
       "com.github.nikita-volkov" % "sext" % "0.2.4",
@@ -41,8 +44,12 @@ lazy val macros = (project in file("macros"))
 
 lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies +=
-    "com.lihaoyi" %% "scalatags" % "0.6.7")
+  .settings(libraryDependencies ++= Seq(
+    "com.lihaoyi" %% "scalatags" % "0.6.7",
+    "org.apache.spark" %% "spark-core" % "2.1.0" % "provided",
+    "org.apache.spark" %% "spark-sql" % "2.2.1",
+    "org.apache.spark" %% "spark-catalyst" % "2.2.1"
+  ))
   .dependsOn(coreutils % "test->test", macros)
 
 lazy val classpathExtractor =

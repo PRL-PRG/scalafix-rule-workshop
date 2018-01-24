@@ -1,11 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  ReportSummary,
-  ProjectMetadata,
-  ProjectReport,
-  SlimReport
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
 
 import scalatags.Text.all.{script, _}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
@@ -217,8 +212,8 @@ object HTMLSerializer {
     case None => Seq(onclick := "")
   }
 
-  def createSlimDocument(results: Seq[SlimReport],
-                         generator: HTMLReport): String = {
+  def createSlimDocument[A](results: Seq[A],
+                            generator: HTMLReport[A]): String = {
     html(
       head(
         link(rel := "stylesheet",
@@ -237,12 +232,12 @@ object HTMLSerializer {
     ).render
   }
 
-  trait HTMLReport {
-    def sidebar(data: Seq[SlimReport]): Seq[HTMLTag]
-    def body(data: Seq[SlimReport]): Seq[HTMLTag]
+  trait HTMLReport[A] {
+    def sidebar(data: Seq[A]): Seq[HTMLTag]
+    def body(data: Seq[A]): Seq[HTMLTag]
   }
 
-  object CoderefReport extends HTMLReport {
+  object CoderefReport extends HTMLReport[SlimReport] {
     override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
       data.map(
         res =>
@@ -301,7 +296,7 @@ object HTMLSerializer {
       )
   }
 
-  object SummaryReport extends HTMLReport {
+  object SummaryReport extends HTMLReport[SlimReport] {
     override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
       Seq(
         a(href := s"#summary", `class` := "w3-bar-item w3-button")(
@@ -323,7 +318,8 @@ object HTMLSerializer {
           b(s"Call sites for ${summary.reponame}"),
           table(`class` := "w3-table w3-bordered")(
             thead(
-              td(summary.totalCallSites),
+              td(
+                s"${summary.totalCallSites} (${summary.stats.percentageCovered * 100}%)"),
               td(b("Call Sites"))
             ),
             tbody(
@@ -346,5 +342,53 @@ object HTMLSerializer {
         )) ++
         projectSummaries.map(printSummary)
     }
+  }
+
+  object DefinitionReport extends HTMLReport[DefinitionCount] {
+    override def sidebar(data: Seq[DefinitionCount]): Seq[HTMLTag] =
+      Seq(
+        a(href := s"#summary", `class` := "w3-bar-item w3-button")(
+          "all/summary")
+      ) ++
+        data.map(
+          res =>
+            a(href := s"#${res.metadata.reponame.replace("/", "-")}",
+              `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
+
+    override def body(results: Seq[DefinitionCount]): Seq[HTMLTag] = {
+      def printSummary(summary: ReportSummary) = {
+        div(id := s"${summary.reponame.replace("/", "-")}")(
+          b(s"CallSites per Definition for ${summary.reponame}"),
+          table(`class` := "w3-table w3-bordered")(
+            thead(
+              td(""),
+              td(b("Definitions"))
+            ),
+            tbody(
+              summary.sortedDefinitions
+                .map(row => {
+                  tr(td(row._2), td(row._1))
+                })
+                .toSeq
+            )
+          )
+        )
+      }
+      val projectSummaries =
+        results.map(res => ReportSummary(res.metadata, res.definitions))
+      val overallSummary = ReportSummary(projectSummaries)
+      Seq(
+        h3("Declarations of Implicits"),
+        h4("With a count of how many call sites they appear in"),
+        div(id := "summary", `class` := "w3-table w3-bordered")()(
+          h4(b("Summary")),
+          printSummary(
+            overallSummary.copy(
+              definitions = overallSummary.sortedDefinitions.take(10).toMap))
+        )
+      ) ++
+        projectSummaries.map(printSummary)
+    }
+
   }
 }

@@ -7,6 +7,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ProjectReport.logger
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.{
   SlimCallSite,
+  SlimDefinition,
   SlimResult
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
@@ -15,8 +16,16 @@ import org.json4s.native.JsonMethods._
 
 case class ProjectReport(
     metadata: ProjectMetadata,
-    result: ExtractionResult
+    result: ExtractionResult,
+    stats: Statistics = Statistics.Default
 )
+
+case class Statistics(
+    percentageCovered: Double
+)
+object Statistics {
+  val Default = Statistics(1.0)
+}
 
 object ProjectReport extends LazyLogging {
   def loadFromManifest(path: String): Seq[ProjectReport] = {
@@ -41,7 +50,8 @@ case class ReportSummary(
     callSites: Map[String, Int],
     totalCallSites: Int,
     definitions: Map[String, Int],
-    totalDefinitions: Int
+    totalDefinitions: Int,
+    stats: Statistics
 ) {
   def twoCols =
     callSites.map(x => Some(x)) zipAll (definitions.map(x => Some(x)), None, None)
@@ -56,6 +66,7 @@ object ReportSummary {
         m.foldLeft(r) {
           case (dict, (k, v)) => dict + (k -> (v + dict.getOrElse(k, 0)))
       })
+
     parts.tail.fold(parts.head)(
       (report, acc) =>
         acc.copy(
@@ -66,6 +77,7 @@ object ReportSummary {
           reponame = "all/summary"
       ))
   }
+
   def apply(report: SlimReport): ReportSummary = {
     def groupAndCount(
         what: Iterable[{ def name: String }]): (Map[String, Int], Int) = {
@@ -74,20 +86,38 @@ object ReportSummary {
         .map(x => (x._1, x._2.size))
       (groups, groups.values.sum)
     }
+
     val css = groupAndCount(report.result.callSites)
     val decls = groupAndCount(report.result.definitions)
 
-    ReportSummary(report.metadata.reponame, css._1, css._2, decls._1, decls._2)
+    ReportSummary(report.metadata.reponame,
+                  css._1,
+                  css._2,
+                  decls._1,
+                  decls._2,
+                  report.stats)
+  }
+
+  def apply(metadata: ProjectMetadata, definitions: Map[String, Int]) = {
+    new ReportSummary(
+      metadata.reponame,
+      callSites = Map(),
+      totalCallSites = 0,
+      definitions = definitions.map(x => x._1 -> x._2),
+      totalDefinitions = definitions.values.sum,
+      stats = Statistics.Default
+    )
   }
 }
 
 case class SlimReport(
     metadata: ProjectMetadata,
-    result: SlimResult
+    result: SlimResult,
+    stats: Statistics = Statistics.Default
 )
 object SlimReport extends LazyLogging {
   def apply(report: ProjectReport): SlimReport =
-    new SlimReport(report.metadata, SlimResult(report.result))
+    new SlimReport(report.metadata, SlimResult(report.result), report.stats)
 
   def loadFromManifest(path: String): Seq[SlimReport] = {
     val manifest = parse(
@@ -106,6 +136,9 @@ object SlimReport extends LazyLogging {
     }
   }
 }
+
+case class DefinitionCount(metadata: ProjectMetadata,
+                           definitions: Map[String, Int])
 
 case class ProjectMetadata(
     reponame: String,

@@ -2,46 +2,26 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractionResult,
-  contexts
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimDefinition
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  ProjectMetadata,
+  DefinitionCount,
   ProjectReport,
   SlimReport
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
-  HTMLSerializer,
-  JSONSerializer
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 
-object Main extends App {
-  override def main(args: Array[String]): Unit = {
+object Main {
+
+
+  def dumpAll() = {
     val res =
       SlimReport.loadFromManifest("../top-120-results/results/manifest.json")
-    //println(s"Found ${res.callSites.size} call sites")
 
-    /*
-    // Corpus-wide statistic queries
-    val corpusqres =
-      res
-        .flatMap(proj => {
-          proj.result.callSites
-        })
-        .groupBy(_.name)
-        .map(x => (x._1, x._2.size))
-        .toSeq
-        .sortBy(_._2)
-        .reverse
+    printSlimHTML("tmp/all", res)
+  }
 
-    println(s"Most frequent implicit: ${corpusqres.head.toString()}")
-     */
-    /*
+  def conversion(): Unit = {
     val res =
       ProjectReport.loadFromManifest(
         "../top-120-results/results/manifest.json")
@@ -70,31 +50,94 @@ object Main extends App {
       },
       res
     )
-    printSlimHTML(qres.map(x => SlimReport(x)))
-   */
+    printSlimHTML("tmp/conversion", qres.map(x => SlimReport(x)))
   }
 
-  def printCallSites(css: Seq[CallSite]) = {
-    css.map(prettyPrint(_)(PrettyCallSite)).map(println)
+  def typeClass() = {
+    val res =
+      ProjectReport.loadFromManifest(
+        "../top-120-results/results/manifest.json")
+    // Fiter queries
+    val qres = QueryEngine(
+      {
+        case CallSite(_, _, _, _, _, _, iargs)
+            if QueryEngine.contains[ArgumentLike](
+              iargs, {
+                case arg: ImplicitArgument =>
+                  (arg.declaration.isImplicit
+                    && QueryEngine.matches[String](
+                      arg.declaration.kind,
+                      k => k.contains("def") || k.contains("object"))
+                    && QueryEngine.matches[Option[Type]](
+                      arg.declaration.signature.get.returnType,
+                      rt => rt.isDefined && rt.get.parameters.isEmpty)
+                    && QueryEngine.contains[Parent](
+                      arg.declaration.parents,
+                      parent =>
+                        QueryEngine.matches[Declaration](
+                          parent.declaration,
+                          d =>
+                            d.kind
+                              .contains("trait") && d.signature.get.typeParams.size == 1)
+                          && parent.typeArguments.size == 1
+                    ))
+                case _ => false
+              }
+            ) =>
+          true
+        case _ => false
+      },
+      res
+    )
+    printSlimHTML("tmp/typeclass", qres.map(x => SlimReport(x)))
   }
 
-  def printResHTML(data: Seq[ProjectReport]) =
+  def declarationsByCallSite() = {
+    val res =
+      ProjectReport.loadFromManifest(
+        "../top-120-results/results/manifest.json")
+
+    val decls: Seq[DefinitionCount] = res.map(proj => {
+      DefinitionCount(
+        proj.metadata,
+        proj.result.callSites
+          .flatMap(cs =>
+            cs.implicitArguments.collect {
+              case arg: ImplicitArgument if arg.declaration.isImplicit =>
+                (SlimDefinition(arg.declaration), 1)
+          })
+          .groupBy(_._1.kindedName)
+          .map(d => d._1 -> d._2.size)
+      )
+    })
+
     Files.write(
-      Paths.get("./tmp/res.html"),
+      Paths.get("./tmp/contextcandidates/definitions.html"),
       HTMLSerializer
-        .createDocument(data)
+        .createSlimDocument[DefinitionCount](decls,
+                                             HTMLSerializer.DefinitionReport)
         .getBytes
     )
+  }
 
-  def printSlimHTML(data: Seq[SlimReport]) = {
+  def main(args: Array[String]): Unit = {
+    //doSpark()
+
+    dumpAll()
+    conversion()
+    typeClass()
+    declarationsByCallSite()
+  }
+
+  def printSlimHTML(folder: String, data: Seq[SlimReport]) = {
     Files.write(
-      Paths.get("./tmp/coderefs.html"),
+      Paths.get(s"./${folder}/coderefs.html"),
       HTMLSerializer
         .createSlimDocument(data, HTMLSerializer.CoderefReport)
         .getBytes
     )
     Files.write(
-      Paths.get("./tmp/summary.html"),
+      Paths.get(s"./${folder}/summary.html"),
       HTMLSerializer
         .createSlimDocument(data, HTMLSerializer.SummaryReport)
         .getBytes
