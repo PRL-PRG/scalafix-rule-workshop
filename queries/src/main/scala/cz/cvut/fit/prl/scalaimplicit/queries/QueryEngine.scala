@@ -19,7 +19,9 @@ object QueryEngine {
             callSites = filteredCallSites
           ),
           stats = Statistics(
-            percentageCovered = filteredCallSites.size.toDouble / proj.result.callSites.size.toDouble
+            percentageCovered = filteredCallSites.size.toDouble / proj.result.callSites.size.toDouble,
+            callSitesAfterFilter = filteredCallSites.size,
+            callSitesBeforeFilter = proj.result.callSites.size
           )
         )
       }

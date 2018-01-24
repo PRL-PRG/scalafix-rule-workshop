@@ -21,10 +21,12 @@ case class ProjectReport(
 )
 
 case class Statistics(
-    percentageCovered: Double
+    percentageCovered: Double,
+    callSitesAfterFilter: Int,
+    callSitesBeforeFilter: Int
 )
 object Statistics {
-  val Default = Statistics(1.0)
+  val Default = Statistics(1.0, 0, 0)
 }
 
 object ProjectReport extends LazyLogging {

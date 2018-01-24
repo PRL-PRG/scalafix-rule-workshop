@@ -13,12 +13,11 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 
 object Main {
 
-
   def dumpAll() = {
     val res =
       SlimReport.loadFromManifest("../top-120-results/results/manifest.json")
 
-    printSlimHTML("tmp/all", res)
+    printSlimCallSiteReports("tmp/all", res)
   }
 
   def conversion(): Unit = {
@@ -50,7 +49,7 @@ object Main {
       },
       res
     )
-    printSlimHTML("tmp/conversion", qres.map(x => SlimReport(x)))
+    printSlimCallSiteReports("tmp/conversion", qres.map(x => SlimReport(x)))
   }
 
   def typeClass() = {
@@ -89,7 +88,7 @@ object Main {
       },
       res
     )
-    printSlimHTML("tmp/typeclass", qres.map(x => SlimReport(x)))
+    printSlimCallSiteReports("tmp/typeclass", qres.map(x => SlimReport(x)))
   }
 
   def declarationsByCallSite() = {
@@ -129,7 +128,23 @@ object Main {
     declarationsByCallSite()
   }
 
-  def printSlimHTML(folder: String, data: Seq[SlimReport]) = {
+  def printSlimCallSiteReports(folder: String, data: Seq[SlimReport]) = {
+    def csvSummary(reports: Seq[SlimReport]): String = {
+      def prepareValue(x: String) = {
+        // FIXME: properly escape " in x
+        '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
+      }
+
+      val header = "project, call_sites_before_filter, call_sites_after_filter"
+      val values = reports
+        .map(report =>
+          s"""${prepareValue(report.metadata.reponame)},${prepareValue(
+               report.stats.callSitesBeforeFilter.toString)},${prepareValue(
+               report.stats.callSitesAfterFilter.toString)}""".stripMargin)
+        .mkString("\n")
+      s"$header\n$values"
+    }
+
     Files.write(
       Paths.get(s"./${folder}/coderefs.html"),
       HTMLSerializer
@@ -141,6 +156,10 @@ object Main {
       HTMLSerializer
         .createSlimDocument(data, HTMLSerializer.SummaryReport)
         .getBytes
+    )
+    Files.write(
+      Paths.get(s"./${folder}/summary.csv"),
+      csvSummary(data).getBytes
     )
   }
 }
