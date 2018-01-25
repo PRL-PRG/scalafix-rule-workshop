@@ -15,9 +15,13 @@ object Main {
 
   def dumpAll() = {
     val res =
-      SlimReport.loadFromManifest("../top-120-results/results/manifest.json")
+      ProjectReport.loadFromManifest(
+        "../top-120-results/results/manifest.json")
 
-    printSlimCallSiteReports("tmp/all", res)
+    val qres = QueryEngine(x => true, res)
+    printSlimCallSiteReports(
+      "tmp/all",
+      (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
   }
 
   def conversion(): Unit = {
@@ -49,7 +53,9 @@ object Main {
       },
       res
     )
-    printSlimCallSiteReports("tmp/conversion", qres.map(x => SlimReport(x)))
+    printSlimCallSiteReports(
+      "tmp/conversion",
+      (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
   }
 
   def typeClass() = {
@@ -57,7 +63,7 @@ object Main {
       ProjectReport.loadFromManifest(
         "../top-120-results/results/manifest.json")
 
-    val qres = QueryEngine(
+    val qres: (Seq[ProjectReport], Seq[ProjectReport]) = QueryEngine(
       {
         case CallSite(_, _, _, _, _, _, iargs)
             if QueryEngine.contains[ArgumentLike](
@@ -88,7 +94,9 @@ object Main {
       },
       res
     )
-    printSlimCallSiteReports("tmp/typeclass", qres.map(x => SlimReport(x)))
+    printSlimCallSiteReports(
+      "tmp/typeclass",
+      (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
   }
 
   def declarationsByCallSite() = {
@@ -125,20 +133,23 @@ object Main {
         "../top-120-results/results/manifest.json")
 
     val qres = QueryEngine((cs) => cs.implicitArguments.size > 1, res)
-    printSlimCallSiteReports("tmp/morethanone", qres.map(x => SlimReport(x)))
+    printSlimCallSiteReports(
+      "tmp/morethanone",
+      (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
   }
 
   def main(args: Array[String]): Unit = {
     //doSpark()
 
-    //dumpAll()
-    //conversion()
-    //typeClass()
-    //declarationsByCallSite()
+    dumpAll()
+    conversion()
+    typeClass()
+    declarationsByCallSite()
     moreThanOneParam()
   }
 
-  def printSlimCallSiteReports(folder: String, data: Seq[SlimReport]) = {
+  def printSlimCallSiteReports(folder: String,
+                               data: (Seq[SlimReport], Seq[SlimReport])) = {
     def csvSummary(reports: Seq[SlimReport]): String = {
       def prepareValue(x: String) = {
         // FIXME: properly escape " in x
@@ -155,21 +166,29 @@ object Main {
       s"$header\n$values"
     }
 
-    Files.write(
-      Paths.get(s"./${folder}/coderefs.html"),
-      HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.CoderefReport)
-        .getBytes
-    )
-    Files.write(
-      Paths.get(s"./${folder}/summary.html"),
-      HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.SummaryReport)
-        .getBytes
-    )
-    Files.write(
-      Paths.get(s"./${folder}/summary.csv"),
-      csvSummary(data).getBytes
-    )
+    def writeReportsForResult(folder: String,
+                              prefix: String,
+                              data: Seq[SlimReport]) = {
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.coderefs.html"),
+        HTMLSerializer
+          .createSlimDocument(data, HTMLSerializer.CoderefReport)
+          .getBytes
+      )
+
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.summary.html"),
+        HTMLSerializer
+          .createSlimDocument(data, HTMLSerializer.SummaryReport)
+          .getBytes
+      )
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.summary.csv"),
+        csvSummary(data).getBytes
+      )
+    }
+
+    writeReportsForResult(folder, "results", data._1)
+    writeReportsForResult(folder, "excluded", data._2)
   }
 }

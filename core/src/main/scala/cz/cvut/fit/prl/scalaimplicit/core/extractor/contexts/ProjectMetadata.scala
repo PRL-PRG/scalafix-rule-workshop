@@ -69,15 +69,17 @@ object ReportSummary {
           case (dict, (k, v)) => dict + (k -> (v + dict.getOrElse(k, 0)))
       })
 
-    parts.tail.fold(parts.head)(
-      (report, acc) =>
-        acc.copy(
-          callSites = mergeMaps(Seq(acc.callSites, report.callSites)),
-          totalCallSites = acc.totalCallSites + report.totalCallSites,
-          definitions = mergeMaps(Seq(acc.definitions, report.definitions)),
-          totalDefinitions = acc.totalDefinitions + report.totalDefinitions,
-          reponame = "all/summary"
-      ))
+    val merge = (report: ReportSummary, acc: ReportSummary) =>
+      acc.copy(
+        callSites = mergeMaps(Seq(acc.callSites, report.callSites)),
+        totalCallSites = acc.totalCallSites + report.totalCallSites,
+        definitions = mergeMaps(Seq(acc.definitions, report.definitions)),
+        totalDefinitions = acc.totalDefinitions + report.totalDefinitions,
+        reponame = "all/summary"
+    )
+
+    if (parts.size == 1) parts.head.copy(reponame = "all/summary")
+    else parts.tail.fold(parts.head)(merge)
   }
 
   def apply(report: SlimReport): ReportSummary = {
