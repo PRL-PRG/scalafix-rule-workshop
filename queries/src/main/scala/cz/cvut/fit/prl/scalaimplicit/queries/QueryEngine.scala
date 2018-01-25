@@ -9,13 +9,20 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
 
 object QueryEngine {
+  trait FilterQuery[A] {
+    def predicate: (A => Boolean)
+  }
+  case class CSFilterQuery(predicate: CallSite => Boolean)
+      extends FilterQuery[CallSite]
+
   def apply(
-      q: (CallSite => Boolean),
+      q: FilterQuery[CallSite],
       data: Seq[ProjectReport]): (Seq[ProjectReport], Seq[ProjectReport]) =
     data
       .map(
         proj => {
-          val partition = proj.result.callSites.partition(cs => q(cs))
+          val partition =
+            proj.result.callSites.partition(cs => q.predicate(cs))
           createReportFromPartition(proj, partition._1) ->
             createReportFromPartition(proj, partition._2)
         }
