@@ -1,12 +1,7 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.representation
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
-  CallSite,
-  Declaration,
-  Location,
-  Signature
-}
+import Representation.{CallSite, Declaration, Location, Signature}
 
 object SlimRepresentation {
 

@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Type
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   ReflectiveCtx,
   SemanticCtx

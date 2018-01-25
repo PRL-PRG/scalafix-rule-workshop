@@ -9,7 +9,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.{semanticdb => d}
 

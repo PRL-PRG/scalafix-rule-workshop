@@ -7,7 +7,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
   OrphanCallSites
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
   Argument,
   ArgumentLike,
   Declaration,

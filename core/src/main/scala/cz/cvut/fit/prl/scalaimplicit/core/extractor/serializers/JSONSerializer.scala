@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import java.nio.file.{Files, Paths}
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
 
 object JSONSerializer {
   import Representation._

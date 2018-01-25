@@ -1,19 +1,14 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
-
-import scalatags.Text.all.{script, _}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.pprint
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
-  PrettyArgument,
-  PrettyCallSite,
   PrettyDeclaration,
   PrettyLocation
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.reports._
 
-import scalatags.Text
+import scalatags.Text.all.{script, _}
 
 object HTMLSerializer {
   type HTMLTag = scalatags.Text.all.ConcreteHtmlTag[String]
@@ -213,7 +208,7 @@ object HTMLSerializer {
   }
 
   def createSlimDocument[A](results: Seq[A],
-                            generator: HTMLReport[A]): String = {
+                            generator: HTMLDocument[A]): String = {
     html(
       head(
         link(rel := "stylesheet",
@@ -232,12 +227,12 @@ object HTMLSerializer {
     ).render
   }
 
-  trait HTMLReport[A] {
+  trait HTMLDocument[A] {
     def sidebar(data: Seq[A]): Seq[HTMLTag]
     def body(data: Seq[A]): Seq[HTMLTag]
   }
 
-  object CoderefReport extends HTMLReport[SlimReport] {
+  object CoderefDocument$ extends HTMLDocument[SlimReport] {
     override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
       data.map(
         res =>
@@ -296,7 +291,7 @@ object HTMLSerializer {
       )
   }
 
-  object SummaryReport extends HTMLReport[SlimReport] {
+  object SummaryDocument$ extends HTMLDocument[SlimReport] {
     override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
       Seq(
         a(href := s"#summary", `class` := "w3-bar-item w3-button")(
@@ -344,8 +339,8 @@ object HTMLSerializer {
     }
   }
 
-  object DefinitionReport extends HTMLReport[DefinitionCount] {
-    override def sidebar(data: Seq[DefinitionCount]): Seq[HTMLTag] =
+  object DefinitionDocument$ extends HTMLDocument[DefinitionSummary] {
+    override def sidebar(data: Seq[DefinitionSummary]): Seq[HTMLTag] =
       Seq(
         a(href := s"#summary", `class` := "w3-bar-item w3-button")(
           "all/summary")
@@ -355,7 +350,7 @@ object HTMLSerializer {
             a(href := s"#${res.metadata.reponame.replace("/", "-")}",
               `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
 
-    override def body(results: Seq[DefinitionCount]): Seq[HTMLTag] = {
+    override def body(results: Seq[DefinitionSummary]): Seq[HTMLTag] = {
       def printSummary(summary: ReportSummary) = {
         div(id := s"${summary.reponame.replace("/", "-")}")(
           b(s"CallSites per Definition for ${summary.reponame}"),
@@ -375,7 +370,7 @@ object HTMLSerializer {
         )
       }
       val projectSummaries =
-        results.map(res => ReportSummary(res.metadata, res.definitions))
+        results.map(res => ReportSummary(res))
       val overallSummary = ReportSummary(projectSummaries)
       Seq(
         h3("Declarations of Implicits"),

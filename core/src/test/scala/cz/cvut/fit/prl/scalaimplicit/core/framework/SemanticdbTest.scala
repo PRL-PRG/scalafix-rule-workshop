@@ -26,7 +26,8 @@ import java.io.{File, UncheckedIOException}
 import java.net.URLClassLoader
 import java.nio.file.{AccessDeniedException, Files}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
   Location => _,
   _
 }

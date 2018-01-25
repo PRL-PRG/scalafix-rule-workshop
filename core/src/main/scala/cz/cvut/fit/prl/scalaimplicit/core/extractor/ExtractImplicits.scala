@@ -1,7 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.{
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
   CallSite,
   Declaration
 }
@@ -11,6 +11,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers.{
   InitDecomposer,
   TermDecomposer
 }
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Factories
 
 import scala.meta._
 import scala.reflect.runtime.{universe => u}

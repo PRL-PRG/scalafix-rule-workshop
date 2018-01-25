@@ -2,7 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.CallSite
 
 class DebugLogger[A] {
   private var _queue: List[(String, A)] = List()

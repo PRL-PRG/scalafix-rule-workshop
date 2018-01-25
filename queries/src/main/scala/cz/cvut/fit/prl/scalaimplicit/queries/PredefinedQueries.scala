@@ -2,14 +2,14 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  DefinitionCount,
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{
+  DefinitionSummary,
   ProjectReport,
   SlimReport
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimRepresentation.SlimDefinition
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 
 object PredefinedQueries {
@@ -89,11 +89,11 @@ object PredefinedQueries {
 
   def declarationsByCallSite() = {
     val res =
-      ProjectReport.loadFromManifest(
+      ProjectReport.loadReportsFromManifest(
         "../top-120-results/results/manifest.json")
 
-    val decls: Seq[DefinitionCount] = res.map(proj => {
-      DefinitionCount(
+    val decls: Seq[DefinitionSummary] = res.map(proj => {
+      DefinitionSummary(
         proj.metadata,
         proj.result.callSites
           .flatMap(cs =>
@@ -109,8 +109,9 @@ object PredefinedQueries {
     Files.write(
       Paths.get("./tmp/contextcandidates/definitions.html"),
       HTMLSerializer
-        .createSlimDocument[DefinitionCount](decls,
-                                             HTMLSerializer.DefinitionReport)
+        .createSlimDocument[DefinitionSummary](
+          decls,
+          HTMLSerializer.DefinitionDocument$)
         .getBytes
     )
   }
@@ -125,7 +126,7 @@ object PredefinedQueries {
                      outfolder: String,
                      query: QueryEngine.FilterQuery[CallSite]): Unit = {
     val res =
-      ProjectReport.loadFromManifest(manifestPath)
+      ProjectReport.loadReportsFromManifest(manifestPath)
 
     val qres = QueryEngine(query, res)
     printSlimCallSiteReports(

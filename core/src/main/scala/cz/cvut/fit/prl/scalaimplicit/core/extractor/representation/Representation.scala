@@ -1,20 +1,10 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
+package cz.cvut.fit.prl.scalaimplicit.core.extractor.representation
 
-import java.nio.ByteBuffer
-
-import boopickle.{DefaultBasic, PicklerHelper}
-import boopickle.DefaultBasic.PicklerGenerator
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, Queries}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
 import org.langmeta.inputs.{Input, Position}
-import org.langmeta.semanticdb.Denotation
 
 import scala.reflect.runtime.{universe => u}
-import java.nio.file.Files
-import java.nio.file.Paths
-
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
-import org.json4s.native.Serialization
 
 /**
   * Module to hold the internal representation of extracted information

@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
 
 object PrettyPrinters {
   import Representation._

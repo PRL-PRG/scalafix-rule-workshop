@@ -4,10 +4,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
   ReflectExtract
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.Signature
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  Representation => r
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Signature
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class DeclaredImplicitsTest extends SemanticdbTest {

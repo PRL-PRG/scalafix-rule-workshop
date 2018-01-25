@@ -2,8 +2,8 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SlimReport
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
+import cz.cvut.fit.prl.scalaimplicit.core.reports.SlimReport
 
 object OutputHelper {
   def printSlimCallSiteReports(folder: String,
@@ -16,14 +16,14 @@ object OutputHelper {
     Files.write(
       Paths.get(s"./${folder}/${prefix}.coderefs.html"),
       HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.CoderefReport)
+        .createSlimDocument(data, HTMLSerializer.CoderefDocument$)
         .getBytes
     )
 
     Files.write(
       Paths.get(s"./${folder}/${prefix}.summary.html"),
       HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.SummaryReport)
+        .createSlimDocument(data, HTMLSerializer.SummaryDocument$)
         .getBytes
     )
     Files.write(

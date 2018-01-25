@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.macros
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.CallSite
 
 import scala.reflect.macros.blackbox.Context
 

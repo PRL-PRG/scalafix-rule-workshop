@@ -5,7 +5,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 

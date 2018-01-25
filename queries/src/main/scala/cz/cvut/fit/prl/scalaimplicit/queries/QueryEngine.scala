@@ -1,12 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  ProjectMetadata,
-  ProjectReport,
-  Statistics
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.Representation.CallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.CallSite
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{ProjectReport, Statistics}
 
 object QueryEngine {
   trait FilterQuery[A] {
