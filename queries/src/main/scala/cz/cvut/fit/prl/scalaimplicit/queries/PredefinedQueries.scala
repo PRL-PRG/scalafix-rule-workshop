@@ -14,12 +14,14 @@ import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 
 object PredefinedQueries {
 
+  val DATASET =
+    ProjectReport.loadReportsFromManifest(
+      "../top-120-results/results/manifest.json")
+
   import OutputHelper._
 
   def dumpAll() = {
-    loadQueryPrint("../top-120-results/results/manifest.json",
-                   "tmp",
-                   Seq(CSFilterQuery("all", x => true)))
+    query("tmp", Seq(CSFilterQuery("all", x => true)))
   }
 
   val conversionFunction: CallSite => Boolean = {
@@ -45,8 +47,7 @@ object PredefinedQueries {
   }
 
   def conversion(): Unit = {
-    loadQueryPrint(
-      "../top-120-results/results/manifest.json",
+    query(
       "tmp",
       Seq(CSFilterQuery("conversion", conversionFunction))
     )
@@ -59,8 +60,7 @@ object PredefinedQueries {
   }
 
   def nonTransitiveConversion() = {
-    loadQueryPrint(
-      "../top-120-results/results/manifest.json",
+    query(
       "tmp",
       Seq(CSFilterQuery("conversion", conversionFunction),
           CSFilterQuery("nontransitive", nonTransitiveFunction))
@@ -68,8 +68,7 @@ object PredefinedQueries {
   }
 
   def typeClass() = {
-    loadQueryPrint(
-      "../top-120-results/results/manifest.json",
+    query(
       "tmp",
       Seq(
         CSFilterQuery(
@@ -106,10 +105,7 @@ object PredefinedQueries {
   }
 
   def declarationsByCallSite() = {
-    val res =
-      ProjectReport.loadReportsFromManifest(
-        "../top-120-results/results/manifest.json")
-
+    val res = DATASET
     val decls: Seq[DefinitionSummary] = res.map(proj => {
       DefinitionSummary(
         proj.metadata,
@@ -135,18 +131,15 @@ object PredefinedQueries {
   }
 
   def moreThanOneParam(): Unit = {
-    loadQueryPrint(
-      "../top-120-results/results/manifest.json",
-      "tmp",
-      Seq(CSFilterQuery("morethanone", _.implicitArguments.size > 1)))
+    query("tmp",
+          Seq(CSFilterQuery("morethanone", _.implicitArguments.size > 1)))
   }
 
-  def loadQueryPrint(manifestPath: String,
-                     outfolder: String,
-                     queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
-    def queryPrint(reports: Seq[ProjectReport],
-                   path: String,
-                   queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
+  def query(outfolder: String,
+            queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
+    def makeQuery(reports: Seq[ProjectReport],
+                  path: String,
+                  queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
       if (queries.nonEmpty) {
         val query = queries.head
         val newPath = s"$path/${query.name}"
@@ -154,13 +147,10 @@ object PredefinedQueries {
         printSlimCallSiteReports(
           newPath,
           (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
-        queryPrint(qres._1, newPath, queries.tail)
+        makeQuery(qres._1, newPath, queries.tail)
       }
     }
 
-    val res =
-      ProjectReport.loadReportsFromManifest(manifestPath)
-
-    queryPrint(res, outfolder, queries)
+    makeQuery(DATASET, outfolder, queries)
   }
 }
