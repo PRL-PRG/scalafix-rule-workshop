@@ -34,7 +34,7 @@ object Main {
             true,
             Declaration(
               _,
-              "def",
+              kind,
               _,
               true,
               Some(
@@ -43,7 +43,7 @@ object Main {
                           _)),
               _),
             _,
-            _) =>
+            _) if (kind.contains("def") || kind.contains("class")) =>
           true
         case _ => false
       },
@@ -56,7 +56,7 @@ object Main {
     val res =
       ProjectReport.loadFromManifest(
         "../top-120-results/results/manifest.json")
-    // Fiter queries
+
     val qres = QueryEngine(
       {
         case CallSite(_, _, _, _, _, _, iargs)
@@ -119,13 +119,23 @@ object Main {
     )
   }
 
+  def moreThanOneParam(): Unit = {
+    val res =
+      ProjectReport.loadFromManifest(
+        "../top-120-results/results/manifest.json")
+
+    val qres = QueryEngine((cs) => cs.implicitArguments.size > 1, res)
+    printSlimCallSiteReports("tmp/morethanone", qres.map(x => SlimReport(x)))
+  }
+
   def main(args: Array[String]): Unit = {
     //doSpark()
 
-    dumpAll()
-    conversion()
-    typeClass()
-    declarationsByCallSite()
+    //dumpAll()
+    //conversion()
+    //typeClass()
+    //declarationsByCallSite()
+    moreThanOneParam()
   }
 
   def printSlimCallSiteReports(folder: String, data: Seq[SlimReport]) = {

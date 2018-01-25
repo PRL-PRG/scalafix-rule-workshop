@@ -44,12 +44,10 @@ lazy val macros = (project in file("macros"))
 
 lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-    "com.lihaoyi" %% "scalatags" % "0.6.7",
-    "org.apache.spark" %% "spark-core" % "2.1.0" % "provided",
-    "org.apache.spark" %% "spark-sql" % "2.2.1",
-    "org.apache.spark" %% "spark-catalyst" % "2.2.1"
-  ))
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "scalatags" % "0.6.7"
+    ))
   .dependsOn(coreutils % "test->test", macros)
 
 lazy val classpathExtractor =

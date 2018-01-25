@@ -7,6 +7,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import cz.cvut.fit.prl.scalaimplicit.macros.QueryEngineMacros._
 
 class QueryEngineTest extends SemanticdbTest {
+  /*
   checkReflContext(
     "Class Conversion",
     """
@@ -46,6 +47,7 @@ class QueryEngineTest extends SemanticdbTest {
       println("End")
     }
   )
+   */
 
   checkReflContext(
     "Serialization test",
