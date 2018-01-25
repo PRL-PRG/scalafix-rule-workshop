@@ -5,9 +5,10 @@ import cz.cvut.fit.prl.scalaimplicit.core.reports.{ProjectReport, Statistics}
 
 object QueryEngine {
   trait FilterQuery[A] {
+    def name: String
     def predicate: (A => Boolean)
   }
-  case class CSFilterQuery(predicate: CallSite => Boolean)
+  case class CSFilterQuery(name: String, predicate: CallSite => Boolean)
       extends FilterQuery[CallSite]
 
   def apply(

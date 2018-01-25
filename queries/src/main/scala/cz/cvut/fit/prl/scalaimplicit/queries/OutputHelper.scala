@@ -8,6 +8,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.reports.SlimReport
 object OutputHelper {
   def printSlimCallSiteReports(folder: String,
                                data: (Seq[SlimReport], Seq[SlimReport])) = {
+    if (!Files.exists(Paths.get(folder)))
+      Files.createDirectory(Paths.get(folder))
     writeReport(folder, "results", data._1)
     writeReport(folder, "excluded", data._2)
   }
