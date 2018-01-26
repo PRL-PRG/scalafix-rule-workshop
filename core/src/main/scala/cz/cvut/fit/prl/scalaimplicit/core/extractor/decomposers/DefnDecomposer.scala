@@ -45,7 +45,7 @@ object DefnDecomposer {
       case d: Decl.Type => handleTypeName(d)
     }) //.filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
     metaSymbols.map(metaSymbol => {
-      Try(ctx.findReflectSymbol(metaSymbol)) match {
+      Try(ctx.findDefnSymbol(metaSymbol)) match {
         case Success(s) =>
           DefnBreakdown(
             pos = defn.pos,

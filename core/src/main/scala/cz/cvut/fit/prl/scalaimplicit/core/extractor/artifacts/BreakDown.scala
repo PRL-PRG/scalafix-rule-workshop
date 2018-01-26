@@ -19,7 +19,7 @@ case class SyntheticOrigins(application: Option[Synthetic] = None,
 object SyntheticOrigins {
   val Empty = SyntheticOrigins()
 }
-case class SyntheticBreakdown(
+case class CallSiteBreakDown(
     breakDown: BreakDown,
     origins: SyntheticOrigins = SyntheticOrigins.Empty
 )

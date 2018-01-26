@@ -38,7 +38,7 @@ object Queries {
   }
 
   def breakDownSynthetic(ctx: SemanticCtx,
-                         synth: Synthetic): SyntheticBreakdown = {
+                         synth: Synthetic): CallSiteBreakDown = {
 
     def parse(text: String): Term = text.parse[Term].get
 
@@ -58,7 +58,7 @@ object Queries {
       val bd = TermDecomposer(parse(synth.text), finder).copy(
         pos = synth.position
       )
-      SyntheticBreakdown(
+      CallSiteBreakDown(
         breakDown = bd,
         SyntheticOrigins(
           application = if (bd.symbol.app.isDefined) Some(synth) else None,
@@ -97,7 +97,7 @@ object Queries {
     *
     * We assume that there is exactly one symbol at the position of the synthetic.
     */
-  def findApplication(ctx: SemanticCtx, synth: Synthetic): SyntheticBreakdown = {
+  def findApplication(ctx: SemanticCtx, synth: Synthetic): CallSiteBreakDown = {
 
     def breakdownTree(term: Tree): BreakDown = {
       def finder(t: Tree): QualifiedSymbol = {
@@ -130,7 +130,7 @@ object Queries {
       case Some(syntheticApply) => breakDownSynthetic(ctx, syntheticApply)
       // Parse from the tree itself
       case None =>
-        SyntheticBreakdown(
+        CallSiteBreakDown(
           breakdownTree(ctx
             .inSourceCallSite(synth.position.end)
             .getOrElse {
@@ -160,7 +160,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
         syn =>
           Try(
             Factories.createCallSite(ctx,
-                                     ctx.reflectOnBreakdown(
+                                     ctx.reflectOnCallSite(
                                        Queries.breakDownSynthetic(ctx, syn)
                                      ))
         )

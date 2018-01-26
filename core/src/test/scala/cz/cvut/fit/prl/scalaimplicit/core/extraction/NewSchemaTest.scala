@@ -245,9 +245,6 @@ class NewSchemaTest extends SemanticdbTest {
       )
       val res = ReflectExtract(ctx).normalized.onlyCallSites
 
-      val jsondiff = compareJSON(res, expected)
-      jsondiff shouldBe empty
-
       val resStrings: Seq[String] =
         res.callSites
           .map(x => prettyPrint(x)(PrettyCallSite))
@@ -257,6 +254,8 @@ class NewSchemaTest extends SemanticdbTest {
       val diff = compareContents(lines(resStrings), lines(expectedStrings))
       diff shouldBe empty
 
+      val jsondiff = compareJSON(res, expected)
+      jsondiff shouldBe empty
       res.normalizedCallSites should contain only (expected.callSites: _*)
     }
   )
@@ -284,16 +283,16 @@ class NewSchemaTest extends SemanticdbTest {
         isSynthetic = true,
         declaration = Declaration(
           name = "classConv.Hello",
-          kind = "def",
+          kind = "class",
           location = None,
           isImplicit = true,
           signature = Some(
             Signature(
-              typeParams = Seq(Type("classConv.T")),
+              typeParams = Seq(Type("classConv.Hello.T")),
               parameterLists = Seq(
                 DeclaredParameterList(
                   isImplicit = false,
-                  params = Seq(DeclaredParameter("s", Type("classConv.T")))
+                  params = Seq(DeclaredParameter("s", Type("classConv.Hello.T")))
                 ),
                 DeclaredParameterList(
                   isImplicit = true,
@@ -398,7 +397,7 @@ class NewSchemaTest extends SemanticdbTest {
     """.trim.stripMargin,
     Seq(
       """|[:10:11]:scs: classConvPretty.Hello[scala.Int]
-         |?:  implicit def classConvPretty.Hello[classConvPretty.T](s: classConvPretty.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
+         |?:  implicit def classConvPretty.Hello[classConvPretty.Hello.T](s: classConvPretty.Hello.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
          |  iarg: classConvPretty.IntWriter
          |?:    implicit final object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
          |""".trim.stripMargin,

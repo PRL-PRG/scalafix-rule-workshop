@@ -22,6 +22,7 @@ case class CallSiteReflection(originalSymbol: QualifiedSymbol,
 object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
             bd: BreakDown,
+            den: Option[Denotation],
             ref: u.Symbol,
             origins: SyntheticOrigins): CallSiteReflection =
     new CallSiteReflection(
@@ -29,23 +30,7 @@ object CallSiteReflection {
       reflectiveSymbol = ref,
       fullName = ref.fullName,
       pos = bd.pos,
-      code = bd.code,
-      declaration = DeclarationReflection(ctx, Position.None, ref, None),
-      params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
-      typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application))
-    )
-
-  def apply(ctx: ReflectiveCtx,
-            bd: BreakDown,
-            den: Denotation,
-            ref: u.Symbol,
-            origins: SyntheticOrigins): CallSiteReflection =
-    new CallSiteReflection(
-      originalSymbol = bd.symbol,
-      reflectiveSymbol = ref,
-      fullName = ref.fullName,
-      pos = bd.pos,
-      declaration = DeclarationReflection(ctx, Position.None, ref, Some(den)),
+      declaration = DeclarationReflection(ctx, Position.None, ref, den),
       code = bd.code,
       params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application))

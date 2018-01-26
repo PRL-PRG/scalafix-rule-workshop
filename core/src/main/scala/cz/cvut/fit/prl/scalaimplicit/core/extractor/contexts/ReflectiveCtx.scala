@@ -11,13 +11,26 @@ import scala.meta.{Database, Denotation, Symbol, Synthetic}
 import scala.reflect.runtime.{universe => u}
 import scala.util.{Failure, Success, Try}
 
-class ReflectiveCtx(loader: ClassLoader, db: Database)
-    extends SemanticCtx(db) {
+class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
+
+  implicit class FindableSymbol(symbol: Symbol) {
+    val ownerStr = Cleaners.cleanOwner(
+      symbol
+        .productElement(0)
+        .toString)
+    val name = symbol.productElement(1).toString.split("""\(""").head
+    val cleanName = Cleaners.cleanName(name)
+  }
 
   val _mirror = u.runtimeMirror(loader)
 
-  def reflectOnBreakdown(x: SyntheticBreakdown): CallSiteReflection = {
-    findReflection(x.breakDown, x.origins)
+  def reflectOnCallSite(x: CallSiteBreakDown): CallSiteReflection = {
+    val bd = x.breakDown
+    val metaSymbol = bd.symbol.app.getOrElse(throw new RuntimeException(
+      s"CallSite Breakdown ${bd.symbol} has no application and reached reflection. This should never happen"))
+    val den = denotation(metaSymbol)
+    val ref = findCallSiteSymbol(bd.code, metaSymbol)
+    CallSiteReflection(this, bd, den, ref, x.origins)
   }
 
   def findReflection(bd: BreakDown,
@@ -26,9 +39,18 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       s"Breakdown ${bd.symbol} has no application and reached reflection. This should never happen"))
     val den = denotation(metaSymbol)
     val ref = findReflectSymbol(metaSymbol)
-    if (den.isDefined) CallSiteReflection(this, bd, den.get, ref, origins)
-    else CallSiteReflection(this, bd, ref, origins)
+    CallSiteReflection(this, bd, den, ref, origins)
   }
+
+  def findCallSiteSymbol(code: String, symbol: Symbol): u.Symbol = {
+    def isSynthetic(s: String) = s.contains("(*)")
+    Finders.findClassOrDef(symbol)
+  }
+
+  def findDefnSymbol(s: Symbol): u.Symbol = findReflectSymbol(s)
+
+  def findTypeSymbol(s: Symbol.Global) =
+    Finders.findTypeSymbol(s.ownerStr, s.cleanName)
 
   def reflectiveParam(param: Param, origin: Option[Synthetic]): Param = {
     param match {
@@ -38,96 +60,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     }
   }
 
-  def findReflectSymbol(symbol: Symbol): u.Symbol = {
-    object Finders {
-      def findTypeSymbol(owner: String, tname: String) = {
-        val name = s"$owner.$tname"
-        getWholeSymbol(name).getOrElse(findName(owner, u.TypeName(tname)))
-      }
-
-      def findTypeParam(owner: String, tname: String): u.Symbol = {
-        val (classContainer, className) = Cleaners.separateLastPart(owner)
-        findName(classContainer, u.TypeName(className)).typeSignature.typeParams
-          .find(_.fullName.endsWith(tname))
-          .getOrElse(throw new RuntimeException(
-            s"No type parameter matching $tname found in class $className"))
-      }
-
-      def findTerm(owner: String, name: String): u.Symbol =
-        findName(owner, u.TermName(name))
-
-      def findName(owner: String, name: u.Name): u.Symbol = {
-        classMember(owner, name) match {
-          case u.NoSymbol =>
-            moduleMember(owner, name) match {
-              case u.NoSymbol => packageMember(owner, name)
-              case ms => ms
-            }
-          case cs => cs
-        }
-      }
-
-      // Get a single symbol from an fqn
-      def getWholeSymbol(fqn: String): Option[u.Symbol] = {
-        val s =
-          Loaders
-            .loadClass(fqn)
-            .getOrElse(
-              Loaders
-                .loadModule(fqn)
-                .getOrElse(Loaders.loadPackage(fqn).getOrElse(u.NoSymbol)))
-        s match {
-          case u.NoSymbol => None
-          case s => Some(s)
-        }
-      }
-
-      def classMember(cname: String, name: u.Name): u.Symbol = {
-        Loaders
-          .loadClass(cname)
-          .getOrElse(u.NoSymbol)
-          .typeSignature
-          .member(name)
-      }
-      def moduleMember(mname: String, name: u.Name): u.Symbol = {
-        Loaders.loadModule(mname) match {
-          case Some(m) => m.asModule.moduleClass.info.member(name)
-          case None => u.NoSymbol
-        }
-      }
-      def packageMember(pname: String, name: u.Name): u.Symbol = {
-        Loaders.loadPackage(pname) match {
-          case Some(p) => p.moduleClass.info.member(name)
-          case None => u.NoSymbol
-        }
-      }
-    }
-
-    object Loaders {
-      def loadClass(symbol: String): Option[u.ClassSymbol] = {
-        try {
-          Some(_mirror.staticClass(symbol))
-        } catch {
-          case _: ScalaReflectionException => None
-        }
-      }
-      def loadModule(symbol: String): Option[u.ModuleSymbol] = {
-        try {
-          Some(_mirror.staticModule(symbol))
-        } catch {
-          case _: ScalaReflectionException => None
-        }
-      }
-      def loadPackage(symbol: String): Option[u.ModuleSymbol] = {
-        try {
-          Some(_mirror.staticPackage(symbol))
-        } catch {
-          // FIXME This is an umbrella to catch both ScalaReflectionException and java ReflectionError
-          case _: Throwable => None
-        }
-      }
-    }
-
+  private def findReflectSymbol(symbol: Symbol): u.Symbol = {
     def isType(name: String) =
       name.isEmpty || name.endsWith("#") // In scalameta, symbols that end in # are type names
     def isTypeParam(name: String) = name.matches("""\[.*\]""")
@@ -146,12 +79,27 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         Finders.findTerm(o, Cleaners.cleanName(n)) match {
           case u.NoSymbol =>
             Finders
+              .getWholeSymbol(s"$o.${Cleaners.cleanName(n)}")
+              .getOrElse(
+                Finders
+                  .getWholeSymbol(symbol.syntax)
+                  .getOrElse(throw new RuntimeException({
+                    s"Reflection for Term ${symbol} not found"
+                  })))
+          case s => s
+        }
+
+      /*
+        Finders.findTerm(o, Cleaners.cleanName(n)) match {
+          case u.NoSymbol =>
+            Finders
               .getWholeSymbol(symbol.syntax)
               .getOrElse(throw new RuntimeException({
                 s"Reflection for Term ${symbol} not found"
               }))
           case s => s
         }
+     */
     }
     assert(reflection != u.NoSymbol, {
       s"Reflection for Symbol $symbol not found"
@@ -159,60 +107,134 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     reflection
   }
 
-  /**
-    * Helper method to determine whether a symbol from inside the project
-    * The heuristics used are that if we have a class loaded from a file,
-    * then it must be a source of the project.
-    * @param ref
-    * @return
-    */
-  def isExternal(ref: u.Symbol): Boolean = {
-    /* Code commented out until we figure out how to properly get the URLs
-    def getResource(s: String): URL = {
-      _mirror.classLoader.getResource(s) match {
-        case null =>
-          throw new ClassNotFoundException(s"Resource for $s not found")
-        case x => x
+  object Finders {
+
+    def findClassOrDef(s: Symbol) = {
+      Loaders
+        .loadClass(s"${s.ownerStr}.${s.cleanName}")
+        .getOrElse(Finders.findMethod(s.ownerStr, s.cleanName) match {
+          case u.NoSymbol =>
+            throw new RuntimeException({
+              s"Method or class reflection for CallSite ${s} not found"
+            })
+          case s => s
+        })
+    }
+
+    def findTypeSymbol(owner: String, tname: String) = {
+      val name = s"$owner.$tname"
+      getWholeSymbol(name).getOrElse(findName(owner, u.TypeName(tname)))
+    }
+
+    def findTypeParam(owner: String, tname: String): u.Symbol = {
+      val (classContainer, className) = Cleaners.separateLastPart(owner)
+      findName(classContainer, u.TypeName(className)).typeSignature.typeParams
+        .find(_.fullName.endsWith(tname))
+        .getOrElse(throw new RuntimeException(
+          s"No type parameter matching $tname found in class $className"))
+    }
+
+    def findMethod(owner: String, name: String): u.Symbol = {
+
+      def getAppropriate(s: u.Symbol): u.Symbol = {
+        s match {
+          case t if t.isMethod      => t.asMethod
+          case t if t.isConstructor => t.asMethod
+          case t if t.isModule      => t.asModule.moduleClass
+          case t if t.isTerm =>
+            t.asTerm.alternatives
+              .map(getAppropriate)
+              .find(_ != u.NoSymbol)
+              .get
+          case t => u.NoSymbol
+        }
+      }
+
+      getAppropriate(findTerm(owner, name))
+    }
+
+    def findTerm(owner: String, name: String): u.Symbol =
+      findName(owner, u.TermName(name))
+
+    def findName(owner: String, name: u.Name): u.Symbol = {
+      classMember(owner, name) match {
+        case u.NoSymbol =>
+          moduleMember(owner, name) match {
+            case u.NoSymbol => packageMember(owner, name)
+            case ms         => ms
+          }
+        case cs => cs
       }
     }
 
-    def getNearestClass(symbol: u.Symbol): u.ClassSymbol = {
-      assert(symbol != _mirror.RootPackage)
-      symbol match {
-        case s if s.isClass => s.asClass
-        case s              => getNearestClass(s.owner)
+    // Get a single symbol from an fqn
+    def getWholeSymbol(fqn: String): Option[u.Symbol] = {
+      val s =
+        Loaders
+          .loadClass(fqn)
+          .getOrElse(
+            Loaders
+              .loadModule(fqn)
+              .getOrElse(Loaders.loadPackage(fqn).getOrElse(u.NoSymbol)))
+      s match {
+        case u.NoSymbol => None
+        case s          => Some(s)
       }
     }
-    def getSelfType(symbol: u.Symbol): u.Type = {
-      getNearestClass(symbol).selfType
+
+    def classMember(cname: String, name: u.Name): u.Symbol = {
+      Loaders
+        .loadClass(cname)
+        .getOrElse(u.NoSymbol)
+        .typeSignature
+        .decls
+        .sorted
+        .find(_.name.toString.contains(s" ${name.toString}"))
+        .getOrElse(u.NoSymbol)
     }
-    // Try to get the url from a symbol, looking up owners recursively.
-    // A symbol's owner is defined in the project iff the symbol is also defined in the project:
-    // http://docs.scala-lang.org/overviews/reflection/symbols-trees-types.html#the-symbol-owner-hierarchy
-    def tryOwnerChain(s: u.Symbol): URL = {
-      assert(s != u.NoSymbol, s"URL not found for symbol ${ref}")
-      Try(_mirror.runtimeClass(getSelfType(s))) match {
-        case Success(runtimeClass) =>  getResource(parseFullName(runtimeClass.getCanonicalName))
-        case Failure(exc) => tryOwnerChain(s.owner)
+    def moduleMember(mname: String, name: u.Name): u.Symbol = {
+      Loaders.loadModule(mname) match {
+        case Some(m) =>
+          m.asModule.moduleClass.info.decls.sorted
+            .find(_.name.toString.contains(s" ${name.toString}"))
+            .getOrElse(u.NoSymbol)
+        case None => u.NoSymbol
       }
     }
-    // Convert a string to a plausible path name for the classloader
-    def parseFullName(name: String): String = {
-      val header = name.split("""\(""").head
-      val i = header.lastIndexOf("#") match {
-        case -1 => header.length; case x => x
+    def packageMember(pname: String, name: u.Name): u.Symbol = {
+      Loaders.loadPackage(pname) match {
+        case Some(p) =>
+          p.moduleClass.info.decls.sorted
+            .find(_.name.toString.contains(s" ${name.toString}"))
+            .getOrElse(u.NoSymbol)
+        case None => u.NoSymbol
       }
-      header
-        .substring(0, i)
-        .stripSuffix("#")
-        .replace("#", "/")
-        .replace(".", "/")
-        .concat(".class")
     }
-    val url = tryOwnerChain(ref)
-    url.getProtocol() != "file"
-     */
-    false
+  }
+
+  object Loaders {
+    def loadClass(symbol: String): Option[u.ClassSymbol] = {
+      try {
+        Some(_mirror.staticClass(symbol))
+      } catch {
+        case _: ScalaReflectionException => None
+      }
+    }
+    def loadModule(symbol: String): Option[u.ModuleSymbol] = {
+      try {
+        Some(_mirror.staticModule(symbol))
+      } catch {
+        case _: ScalaReflectionException => None
+      }
+    }
+    def loadPackage(symbol: String): Option[u.ModuleSymbol] = {
+      try {
+        Some(_mirror.staticPackage(symbol))
+      } catch {
+        // FIXME This is an umbrella to catch both ScalaReflectionException and java ReflectionError
+        case _: Throwable => None
+      }
+    }
   }
 }
 
@@ -246,23 +268,23 @@ object ReflectiveCtx {
       case x if x.isMethod => "def"
       case x if x.isClass =>
         x.asClass match {
-          case c if c.isTrait => "trait"
-          case c if c.isCaseClass => "case class"
-          case c if c.isPackage => "package"
+          case c if c.isTrait        => "trait"
+          case c if c.isCaseClass    => "case class"
+          case c if c.isPackage      => "package"
           case c if c.isPackageClass => "package class"
-          case c => "class"
+          case c                     => "class"
         }
       case x if x.isTerm =>
         x.asTerm match {
-          case t if t.isParameter => "param"
-          case t if t.isVal => "val"
-          case t if t.isVal => "var"
-          case t if t.isModule => "object"
-          case t if t.isPackage => "package"
+          case t if t.isParameter                  => "param"
+          case t if t.isVal                        => "val"
+          case t if t.isVal                        => "var"
+          case t if t.isModule                     => "object"
+          case t if t.isPackage                    => "package"
           case t if t.toString.startsWith("value") => "value"
         }
       case x if x.isMacro => "macro"
-      case x => throw new RuntimeException(s"<unknown: ${x.toString}>")
+      case x              => throw new RuntimeException(s"<unknown: ${x.toString}>")
     }
     if (symbol.isFinal) kind = s"final $kind"
     if (symbol.isAbstract) kind = s"abstract $kind"
@@ -283,17 +305,20 @@ object ReflectiveCtx {
     }
   }
 
-  def returnType(ref: u.Symbol) = {
+  def returnType(ref: u.Symbol): u.Type = {
     ref match {
       case r if r.isMethod => r.asMethod.returnType
-      case r => r.typeSignature
+      case r if r.isClass  => returnType(r.asClass.primaryConstructor)
+      case r               => r.typeSignature
     }
   }
 
-  def paramLists(ref: u.Symbol) = {
+  def paramLists(ref: u.Symbol): List[List[u.Symbol]] = {
     ref match {
-      case r if r.isMethod => r.asMethod.paramLists
-      case _ => List()
+      case r if r.isMethod      => r.asMethod.paramLists
+      case r if r.isConstructor => r.asMethod.paramLists
+      case r if r.isClass       => paramLists(r.asClass.primaryConstructor)
+      case _                    => List()
     }
   }
 }
