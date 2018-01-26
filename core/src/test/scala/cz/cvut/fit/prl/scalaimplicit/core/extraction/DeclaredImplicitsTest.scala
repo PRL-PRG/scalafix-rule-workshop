@@ -4,7 +4,9 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
   ReflectExtract
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Signature
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.{
+  Representation => r
+}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class DeclaredImplicitsTest extends SemanticdbTest {
@@ -28,7 +30,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
             location = Some(r.Location("", 2, 40)),
             isImplicit = true,
             signature = Some(
-              Signature(
+              r.Signature(
                 typeParams = Seq(),
                 parameterLists = Seq(
                   r.DeclaredParameterList(
@@ -71,7 +73,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
           location = Some(r.Location("", 2, 28)),
           isImplicit = true,
           signature = Some(
-            Signature(
+            r.Signature(
               returnType = Some(r.Type("String"))
             )),
           parents = resDecls(0).parents
@@ -82,7 +84,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
           location = Some(r.Location("", 5, 28)),
           isImplicit = true,
           signature = Some(
-            Signature(
+            r.Signature(
               returnType = Some(r.Type("String"))
             )),
           parents = resDecls(1).parents
