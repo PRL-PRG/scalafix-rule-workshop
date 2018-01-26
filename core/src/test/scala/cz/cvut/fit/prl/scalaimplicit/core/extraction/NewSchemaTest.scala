@@ -292,7 +292,8 @@ class NewSchemaTest extends SemanticdbTest {
               parameterLists = Seq(
                 DeclaredParameterList(
                   isImplicit = false,
-                  params = Seq(DeclaredParameter("s", Type("classConv.Hello.T")))
+                  params =
+                    Seq(DeclaredParameter("s", Type("classConv.Hello.T")))
                 ),
                 DeclaredParameterList(
                   isImplicit = true,
@@ -335,8 +336,7 @@ class NewSchemaTest extends SemanticdbTest {
                     isImplicit = false,
                     signature = Some(
                       Signature(
-                        returnType =
-                          Some(Type("classConv.UselessParent {\n  \n}"))
+                        returnType = Some(Type("<notype>"))
                       ))
                   ),
                   typeArguments = Seq()
@@ -351,8 +351,7 @@ class NewSchemaTest extends SemanticdbTest {
                     signature = Some(
                       Signature(
                         typeParams = Seq(Type("classConv.Writer.A")),
-                        returnType = Some(Type(
-                          "[A]scala.AnyRef {\n  def write(x: A): String\n}"))
+                        returnType = Some(Type("<notype>"))
                       ))
                   ),
                   typeArguments = Seq(Type("scala.Int"))
@@ -397,18 +396,19 @@ class NewSchemaTest extends SemanticdbTest {
     """.trim.stripMargin,
     Seq(
       """|[:10:11]:scs: classConvPretty.Hello[scala.Int]
-         |?:  implicit def classConvPretty.Hello[classConvPretty.Hello.T](s: classConvPretty.Hello.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
+         |?:  implicit class classConvPretty.Hello[classConvPretty.Hello.T](s: classConvPretty.Hello.T), (implicit evidence$1: classConvPretty.Writer[classConvPretty.Writer.A]): classConvPretty.Hello[T][T]
          |  iarg: classConvPretty.IntWriter
          |?:    implicit final object classConvPretty.IntWriter: classConvPretty.IntWriter.type extends (abstract trait classConvPretty.Useless, abstract trait classConvPretty.Writer[classConvPretty.Writer.A = scala.Int])
          |""".trim.stripMargin,
       """[:9:84]:cs: scala.Predef.implicitly[classConvPretty.Writer[classConvPretty.Hello.T]]
         |?:  def scala.Predef.implicitly[scala.Predef.T](implicit e: scala.Predef.T): T
-        |  iarg: classConvPretty.Hello.
-        |?:    final object classConvPretty.Hello.: classConvPretty.Hello..type
+        |  iarg: classConvPretty.Hello.evidence$1
+        |?:    implicit val classConvPretty.Hello.evidence$1: classConvPretty.Writer[T][T]
         |""".trim.stripMargin
     )
   )
 
+  /*
   checkReflContext(
     "Infix application corner case",
     """
@@ -423,6 +423,7 @@ class NewSchemaTest extends SemanticdbTest {
       res.callSites should have size 1
     }
   )
+   */
 
   checkReflContext(
     "Call to local def with implicits",

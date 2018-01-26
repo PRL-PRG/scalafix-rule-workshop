@@ -23,7 +23,7 @@ object ReflectiveTArg {
       case s: m.Symbol.Local => s"_local_.${t.syntax}"
       case s: m.Symbol.Global => {
         if (SemanticCtx.isLocalTypeReference(s)) handleLocalTypeReference(s)
-        else ctx.findTypeSymbol(s).fullName
+        else ctx.reflectOnType(s).fullName
       }
       case s => ??? // This is to prevent a warning, for incomplete matching
       // This warning malforms the semanticdb file.

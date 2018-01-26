@@ -82,7 +82,8 @@ object DefnFiller extends (ExtractionResult => ExtractionResult) {
       callSites = result.callSites.map(
         cs =>
           cs.copy(
-            declaration = findDeclOrReport(cs, defns),
+            declaration = cs.declaration.copy(
+              location = findDeclOrReport(cs, defns).location),
             implicitArguments = processArgList(cs.implicitArguments, defns)
         ))
     )

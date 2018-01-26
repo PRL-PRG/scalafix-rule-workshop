@@ -17,7 +17,7 @@ case class CallSiteReflection(originalSymbol: QualifiedSymbol,
                               code: String,
                               declaration: DeclarationReflection,
                               typeArguments: Seq[ReflectiveTArg],
-                              params: Seq[Param])
+                              args: Seq[Param])
     extends Param
 object CallSiteReflection {
   def apply(ctx: ReflectiveCtx,
@@ -32,7 +32,7 @@ object CallSiteReflection {
       pos = bd.pos,
       declaration = DeclarationReflection(ctx, Position.None, ref, den),
       code = bd.code,
-      params = bd.args.map(ctx.reflectiveParam(_, origins.paramList)),
+      args = bd.args.map(ctx.reflectOnArg(_, origins.paramList)),
       typeArguments = bd.targs.map(ReflectiveTArg(ctx, _, origins.application))
     )
 }

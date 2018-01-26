@@ -168,7 +168,7 @@ object Factories {
           code = reflection.code,
           declaration = createDeclaration(ctx, reflection.declaration),
           typeArguments = reflection.typeArguments.map(createTypeArgument),
-          arguments = reflection.params.map(createImplicitArgument(ctx, _))
+          arguments = reflection.args.map(createImplicitArgument(ctx, _))
         )
       }
       case p: Param => {
@@ -190,7 +190,7 @@ object Factories {
       isSynthetic = original.isSynthetic,
       declaration = createDeclaration(ctx, reflection.declaration),
       typeArguments = reflection.typeArguments.map(createTypeArgument),
-      implicitArguments = reflection.params.map(createImplicitArgument(ctx, _))
+      implicitArguments = reflection.args.map(createImplicitArgument(ctx, _))
     )
   }
 }

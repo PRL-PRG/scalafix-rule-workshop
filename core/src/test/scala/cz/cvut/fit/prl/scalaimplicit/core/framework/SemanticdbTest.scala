@@ -216,7 +216,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
 
     private def normalizedDeclaration(d: Declaration): Declaration = d.copy(
       location = normalizedLocation(d.location),
-      parents = d.parents.map(normalizedParent)
+      parents =
+        d.parents.filterNot(_.name == "java.lang.Object").map(normalizedParent)
     )
 
     private def normalizedParent(p: Parent) = p.copy(
