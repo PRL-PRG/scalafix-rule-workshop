@@ -426,22 +426,6 @@ class NewSchemaTest extends SemanticdbTest {
   )
 
   checkReflContext(
-    "ArrowAssoc should have kind class",
-    """
-      |package arr
-      |object r {
-      | "a" -> 4
-      |}
-    """.trim.stripMargin,
-    ctx => {
-      val css = ReflectExtract(ctx)
-      css.sortedCallSites should have size 1
-      css.sortedCallSites.head.name.contains("ArrowAssoc") shouldBe true
-      css.sortedCallSites.head.declaration.kind.contains("class") shouldBe true
-    }
-  )
-
-  checkReflContext(
     "Call to local def with implicits",
     """
       |package loCall
