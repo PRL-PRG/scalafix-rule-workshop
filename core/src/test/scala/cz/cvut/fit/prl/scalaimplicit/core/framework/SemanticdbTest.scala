@@ -279,7 +279,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
         new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL),
                            this.getClass.getClassLoader)
       val ctx = new ReflectiveCtx(loader, db)
-      val res = ReflectExtract(ctx)
+      val res = FailFastReflectExtract(ctx)
       val resStrings: Seq[String] =
         res.normalizedCallSites.map(
           PrettyPrinters.prettyPrint(_)(PrettyCallSite).trim)

@@ -15,8 +15,7 @@ import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 object PredefinedQueries {
 
   val DATASET =
-    ProjectReport.loadReportsFromManifest(
-      "../top-120-results/results/manifest.json")
+    ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
 
   import OutputHelper._
 
@@ -32,7 +31,7 @@ object PredefinedQueries {
         true,
         Declaration(
           _,
-          _,
+          kind,
           _,
           true,
           Some(
@@ -41,7 +40,7 @@ object PredefinedQueries {
                       _)),
           _),
         _,
-        _) =>
+        _) if (kind.contains("def") || kind.contains("class")) =>
       true
     case _ => false
   }

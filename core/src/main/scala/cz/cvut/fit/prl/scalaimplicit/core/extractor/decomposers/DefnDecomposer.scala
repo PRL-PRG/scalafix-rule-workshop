@@ -44,7 +44,17 @@ object DefnDecomposer {
       case d: Decl.Def => handleTermName(d)
       case d: Decl.Type => handleTypeName(d)
     }) //.filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
-    metaSymbols.map(metaSymbol => {
+    metaSymbols.map {
+      case metaSymbol @ (s: Symbol.Global) =>
+        Try(ctx.reflectOnDefn(s)) match {
+          case Success(sym) =>
+            DefnBreakdown(defn.pos, Some(sym), ctx.denotation(metaSymbol))
+        }
+      case metaSymbol =>
+        DefnBreakdown(defn.pos, None, ctx.denotation(metaSymbol))
+    }
+
+    /*
       Try(ctx.reflectOnDefn(metaSymbol.asInstanceOf[Symbol.Global])) match {
         case Success(s) =>
           DefnBreakdown(
@@ -52,7 +62,13 @@ object DefnDecomposer {
             den = ctx.denotation(metaSymbol),
             sym = Some(s)
           )
+        case Failure(x) if x.isInstanceOf[ClassCastException] =>
+          DefnBreakdown(
+            pos = defn.pos,
+            den = ctx.denotation(metaSymbol),
+            sym = None
+          )
       }
-    })
+      })*/
   }
 }

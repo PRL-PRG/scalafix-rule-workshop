@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ReflectExtract
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  FailFastReflectExtract,
+  ReflectExtract
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.ImplicitArgument
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
@@ -14,7 +17,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       css.sortedCallSites.head.name.contains("ArrowAssoc") shouldBe true
       css.sortedCallSites.head.declaration.kind.contains("class") shouldBe true
@@ -32,7 +35,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       css.sortedCallSites.head.name.contains("stoi") shouldBe true
       css.sortedCallSites.head.declaration.kind.contains("def") shouldBe true
@@ -50,7 +53,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       val cs = css.sortedCallSites.head
       cs.name.contains("f") shouldBe true
@@ -73,7 +76,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       val cs = css.sortedCallSites.head
       cs.name.contains("f") shouldBe true
@@ -88,7 +91,7 @@ class KindTests extends SemanticdbTest {
     "Implicit defs as parameters",
     """
       |package kinds
-      |object objparam {
+      |object defparam {
       | class A()
       | implicit def b: A = ???
       | def f[T](i: Int)(implicit a: A) = ???
@@ -96,7 +99,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       val cs = css.sortedCallSites.head
       cs.name.contains("f") shouldBe true

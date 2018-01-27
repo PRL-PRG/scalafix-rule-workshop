@@ -2,7 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
-  ReflectExtract
+  FailFastReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.{
   Representation => r
@@ -20,7 +20,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     """.trim.stripMargin,
     ctx => {
       val res: ExtractionResult =
-        ReflectExtract(ctx).normalized.onlyImplicitDeclarations
+        FailFastReflectExtract(ctx).normalized.onlyImplicitDeclarations
       val expected = ExtractionResult(
         Seq(),
         Set(
@@ -64,7 +64,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val res = ReflectExtract(ctx).normalized
+      val res = FailFastReflectExtract(ctx).normalized
       val resDecls = res.sortedDeclarations
       val expected = Seq(
         r.Declaration(

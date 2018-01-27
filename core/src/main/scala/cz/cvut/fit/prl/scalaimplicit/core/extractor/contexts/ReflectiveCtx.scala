@@ -82,18 +82,14 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     }
 
     def findCallSiteSymbol(metaSymbol: Symbol.Global): u.Symbol = {
-      def tryObjectAndPackage =
-        objectMember(metaSymbol.cleanOwner, metaSymbol.cleanName).getOrElse(
-          packageMember(metaSymbol.cleanOwner, metaSymbol.cleanName)
-            .getOrElse(logAndThrow("call site", metaSymbol)))
-
       if (!metaSymbol.isMethod) logAndThrow("non-method call site", metaSymbol)
 
-      Loaders.loadClass(s"${metaSymbol.cleanOwner}.${metaSymbol.cleanName}") match {
+      Loaders.loadClass(metaSymbol.cleanWhole) match {
         case Success(s) => s
         case Failure(e) =>
-          classMember(metaSymbol.cleanOwner, metaSymbol.cleanName)
-            .getOrElse(tryObjectAndPackage)
+          classOrObjectOrPackageMember(metaSymbol)
+            .getOrElse(logAndThrow("call site", metaSymbol))
+
       }
     }
 
@@ -162,7 +158,14 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
             case Failure(ex) =>
               Loaders.loadModule(metaSymbol.cleanWhole) match {
                 case Success(t) => t.moduleClass
-                case Failure(ex) => logAndThrow("type symbol", metaSymbol)
+                case Failure(ex) =>
+                  // For some types, like String, scala aliases java.lang.String.
+                  // The staticClass set of methods do recursive dealiasing, and probably
+                  // can't handle Java classes
+                  classOrObjectOrPackageTypeMember(metaSymbol) match {
+                    case Success(t) => t
+                    case Failure(_) => logAndThrow("type symbol", metaSymbol)
+                  }
               }
           }
       }
@@ -184,12 +187,21 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
           objectMember(metaSymbol.cleanOwner, metaSymbol.cleanName).getOrElse(
             packageMember(metaSymbol.cleanOwner, metaSymbol.cleanName).get)))
 
+    private def classOrObjectOrPackageTypeMember(
+        metaSymbol: Symbol.Global): Try[u.Symbol] = {
+      val name = u.TypeName(metaSymbol.cleanName)
+      Try(
+        classMember(metaSymbol.cleanOwner, name)
+          .getOrElse(objectMember(metaSymbol.cleanOwner, name)
+            .getOrElse(packageMember(metaSymbol.cleanOwner, name).get)))
+    }
+
     private def classMember(owner: String, name: String): Try[u.Symbol] = {
       Loaders
         .loadClass(owner)
         .map(
-          owner =>
-            owner.typeSignature.decls.sorted
+          ownerSymbol =>
+            ownerSymbol.typeSignature.decls.sorted
               .find(_.fullName.endsWith(name))
               .get)
     }
@@ -198,8 +210,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       Loaders
         .loadModule(owner)
         .map(
-          owner =>
-            owner.typeSignature.decls.sorted
+          ownerSymbol =>
+            ownerSymbol.asModule.moduleClass.typeSignature.decls.sorted
               .find(_.fullName.endsWith(name))
               .get)
     }
@@ -208,10 +220,28 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       Loaders
         .loadPackage(owner)
         .map(
-          owner =>
-            owner.typeSignature.decls.sorted
+          ownerSymbol =>
+            ownerSymbol.asModule.moduleClass.typeSignature.decls.sorted
               .find(_.fullName.endsWith(name))
               .get)
+    }
+
+    private def classMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+      Loaders
+        .loadClass(owner)
+        .map(owner => owner.typeSignature.decl(name))
+    }
+
+    private def objectMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+      Loaders
+        .loadModule(owner)
+        .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
+    }
+
+    private def packageMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+      Loaders
+        .loadPackage(owner)
+        .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
     }
   }
 

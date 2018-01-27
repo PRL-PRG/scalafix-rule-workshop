@@ -2,6 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ExtractionResult,
+  FailFastReflectExtract,
   ReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
@@ -106,7 +107,7 @@ class NewSchemaTest extends SemanticdbTest {
       // I'll leave this on because this is a good stress test for the
       // reflection resolution, it has tons of corner cases, so I want
       // this test to trigger the assertions whenever we make a breaking change
-      val res = ReflectExtract(ctx).callSites
+      val res = FailFastReflectExtract(ctx).callSites
       res should have size 7
     }
   )
@@ -243,7 +244,7 @@ class NewSchemaTest extends SemanticdbTest {
         ),
         Set()
       )
-      val res = ReflectExtract(ctx).normalized.onlyCallSites
+      val res = FailFastReflectExtract(ctx).normalized.onlyCallSites
 
       val resStrings: Seq[String] =
         res.callSites
@@ -363,7 +364,7 @@ class NewSchemaTest extends SemanticdbTest {
           )
         )
       )
-      val res = ReflectExtract(ctx).normalizedCallSites
+      val res = FailFastReflectExtract(ctx).normalizedCallSites
         .filter(_.code.startsWith("classConv"))
 
       val resStrings: Seq[String] =
@@ -437,7 +438,7 @@ class NewSchemaTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val css = ReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
     }
   )
 

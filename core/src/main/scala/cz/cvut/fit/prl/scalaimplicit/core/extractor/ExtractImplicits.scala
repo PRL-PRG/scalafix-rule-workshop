@@ -166,23 +166,6 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
         )
       )
       .reportAndExtract("CallSite")
-  /* Replaced with instance-by-instance processing to be able to log exceptions easily
-      .map(Queries.breakDownSynthetic(ctx, _))
-      .map(ctx.reflectOnBreakdown)
-      .map(Factories.createCallSite(ctx, _))
-   */
-
-  private implicit class TryCollection[A](from: Seq[Try[A]]) {
-    def reportAndExtract(header: String): Seq[A] =
-      from
-        .map {
-          case Failure(t) => ErrorCollection().report(header, t); Failure(t)
-          case t => t
-        }
-        .collect {
-          case Success(t) => t
-        }
-  }
 
   def extractDeclarations(ctx: ReflectiveCtx): Set[Declaration] =
     ctx.inSourceDefinitions
@@ -199,15 +182,41 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
         Factories.createDeclaration(ctx, DeclarationReflection(ctx, d)))
       .toSet
 
-  /*
+  private implicit class TryCollection[A](from: Seq[Try[A]]) {
+    def reportAndExtract(header: String): Seq[A] =
+      from
+        .map {
+          case Failure(t) => ErrorCollection().report(header, t); Failure(t)
+          case t => t
+        }
+        .collect {
+          case Success(t) => t
+        }
+  }
+
+  def apply(ctx: ReflectiveCtx): ExtractionResult = {
+    ExtractionResult(extractCallSites(ctx), extractDeclarations(ctx))
+  }
+}
+
+object FailFastReflectExtract extends (ReflectiveCtx => ExtractionResult) {
+  // Replaced with instance-by-instance processing to be able to log exceptions easily
+  def failFastExtractCallSites(ctx: ReflectiveCtx) =
+    ctx.syntheticsWithImplicits
+      .map(Queries.breakDownSynthetic(ctx, _))
+      .map(ctx.reflectOnCallSite)
+      .map(Factories.createCallSite(ctx, _))
+
+  def failFastExtractDeclarations(ctx: ReflectiveCtx) =
+    ctx.inSourceDefinitions
       .flatMap(Queries.getDefn(ctx, _))
       //.filter(Queries.hasImplicits(ctx, _))
       .map(DeclarationReflection(ctx, _))
       .map(Factories.createDeclaration(ctx, _))
       .toSet
-   */
 
   def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    ExtractionResult(extractCallSites(ctx), extractDeclarations(ctx))
+    ExtractionResult(failFastExtractCallSites(ctx),
+                     failFastExtractDeclarations(ctx))
   }
 }
