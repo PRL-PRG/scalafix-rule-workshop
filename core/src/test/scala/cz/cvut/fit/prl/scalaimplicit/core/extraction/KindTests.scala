@@ -25,6 +25,24 @@ class KindTests extends SemanticdbTest {
   )
 
   checkReflContext(
+    "Calling implicit classes",
+    """
+      |package kinds
+      |object iclass {
+      | case class A(i: Int)
+      | implicit class N(i: A) { def s() = ??? }
+      | A(3).s
+      |}
+    """.trim.stripMargin,
+    ctx => {
+       val css = FailFastReflectExtract(ctx)
+      css.sortedCallSites should have size 1
+      css.sortedCallSites.head.name.contains("N") shouldBe true
+      css.sortedCallSites.head.declaration.kind.contains("class") shouldBe true
+    }
+  )
+
+  checkReflContext(
     "Calling implicit defs",
     """
       |package kinds

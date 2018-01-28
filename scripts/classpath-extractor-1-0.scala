@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicitpro
+package cz.cvut.fit.prl.scalaimplicit
 
 import java.io._
 
@@ -18,19 +18,21 @@ object ClassPathExtractorPlugin extends AutoPlugin {
   override lazy val projectSettings = inConfig(Compile)(
     Seq(
       gcp := {
-        val csp = (fullClasspath in Runtime).value
-        PrintClasspath(csp, "./classpath.dat")
+        val csp = (fullClasspath in Runtime).value.files
+        val tcsp = (fullClasspath in Test).value.files
+        PrintClasspath(csp ++ tcsp, "./classpath.dat")
       }
     ))
 }
 
 object PrintClasspath {
-  def apply(csp: Classpath, target: String) = {
+  def apply(csps: Seq[File], target: String) = {
     import java.nio._
     import java.nio.file._
     import java.nio.charset._
-    val contents = csp
-      .map(_.data.getAbsolutePath)
+    val contents = csps
+      .map(_.getAbsolutePath)
+      .toSet
       .mkString("\n")
       .getBytes(StandardCharsets.US_ASCII)
     if (Files.exists(Paths.get(target)))

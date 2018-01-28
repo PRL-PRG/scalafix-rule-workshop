@@ -13,8 +13,7 @@ import scala.meta.{Database, Denotation, Symbol, Synthetic}
 import scala.reflect.runtime.{universe => u}
 import scala.util.{Failure, Success, Try}
 
-class ReflectiveCtx(loader: ClassLoader, db: Database)
-    extends SemanticCtx(db) {
+class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
   implicit class FindableSymbol(symbol: Symbol.Global) {
     val cleanOwner = Cleaners.cleanOwner(
       symbol
@@ -82,11 +81,27 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     }
 
     def findCallSiteSymbol(metaSymbol: Symbol.Global): u.Symbol = {
+      def tryImplicitClass(metaSymbol: Symbol.Global): Try[u.Symbol] = {
+        Try(
+          Loaders
+            .loadClass(metaSymbol.cleanWhole)
+            .getOrElse( // Load class as a whole (it's inside an object)
+              Loaders
+                .loadClass(metaSymbol.cleanOwner) // Load owner class and look into it
+                .get
+                .typeSignature
+                .decls
+                .sorted
+                .find(_.name.toString == metaSymbol.cleanName)
+                .get)
+        )
+      }
+
       if (!metaSymbol.isMethod) logAndThrow("non-method call site", metaSymbol)
 
-      Loaders.loadClass(metaSymbol.cleanWhole) match {
+      tryImplicitClass(metaSymbol) match { // Impl
         case Success(s) => s
-        case Failure(e) =>
+        case Failure(e) => //Loaders.loadPackage(metaSymbol)
           classOrObjectOrPackageMember(metaSymbol)
             .getOrElse(logAndThrow("call site", metaSymbol))
 
@@ -119,7 +134,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
                 case s if s.isTermParameter || s.isTypeParameter =>
                   classOrObjectOrPackageParameter(s) match {
                     case Success(s) => s
-                    case _ => logAndThrow("arg", metaSymbol)
+                    case _          => logAndThrow("arg", metaSymbol)
                   }
               }
           }
@@ -131,7 +146,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         case s if s.isMethod => // def
           classOrObjectOrPackageMember(metaSymbol) match {
             case Success(s) if s.isMethod => s
-            case _ => logAndThrow("arg", metaSymbol)
+            case _                        => logAndThrow("arg", metaSymbol)
           }
         case s if s.isTerm || s.isType => // object, val or var
           Loaders.loadModule(metaSymbol.cleanWhole) match {
@@ -139,13 +154,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
             case Failure(ex) => // val or var
               classOrObjectOrPackageMember(metaSymbol) match {
                 case Success(s) => s
-                case _ => logAndThrow("arg", metaSymbol)
+                case _          => logAndThrow("arg", metaSymbol)
               }
           }
         case s if s.isTermParameter => // Things like (evidence$1)
           classOrObjectOrPackageParameter(s) match {
             case Success(s) => s
-            case _ => logAndThrow("arg", metaSymbol)
+            case _          => logAndThrow("arg", metaSymbol)
           }
       }
     }
@@ -157,7 +172,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
             case Success(t) => t
             case Failure(ex) =>
               Loaders.loadModule(metaSymbol.cleanWhole) match {
-                case Success(t) => t.moduleClass
+                case Success(t)  => t.moduleClass
                 case Failure(ex) =>
                   // For some types, like String, scala aliases java.lang.String.
                   // The staticClass set of methods do recursive dealiasing, and probably
@@ -238,7 +253,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
     }
 
-    private def packageMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+    private def packageMember(owner: String,
+                              name: u.TypeName): Try[u.Symbol] = {
       Loaders
         .loadPackage(owner)
         .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
@@ -287,23 +303,23 @@ object ReflectiveCtx {
       case x if x.isMethod => "def"
       case x if x.isClass =>
         x.asClass match {
-          case c if c.isTrait => "trait"
-          case c if c.isCaseClass => "case class"
-          case c if c.isPackage => "package"
+          case c if c.isTrait        => "trait"
+          case c if c.isCaseClass    => "case class"
+          case c if c.isPackage      => "package"
           case c if c.isPackageClass => "package class"
-          case c => "class"
+          case c                     => "class"
         }
       case x if x.isTerm =>
         x.asTerm match {
-          case t if t.isParameter => "param"
-          case t if t.isVal => "val"
-          case t if t.isVal => "var"
-          case t if t.isModule => "object"
-          case t if t.isPackage => "package"
+          case t if t.isParameter                  => "param"
+          case t if t.isVal                        => "val"
+          case t if t.isVal                        => "var"
+          case t if t.isModule                     => "object"
+          case t if t.isPackage                    => "package"
           case t if t.toString.startsWith("value") => "value"
         }
       case x if x.isMacro => "macro"
-      case x => throw new RuntimeException(s"<unknown: ${x.toString}>")
+      case x              => throw new RuntimeException(s"<unknown: ${x.toString}>")
     }
     if (symbol.isFinal) kind = s"final $kind"
     if (symbol.isAbstract) kind = s"abstract $kind"
@@ -327,17 +343,17 @@ object ReflectiveCtx {
   def returnType(ref: u.Symbol): u.Type = {
     ref match {
       case r if r.isMethod => r.asMethod.returnType
-      case r if r.isClass => returnType(r.asClass.primaryConstructor)
-      case r => r.typeSignature
+      case r if r.isClass  => returnType(r.asClass.primaryConstructor)
+      case r               => r.typeSignature
     }
   }
 
   def paramLists(ref: u.Symbol): List[List[u.Symbol]] = {
     ref match {
-      case r if r.isMethod => r.asMethod.paramLists
+      case r if r.isMethod      => r.asMethod.paramLists
       case r if r.isConstructor => r.asMethod.paramLists
-      case r if r.isClass => paramLists(r.asClass.primaryConstructor)
-      case _ => List()
+      case r if r.isClass       => paramLists(r.asClass.primaryConstructor)
+      case _                    => List()
     }
   }
 }

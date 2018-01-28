@@ -158,6 +158,20 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
 
+  import scala.reflect.runtime.{universe => u}
+  protected def checkReflMirror(name: String,
+                                code: String,
+                                f: u.Mirror => Unit) = {
+    test(name) {
+      val db = computeSemanticdbFromCode(code)
+      val loader =
+        new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL),
+                           this.getClass.getClassLoader)
+      val mirror = u.runtimeMirror(loader)
+      f(mirror)
+    }
+  }
+
   protected def checkReflContext(name: String,
                                  code: String,
                                  f: ReflectiveCtx => Unit): Unit = {
