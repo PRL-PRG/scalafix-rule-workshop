@@ -45,13 +45,13 @@ object DefnDecomposer {
       case d: Decl.Type => handleTypeName(d)
     }) //.filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
     metaSymbols.map {
-      case metaSymbol @ (s: Symbol.Global) =>
+      case s: Symbol.Global =>
         Try(ctx.reflectOnDefn(s)) match {
           case Success(sym) =>
-            DefnBreakdown(defn.pos, Some(sym), ctx.denotation(metaSymbol))
+            DefnBreakdown(defn.pos, Some(sym), ctx.denotation(s))
         }
-      case metaSymbol =>
-        DefnBreakdown(defn.pos, None, ctx.denotation(metaSymbol))
+      case s =>
+        DefnBreakdown(defn.pos, None, ctx.denotation(s))
     }
 
     /*

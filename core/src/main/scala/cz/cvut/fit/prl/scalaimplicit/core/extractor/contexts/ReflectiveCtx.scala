@@ -14,6 +14,8 @@ import scala.reflect.runtime.{universe => u}
 import scala.util.{Failure, Success, Try}
 
 class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
+  val _mirror = u.runtimeMirror(loader)
+
   implicit class FindableSymbol(symbol: Symbol.Global) {
     val cleanOwner = Cleaners.cleanOwner(
       symbol
@@ -36,8 +38,6 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
     val isTypeParameter = symbol.signature.isInstanceOf[TypeParameter]
     val isSelf = symbol.signature.isInstanceOf[Self]
   }
-
-  val _mirror = u.runtimeMirror(loader)
 
   def reflectOnCallSite(what: CallSiteBreakDown): CallSiteReflection = {
     val metaSymbol = what.breakDown.symbol.app.get
@@ -84,24 +84,23 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       def tryImplicitClass(metaSymbol: Symbol.Global): Try[u.Symbol] = {
         Try(
           Loaders
-            .loadClass(metaSymbol.cleanWhole)
+            .loadClass(metaSymbol)
             .getOrElse( // Load class as a whole (it's inside an object)
               Loaders
-                .loadClass(metaSymbol.cleanOwner) // Load owner class and look into it
+                .loadClass(metaSymbol) // Load owner class and look into it
                 .get
                 .typeSignature
                 .decls
                 .sorted
                 .find(_.name.toString == metaSymbol.cleanName)
                 .get)
+            .asClass
         )
       }
 
-      if (!metaSymbol.isMethod) logAndThrow("non-method call site", metaSymbol)
-
       tryImplicitClass(metaSymbol) match { // Impl
         case Success(s) => s
-        case Failure(e) => //Loaders.loadPackage(metaSymbol)
+        case Failure(e) =>
           classOrObjectOrPackageMember(metaSymbol)
             .getOrElse(logAndThrow("call site", metaSymbol))
 
@@ -110,10 +109,10 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
 
     def findDefnSymbol(metaSymbol: Symbol.Global): u.Symbol = {
       //println(metaSymbol)
-      Loaders.loadClass(s"${metaSymbol.cleanOwner}.${metaSymbol.cleanName}") match { // class, trait, case class
+      Loaders.loadClass(metaSymbol) match { // class, trait, case class
         case Success(s) => s
         case Failure(_) =>
-          Loaders.loadModule(metaSymbol.cleanWhole) match {
+          Loaders.loadModule(metaSymbol) match {
             case Success(s) => s.asTerm // object
             case Failure(ex) => // val, var, def
               metaSymbol match {
@@ -149,7 +148,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
             case _                        => logAndThrow("arg", metaSymbol)
           }
         case s if s.isTerm || s.isType => // object, val or var
-          Loaders.loadModule(metaSymbol.cleanWhole) match {
+          Loaders.loadModule(metaSymbol) match {
             case Success(s) => s.asTerm // object
             case Failure(ex) => // val or var
               classOrObjectOrPackageMember(metaSymbol) match {
@@ -165,13 +164,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
       }
     }
     def findTypeSymbol(metaSymbol: Symbol.Global): u.Symbol = {
-      Loaders.loadClass(metaSymbol.cleanWhole) match {
+      Loaders.loadClass(metaSymbol) match {
         case Success(t) => t
         case Failure(ex) =>
-          Loaders.loadPackage(metaSymbol.cleanWhole) match {
+          Loaders.loadPackage(metaSymbol) match {
             case Success(t) => t
             case Failure(ex) =>
-              Loaders.loadModule(metaSymbol.cleanWhole) match {
+              Loaders.loadModule(metaSymbol) match {
                 case Success(t)  => t.moduleClass
                 case Failure(ex) =>
                   // For some types, like String, scala aliases java.lang.String.
@@ -188,88 +187,116 @@ class ReflectiveCtx(loader: ClassLoader, db: Database) extends SemanticCtx(db) {
 
     private def classOrObjectOrPackageParameter(
         metaSymbol: Symbol.Global): Try[u.Symbol] = {
-      val param = metaSymbol.signature.asInstanceOf[TermParameter].name
-      Try(
-        classMember(metaSymbol.cleanOwner, param).getOrElse(
-          objectMember(metaSymbol.cleanOwner, param)
-            .getOrElse(packageMember(metaSymbol.cleanOwner, param).get)))
+      Try({
+        val param = metaSymbol.signature.asInstanceOf[TermParameter].name
+        val o = metaSymbol.owner.asInstanceOf[Symbol.Global]
+        classMember(o, param).getOrElse(
+          objectMember(o, param).getOrElse(packageMember(o, param).get))
+      })
     }
 
     private def classOrObjectOrPackageMember(
-        metaSymbol: Symbol.Global): Try[u.Symbol] =
-      Try(
-        classMember(metaSymbol.cleanOwner, metaSymbol.cleanName).getOrElse(
-          objectMember(metaSymbol.cleanOwner, metaSymbol.cleanName).getOrElse(
-            packageMember(metaSymbol.cleanOwner, metaSymbol.cleanName).get)))
+        metaSymbol: Symbol.Global): Try[u.Symbol] = {
+      Try({
+        val o = metaSymbol.owner.asInstanceOf[Symbol.Global]
+        classMember(o, metaSymbol.cleanName).getOrElse(
+          objectMember(o, metaSymbol.cleanName)
+            .getOrElse(packageMember(o, metaSymbol.cleanName).get))
+      })
+
+    }
 
     private def classOrObjectOrPackageTypeMember(
         metaSymbol: Symbol.Global): Try[u.Symbol] = {
       val name = u.TypeName(metaSymbol.cleanName)
-      Try(
-        classMember(metaSymbol.cleanOwner, name)
-          .getOrElse(objectMember(metaSymbol.cleanOwner, name)
-            .getOrElse(packageMember(metaSymbol.cleanOwner, name).get)))
+      Try({
+        val o = metaSymbol.owner.asInstanceOf[Symbol.Global]
+        classMember(o, name)
+          .getOrElse(
+            objectMember(o, name)
+              .getOrElse(packageMember(o, name).get))
+      })
     }
 
-    private def classMember(owner: String, name: String): Try[u.Symbol] = {
+    private def classMember(owner: Symbol.Global,
+                            name: String): Try[u.Symbol] = {
       Loaders
         .loadClass(owner)
         .map(
           ownerSymbol =>
-            ownerSymbol.typeSignature.decls.sorted
-              .find(_.fullName.endsWith(name))
+            ownerSymbol.typeSignature.members.sorted
+              .find(_.toString.endsWith(name))
               .get)
     }
 
-    private def objectMember(owner: String, name: String): Try[u.Symbol] = {
+    private def objectMember(owner: Symbol.Global,
+                             name: String): Try[u.Symbol] = {
       Loaders
         .loadModule(owner)
         .map(
           ownerSymbol =>
-            ownerSymbol.asModule.moduleClass.typeSignature.decls.sorted
-              .find(_.fullName.endsWith(name))
+            ownerSymbol.asModule.moduleClass.typeSignature.members.sorted
+              .find(_.toString.endsWith(name))
               .get)
     }
 
-    private def packageMember(owner: String, name: String): Try[u.Symbol] = {
+    private def packageMember(owner: Symbol.Global,
+                              name: String): Try[u.Symbol] = {
       Loaders
         .loadPackage(owner)
         .map(
           ownerSymbol =>
-            ownerSymbol.asModule.moduleClass.typeSignature.decls.sorted
-              .find(_.fullName.endsWith(name))
+            ownerSymbol.asModule.moduleClass.typeSignature.members.sorted
+              .find(_.toString.endsWith(name))
               .get)
     }
 
-    private def classMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+    private def classMember(owner: Symbol.Global,
+                            name: u.TypeName): Try[u.Symbol] = {
       Loaders
         .loadClass(owner)
-        .map(owner => owner.typeSignature.decl(name))
+        .map(owner => owner.typeSignature.member(name))
     }
 
-    private def objectMember(owner: String, name: u.TypeName): Try[u.Symbol] = {
+    private def objectMember(owner: Symbol.Global,
+                             name: u.TypeName): Try[u.Symbol] = {
       Loaders
         .loadModule(owner)
-        .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
+        .map(owner => owner.asModule.moduleClass.typeSignature.member(name))
     }
 
-    private def packageMember(owner: String,
+    private def packageMember(owner: Symbol.Global,
                               name: u.TypeName): Try[u.Symbol] = {
       Loaders
         .loadPackage(owner)
-        .map(owner => owner.asModule.moduleClass.typeSignature.decl(name))
+        .map(owner => owner.asModule.moduleClass.typeSignature.member(name))
     }
   }
 
   object Loaders {
-    def loadClass(symbol: String): Try[u.ClassSymbol] =
-      Try(_mirror.staticClass(symbol))
 
-    def loadModule(symbol: String): Try[u.ModuleSymbol] =
-      Try(_mirror.staticModule(symbol))
+    def loadClass(symbol: Symbol): Try[u.ClassSymbol] =
+      symbol match {
+        case s: Symbol.Global =>
+          s.owner match {
+            case o: Symbol.Global if o.isType =>
+              loadClass(o).map(
+                x =>
+                  x.typeSignature.members.sorted
+                    .find(_.toString.endsWith(s.cleanName))
+                    .get
+                    .asClass)
+            case _ => Try(_mirror.staticClass(s.cleanWhole))
+          }
+        case s =>
+          Failure(new RuntimeException(s"Cannot load non-global symbol ${s}"))
+      }
 
-    def loadPackage(symbol: String): Try[u.ModuleSymbol] =
-      Try(_mirror.staticPackage(symbol))
+    def loadModule(symbol: Symbol.Global): Try[u.ModuleSymbol] =
+      Try(_mirror.staticModule(symbol.cleanWhole))
+
+    def loadPackage(symbol: Symbol.Global): Try[u.ModuleSymbol] =
+      Try(_mirror.staticPackage(symbol.cleanWhole))
   }
 }
 
@@ -289,6 +316,8 @@ object ReflectiveCtx {
         .stripSuffix("]")
         .stripSuffix("#")
         .stripSuffix(".")
+        .replace("`init`", "$init$")
+        .replace("`", "")
 
     def separateLastPart(fullName: String): (String, String) = {
       val base = fullName.replace("#", ".")
