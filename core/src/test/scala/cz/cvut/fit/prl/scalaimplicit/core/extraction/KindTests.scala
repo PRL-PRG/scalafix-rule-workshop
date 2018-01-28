@@ -35,7 +35,7 @@ class KindTests extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-       val css = FailFastReflectExtract(ctx)
+      val css = FailFastReflectExtract(ctx)
       css.sortedCallSites should have size 1
       css.sortedCallSites.head.name.contains("N") shouldBe true
       css.sortedCallSites.head.declaration.kind.contains("class") shouldBe true
