@@ -264,7 +264,22 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       }
 
     def loadModule(symbol: Symbol): Try[u.ModuleSymbol] =
-      Try(_mirror.staticModule(symbol.cleanWhole))
+      symbol match {
+        case s: Symbol.Global =>
+          s.owner match {
+            case o: Symbol.Global if o.isType =>
+              loadClass(o).map(
+                x =>
+                  x.typeSignature.members.sorted
+                    .filter(_.isModule)
+                    .find(_.toString.endsWith(s.cleanName))
+                    .get
+                    .asModule)
+            case _ => Try(_mirror.staticModule(s.cleanWhole))
+          }
+        case s =>
+          Failure(new RuntimeException(s"Cannot load non-global symbol ${s}"))
+      }
 
     def loadPackage(symbol: Symbol): Try[u.ModuleSymbol] =
       Try(_mirror.staticPackage(symbol.cleanWhole))

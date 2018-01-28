@@ -49,6 +49,7 @@ object DefnDecomposer {
         Try(ctx.reflectOnDefn(s)) match {
           case Success(sym) =>
             DefnBreakdown(defn.pos, Some(sym), ctx.denotation(s))
+          case Failure(e) => throw e
         }
       case s =>
         DefnBreakdown(defn.pos, None, ctx.denotation(s))
