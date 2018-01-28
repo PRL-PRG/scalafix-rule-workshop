@@ -186,8 +186,10 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
     def reportAndExtract(header: String): Seq[A] =
       from
         .map {
-          case Failure(t) => ErrorCollection().report(header, t); Failure(t)
-          case t => t
+          case Failure(t) => {
+            ErrorCollection().report(header, t)
+          }; Failure(t)
+        case t => t
         }
         .collect {
           case Success(t) => t

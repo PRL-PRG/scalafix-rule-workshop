@@ -4,6 +4,7 @@ import java.nio.file.Files
 
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ErrorCollection,
   ExtractionResult,
   OrphanCallSites
 }

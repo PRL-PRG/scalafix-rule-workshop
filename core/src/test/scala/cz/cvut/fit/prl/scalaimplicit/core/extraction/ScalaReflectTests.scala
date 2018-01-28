@@ -160,7 +160,8 @@ class ScalaReflectTests extends SemanticdbTest {
       |    Map(innerval -> "3")
       | }
       |}
-    """.stripMargin, mirror => {
+    """.stripMargin,
+    mirror => {
       // TODO: Currently we have no idea how to access innerval with reflection
       println(mirror)
     }

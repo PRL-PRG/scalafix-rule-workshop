@@ -73,6 +73,8 @@ object TermDecomposer {
       case t: Term.Name => RawCode(t.syntax, t.pos)
       case t: Term.Placeholder => RawCode(t.syntax, t.pos)
       case t: Term.Interpolate => RawCode(t.syntax, t.pos)
+      case t: Term.Repeated => RawCode(t.syntax, t.pos)
+      case t: Term.Throw => RawCode(t.syntax, t.pos)
       case t: Lit => RawCode(t.syntax, t.pos)
       case t: Term => {
         val bd = breakDown(t)
@@ -81,6 +83,7 @@ object TermDecomposer {
           case None => RawCode(t.syntax, t.pos)
         }
       }
+      case t => RawCode(t.syntax, t.pos)
     }
     params
       .filterNot(x => {
@@ -156,8 +159,7 @@ object TermDecomposer {
         bd.copy(args = processParamList(t.args), pos = t.pos, code = t.syntax)
       }
       case t => {
-        println(t.structure)
-        throw new MatchError(s"Unknown match ${t}")
+        throw new MatchError(s"Unknown Term match ${t.structure}")
       }
     }
   }
