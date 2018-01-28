@@ -148,4 +148,21 @@ class ScalaReflectTests extends SemanticdbTest {
         .isImplicit shouldBe (false)
     }
   )
+
+  checkReflMirror(
+    "Vals inside Vals are represented as ...",
+    """
+      |package refltest
+      |package valception
+      |case class A() {
+      | private val outerval: Map[Int, String] = {
+      |    var innerval = 3
+      |    Map(innerval -> "3")
+      | }
+      |}
+    """.stripMargin, mirror => {
+      // TODO: Currently we have no idea how to access innerval with reflection
+      println(mirror)
+    }
+  )
 }
