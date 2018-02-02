@@ -13,12 +13,13 @@ import scala.meta.{Lit, Name, Term, Tree}
 /**
   * Common interface for objects that decompose terms
   *
-  * Walking a term tree to form a useful form of a function
+  * Walking a term tree to form a useful function
   * is a tedious process. This has to be done twice -
   * Once on the synthetics to examine the synthetic itself,
   * and another one once we have matched the synthetics with their missing applications.
-  * This means that the only difference is in how they find symbols,
-  * which is this accepts a function.
+  * This means that the only difference is in how they find symbols
+  * (one finds them in the synthetic, the other in the code),
+  * which why is this accepts a finder function.
   *
   * The accepted function is implicit for convenience, since breakDown and
   * processType are recursive and implicit functions simplify the calls.

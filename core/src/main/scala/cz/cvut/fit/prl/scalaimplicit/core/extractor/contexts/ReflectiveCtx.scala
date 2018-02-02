@@ -43,11 +43,11 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     val isSelf = symbol.signature.isInstanceOf[Self]
   }
 
-  def reflectOnCallSite(what: CallSiteBreakDown): CallSiteReflection = {
+  def reflectOnCallSite(what: CallSiteBreakDown): ImplicitReflection = {
     val metaSymbol = what.breakDown.symbol.app.get
     val reflectiveSymbol =
       Finders.findCallSiteSymbol(metaSymbol.asInstanceOf[Symbol.Global])
-    CallSiteReflection(this,
+    ImplicitReflection(this,
                        what.breakDown,
                        denotation(metaSymbol),
                        reflectiveSymbol,
@@ -60,7 +60,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         val metaSymbol = bd.symbol.app.get
         val reflectiveSymbol =
           Finders.findArgumentSymbol(metaSymbol.asInstanceOf[Symbol.Global])
-        CallSiteReflection(this,
+        ImplicitReflection(this,
                            bd,
                            denotation(metaSymbol),
                            reflectiveSymbol,

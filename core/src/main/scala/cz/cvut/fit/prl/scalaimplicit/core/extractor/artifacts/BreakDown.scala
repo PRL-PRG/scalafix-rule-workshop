@@ -7,6 +7,9 @@ object QualifiedSymbol {
   val Empty = QualifiedSymbol(None, false)
 }
 
+// Break down of a CallSite or ImplicitArgument,
+// anything that has semantic meaning for us and is not
+// a declaration
 case class BreakDown(symbol: QualifiedSymbol,
                      targs: Seq[Type],
                      args: Seq[Param],

@@ -10,7 +10,18 @@ import org.langmeta.semanticdb.Denotation
 
 import scala.reflect.runtime.{universe => u}
 
-case class CallSiteReflection(originalSymbol: QualifiedSymbol,
+/**
+  * Intermediate representation that deals with incomplete information
+  * (e.g. a missing Denotation) and gathers the information needed to
+  * call the factories later.
+  *
+  * It could arguably be merged with the Factories, but that would make
+  * the factories very complicated.
+  */
+/**
+  * The reflection for either an implicit CallSite or an ImplicitArgument in a call site.
+  */
+case class ImplicitReflection(originalSymbol: QualifiedSymbol,
                               reflectiveSymbol: u.Symbol,
                               fullName: String,
                               pos: Position,
@@ -19,13 +30,13 @@ case class CallSiteReflection(originalSymbol: QualifiedSymbol,
                               typeArguments: Seq[ReflectiveTArg],
                               args: Seq[Param])
     extends Param
-object CallSiteReflection {
+object ImplicitReflection {
   def apply(ctx: ReflectiveCtx,
             bd: BreakDown,
             den: Option[Denotation],
             ref: u.Symbol,
-            origins: SyntheticOrigins): CallSiteReflection =
-    new CallSiteReflection(
+            origins: SyntheticOrigins): ImplicitReflection =
+    new ImplicitReflection(
       originalSymbol = bd.symbol,
       reflectiveSymbol = ref,
       fullName = ref.fullName,

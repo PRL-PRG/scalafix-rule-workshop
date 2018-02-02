@@ -17,7 +17,10 @@ import scala.meta._
 import scala.reflect.runtime.{universe => u}
 import scala.util.{Failure, Success, Try}
 
-object Queries {
+/**
+  * A collection of methods that drive the extraction of call sites and declarations
+  */
+object CallSiteExtractionUtils {
   def hasImplicits(ctx: ReflectiveCtx, breakdown: DefnBreakdown): Boolean = {
     def hasImplicitsRef(ref: u.Symbol): Boolean = {
       ref.isImplicit || ref.typeSignature.paramLists.exists(ls =>
@@ -141,6 +144,9 @@ object Queries {
     }
   }
 
+}
+
+object DefnExtractionUtils {
   def getDefn(ctx: ReflectiveCtx, tree: Tree): Seq[DefnBreakdown] = {
     def finder(t: Tree): Symbol = ctx.symbol(t).get
     DefnDecomposer(ctx, tree)(finder)
@@ -152,6 +158,10 @@ case class ExtractionResult(callSites: Seq[CallSite],
 object ExtractionResult {
   val Empty = ExtractionResult(Seq(), Set())
 }
+
+/**
+  * Extract the call sites from a context, starting with the synthetics.
+  */
 object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
 
   def extractCallSites(ctx: ReflectiveCtx): Seq[CallSite] =
@@ -159,10 +169,11 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
       .map(
         syn =>
           Try(
-            Factories.createCallSite(ctx,
-                                     ctx.reflectOnCallSite(
-                                       Queries.breakDownSynthetic(ctx, syn)
-                                     ))
+            Factories.createCallSite(
+              ctx,
+              ctx.reflectOnCallSite(
+                CallSiteExtractionUtils.breakDownSynthetic(ctx, syn)
+              ))
         )
       )
       .reportAndExtract("CallSite")
@@ -172,7 +183,7 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
       .map(
         t =>
           Try(
-            Queries
+            DefnExtractionUtils
               .getDefn(ctx, t)
         )
       )
@@ -182,6 +193,9 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
         Factories.createDeclaration(ctx, DeclarationReflection(ctx, d)))
       .toSet
 
+  // Helper class for filtering erroneous results the extraction.
+  // Returns the same collection, only keeping the Successes
+  // and reporting the Failures.
   private implicit class TryCollection[A](from: Seq[Try[A]]) {
     def reportAndExtract(header: String): Seq[A] =
       from
@@ -201,17 +215,20 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   }
 }
 
+/**
+  * Version of extraction that stops once it finds an exception
+  */
 object FailFastReflectExtract extends (ReflectiveCtx => ExtractionResult) {
   // Replaced with instance-by-instance processing to be able to log exceptions easily
   def failFastExtractCallSites(ctx: ReflectiveCtx) =
     ctx.syntheticsWithImplicits
-      .map(Queries.breakDownSynthetic(ctx, _))
+      .map(CallSiteExtractionUtils.breakDownSynthetic(ctx, _))
       .map(ctx.reflectOnCallSite)
       .map(Factories.createCallSite(ctx, _))
 
   def failFastExtractDeclarations(ctx: ReflectiveCtx) =
     ctx.inSourceDefinitions
-      .flatMap(Queries.getDefn(ctx, _))
+      .flatMap(DefnExtractionUtils.getDefn(ctx, _))
       //.filter(Queries.hasImplicits(ctx, _))
       .map(DeclarationReflection(ctx, _))
       .map(Factories.createDeclaration(ctx, _))

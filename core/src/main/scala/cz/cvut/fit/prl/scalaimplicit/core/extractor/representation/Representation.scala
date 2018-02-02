@@ -161,7 +161,7 @@ object Factories {
 
   def createImplicitArgument(ctx: ReflectiveCtx, param: Param): ArgumentLike = {
     param match {
-      case reflection: CallSiteReflection => {
+      case reflection: ImplicitReflection => {
         val original = reflection.originalSymbol
         ImplicitArgument(
           name = reflection.fullName,
@@ -179,7 +179,7 @@ object Factories {
   }
 
   def createCallSite(ctx: ReflectiveCtx,
-                     reflection: CallSiteReflection): CallSite = {
+                     reflection: ImplicitReflection): CallSite = {
 
     val original = reflection.originalSymbol
 
