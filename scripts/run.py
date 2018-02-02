@@ -18,6 +18,7 @@ BASE_CONFIG = {
     "debug_info": True,
     "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
+    "default_location_depth": 0,
     "temporal_git_repo_storage": "_gitrepotmp",
 
     "force_recompile_on_fail": False,
@@ -86,13 +87,19 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_report(self, project_path, kind):
-        for root, subdir, files in os.walk(project_path):
-            for f in files:
+    def get_report(self, project_path, kind, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        def get_report_in(path, kind):
+            for f in os.listdir(path):
                 if f == BASE_CONFIG[kind]:
-                    with open(os.path.join(root, f)) as report:
+                    with open(os.path.join(path, f)) as report:
                         return report.read()
-        return None
+            return None
+
+        reports_folder = os.path.join(project_path, reports_folder_name)
+        res = get_report_in(reports_folder, kind)
+        # For projects that were processed before we had the _reports folder
+        if res is None: res = get_report_in(project_path, kind)
+        return res
 
     def write_report(self, content, project_path, kind):
         report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
@@ -366,13 +373,13 @@ def analyze(
     def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
         P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
         title = "Semanticdb file analysis"
-        command = "java -jar %s %s ." % (jvm_options, tool_path)
+        command = "java -jar %s %s . ./classpath.dat ./_reports" % (jvm_options, tool_path)
         return analysis_command(project_path, project_name, title, command, "analyzer_report")
 
-    def run_cleanup_tool(project_name, project_path, tool_path):
-        P.info("[Analysis][%s] Cleaning up the data..." % project_name)
-        title = "Data cleanup"
-        command = "python %s ." % (tool_path)
+    def run_classpath_tool(project_name, project_path, tool_path):
+        P.info("[Analysis][%s] Generating classpath..." % project_name)
+        title = "Classpath generation"
+        command = "sbt -batch gcp" 
         return analysis_command(project_path, project_name, title, command, "cleanup_report")
 
     def upload_to_database(project_name, project_path, tool_path):
@@ -399,9 +406,9 @@ def analyze(
     compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
     continue_analysis = not compilation_failed
     if continue_analysis:
-        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
+        continue_analysis = run_classpath_tool(project_name, project_path, cleanup_tool_path)
     if continue_analysis:
-        continue_analysis = run_cleanup_tool(project_name, project_path, cleanup_tool_path)
+        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     if continue_analysis and push_to_db:
        continue_analysis = upload_to_database(project_name, project_path, db_tool_path)
     P.info("[Analysis][%s] Analysis concluded" % project_name)
@@ -486,30 +493,74 @@ def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
 
 @task
 def condense_reports(
-    report_name=BASE_CONFIG["condensed_report"],
-    projects_path=BASE_CONFIG["projects_dest"]
-    ):
+        report_name=BASE_CONFIG["condensed_report"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        project_depth=BASE_CONFIG["default_location_depth"]
+):
     def write_header(report_file):
         report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
+
+    def write_summary(reports, total, report_file):
+        report_file.write("Summary --------------------------\n Total projects: %d\n" % total)
+        for report in reports:
+            report_file.write(" - %s: Success: %d, Failure: %d\n" % (report, reports[report][0], reports[report][1]))
+        report_file.write("----------------------------")
 
     def append_report(project_path, report_file, report_kind):
         status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
+        return status
+
+    def get_project_list(projects_path, depth):
+        if depth == 0:
+            return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
+        else:
+            paths = []
+            for p in os.listdir(projects_path):
+                paths = paths + get_project_list(os.path.join(projects_path, p), depth - 1)
+            return paths
+
+    def write_manifest(manifest):
+       with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
+           manifest_file.write("{\"projects\":[\n")
+           for proj in manifest[:-1]:
+               if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
+                   manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" %
+                                      (proj[0], proj[1]))
+           if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
+               manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % 
+                                  (proj[0], proj[1]))
+           manifest_file.write("]}")
 
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
+
+    manifest = []
+ 
     with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
-        for subdir in os.listdir(projects_path):
-            P.info("[Reports] Extracting from %s" % subdir)
-            project_path = os.path.join(projects_path, subdir)
-            project_name = subdir
-
+        reports = {
+            "compilation_report": (0, 0),
+            "semanticdb_report": (0, 0),
+            "analyzer_report": (0, 0),
+            "cleanup_report": (0, 0),
+            "db_push_report": (0, 0)
+        }
+        total_projects = 0
+        for project_path in get_project_list(projects_path, int(float(project_depth))):
+            P.info("[Reports] Extracting from %s" % project_path)
+            project_name = project_path
+            total_projects += 1
             report_file.write("%s:\n" % project_name)
-            reports = ["compilation_report", "semanticdb_report", "analyzer_report", "cleanup_report", "db_push_report"]
             for report in reports:
-                append_report(project_path, report_file, report)
+                status = append_report(project_path, report_file, report)
+                res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
+                reports[report] = tuple(map(sum, zip(reports[report], res)))
+            full_path = os.path.join(cwd, project_path)
+            manifest.append(("%s/project.csv" % full_path, "%s/_reports/results.json" % full_path))
+        write_summary(reports, total_projects, report_file)
+    write_manifest(manifest)
 
 @task
 def cleanup_reports(project_path):
