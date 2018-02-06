@@ -17,10 +17,12 @@ object PredefinedQueries {
   val DATASET =
     ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
 
+  val OUTFOLDER = "../results"
+
   import OutputHelper._
 
   def dumpAll() = {
-    query("tmp", Seq(CSFilterQuery("all", x => true)))
+    query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
   }
 
   val conversionFunction: CallSite => Boolean = {
@@ -47,7 +49,7 @@ object PredefinedQueries {
 
   def conversion(): Unit = {
     query(
-      "tmp",
+      OUTFOLDER,
       Seq(CSFilterQuery("conversion", conversionFunction))
     )
   }
@@ -60,7 +62,7 @@ object PredefinedQueries {
 
   def nonTransitiveConversion() = {
     query(
-      "tmp",
+      OUTFOLDER,
       Seq(CSFilterQuery("conversion", conversionFunction),
           CSFilterQuery("nontransitive", nonTransitiveFunction))
     )
@@ -68,7 +70,7 @@ object PredefinedQueries {
 
   def typeClass() = {
     query(
-      "tmp",
+      OUTFOLDER,
       Seq(
         CSFilterQuery(
           "typeclass", {
@@ -120,7 +122,7 @@ object PredefinedQueries {
     })
 
     Files.write(
-      Paths.get("./tmp/contextcandidates/definitions.html"),
+      Paths.get(OUTFOLDER + "/contextcandidates/definitions.html"),
       HTMLSerializer
         .createSlimDocument[DefinitionSummary](
           decls,
@@ -130,7 +132,7 @@ object PredefinedQueries {
   }
 
   def moreThanOneParam(): Unit = {
-    query("tmp",
+    query(OUTFOLDER,
           Seq(CSFilterQuery("morethanone", _.implicitArguments.size > 1)))
   }
 

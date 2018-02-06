@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 import java.nio.file.{Files, Paths}
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.reports.SlimReport
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{ReportSummary, SlimReport}
 
 object OutputHelper {
   def printSlimCallSiteReports(folder: String,
@@ -21,7 +21,6 @@ object OutputHelper {
         .createSlimDocument(data, HTMLSerializer.CoderefDocument$)
         .getBytes
     )
-
     Files.write(
       Paths.get(s"./${folder}/${prefix}.summary.html"),
       HTMLSerializer
@@ -29,12 +28,16 @@ object OutputHelper {
         .getBytes
     )
     Files.write(
-      Paths.get(s"./${folder}/${prefix}.summary.csv"),
-      csvSummary(data).getBytes
+      Paths.get(s"./${folder}/${prefix}.project.summary.csv"),
+      projectCSVSummary(data).getBytes
+    )
+    Files.write(
+      Paths.get(s"./${folder}/${prefix}.callsite.summary.csv"),
+      callSiteCSVSummary(data.map(x => ReportSummary(x))).getBytes
     )
   }
 
-  def csvSummary(reports: Seq[SlimReport]): String = {
+  def projectCSVSummary(reports: Seq[SlimReport]): String = {
     def prepareValue(x: String) = {
       // FIXME: properly escape " in x
       '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
@@ -46,6 +49,27 @@ object OutputHelper {
         s"""${prepareValue(report.metadata.reponame)},${prepareValue(
              report.stats.callSitesBeforeFilter.toString)},${prepareValue(
              report.stats.callSitesAfterFilter.toString)}""".stripMargin)
+      .mkString("\n")
+    s"$header\n$values"
+  }
+
+  def callSiteCSVSummary(projectSummaries: Seq[ReportSummary]): String = {
+    def pV(x: String): String = {
+      // FIXME: properly escape " in x
+      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
+    }
+
+    def bV(x: Boolean): String = if (x) "T" else "F"
+
+    val header = "project, name, occurrences, transitive"
+    val values = projectSummaries
+      .flatMap(
+        report =>
+          report.sortedCallSites
+            .map(row =>
+              s"""${pV(report.reponame)}, ${row.name}, ${row.occurrences}, ${bV(
+                row.isTransitive)}""")
+      )
       .mkString("\n")
     s"$header\n$values"
   }

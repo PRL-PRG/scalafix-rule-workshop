@@ -1,29 +1,66 @@
 package cz.cvut.fit.prl.scalaimplicit.core.reports
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.{
+  SlimCallSite,
+  SlimDefinition
+}
+
+trait Mergeable[T] {
+  def name: String
+  def merge(other: T): T
+}
+
+case class CallSiteOccurrences(name: String,
+                               occurrences: Int,
+                               isTransitive: Boolean)
+    extends Mergeable[CallSiteOccurrences] {
+  def merge(other: CallSiteOccurrences): CallSiteOccurrences = {
+    assert(name == other.name)
+    // We trust that we are conscious of when we are losing information
+    copy(isTransitive = isTransitive && other.isTransitive,
+         occurrences = occurrences + other.occurrences)
+  }
+}
+object CallSiteOccurrences {
+  def apply(cs: SlimCallSite): CallSiteOccurrences =
+    CallSiteOccurrences(cs.name, 1, cs.declaration.location.isDefined)
+}
+case class DefinitionOccurrences(name: String, occurrences: Int)
+    extends Mergeable[DefinitionOccurrences] {
+  def merge(other: DefinitionOccurrences): DefinitionOccurrences = {
+    assert(name == other.name)
+    copy(occurrences = occurrences + other.occurrences)
+  }
+}
+object DefinitionOccurrences {
+  def apply(d: SlimDefinition): DefinitionOccurrences =
+    DefinitionOccurrences(d.name, 1)
+}
 case class ReportSummary(
     reponame: String,
-    callSites: Map[String, Int],
+    callSites: Seq[CallSiteOccurrences],
     totalCallSites: Int,
-    definitions: Map[String, Int],
+    definitions: Seq[DefinitionOccurrences],
     totalDefinitions: Int,
     stats: Statistics
 ) {
-  def sortedCallSites = callSites.toSeq.sortBy(-_._2)
-  def sortedDefinitions = definitions.toSeq.sortBy(-_._2)
+  def sortedCallSites = callSites.sortBy(-_.occurrences)
+  def sortedDefinitions = definitions.sortBy(-_.occurrences)
 }
 object ReportSummary {
   def apply(parts: Seq[ReportSummary]) = {
-    def mergeMaps(maps: Seq[Map[String, Int]]): Map[String, Int] =
-      maps.reduceLeft((r, m) =>
-        m.foldLeft(r) {
-          case (dict, (k, v)) => dict + (k -> (v + dict.getOrElse(k, 0)))
-      })
+    def mergeList[T <: Mergeable[T]](maps: Seq[T]): Seq[T] =
+      maps
+        .groupBy(_.name)
+        .values
+        .map(group => group.reduce((x, y) => x.merge(y)))
+        .toSeq
 
     val merge = (report: ReportSummary, acc: ReportSummary) =>
       acc.copy(
-        callSites = mergeMaps(Seq(acc.callSites, report.callSites)),
+        callSites = mergeList(report.callSites ++ acc.callSites),
         totalCallSites = acc.totalCallSites + report.totalCallSites,
-        definitions = mergeMaps(Seq(acc.definitions, report.definitions)),
+        definitions = mergeList(acc.definitions ++ report.definitions),
         totalDefinitions = acc.totalDefinitions + report.totalDefinitions,
         reponame = "all/summary"
     )
@@ -32,17 +69,20 @@ object ReportSummary {
     else parts.tail.fold(parts.head)(merge)
   }
 
-  def apply(report: SlimReport): ReportSummary = {
-    def groupAndCount(
-        what: Iterable[{ def name: String }]): (Map[String, Int], Int) = {
-      val groups = what
-        .groupBy(_.name)
-        .map(x => (x._1, x._2.size))
-      (groups, groups.values.sum)
-    }
+  def groupAndMerge[T <: Mergeable[T]](a: Seq[T]): (Seq[T], Int) = {
+    val groups = a.groupBy(_.name)
+    groups.values
+      .map(x => x.reduce(_ merge _))
+      .toSeq ->
+      groups.values.map(_.size).sum
+  }
 
-    val css = groupAndCount(report.result.callSites)
-    val decls = groupAndCount(report.result.definitions)
+  def apply(report: SlimReport): ReportSummary = {
+
+    val css = groupAndMerge(
+      report.result.callSites.map(x => CallSiteOccurrences(x)))
+    val decls = groupAndMerge(
+      report.result.definitions.map(x => DefinitionOccurrences(x)).toSeq)
 
     ReportSummary(report.metadata.reponame,
                   css._1,
@@ -55,9 +95,12 @@ object ReportSummary {
   def apply(defSum: DefinitionSummary) = {
     new ReportSummary(
       defSum.metadata.reponame,
-      callSites = Map(),
+      callSites = Seq(),
       totalCallSites = 0,
-      definitions = defSum.definitions.map(x => x._1 -> x._2),
+      definitions = groupAndMerge(
+        defSum.definitions
+          .map(x => DefinitionOccurrences(x._1, x._2))
+          .toSeq)._1,
       totalDefinitions = defSum.definitions.values.sum,
       stats = Statistics.Default
     )

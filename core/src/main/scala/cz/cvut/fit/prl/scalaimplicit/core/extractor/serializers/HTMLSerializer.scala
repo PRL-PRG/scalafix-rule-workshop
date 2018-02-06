@@ -320,7 +320,7 @@ object HTMLSerializer {
             tbody(
               summary.sortedCallSites
                 .map(row => {
-                  tr(td(row._2), td(row._1))
+                  tr(td(row.occurrences), td(row.name))
                 })
                 .toSeq
             )
@@ -332,8 +332,8 @@ object HTMLSerializer {
       Seq(
         div(id := "summary", `class` := "w3-table w3-bordered")()(
           h4(b("Summary")),
-          printSummary(overallSummary.copy(
-            callSites = overallSummary.sortedCallSites.take(10).toMap))
+          printSummary(
+            overallSummary.copy(callSites = overallSummary.sortedCallSites))
         )) ++
         projectSummaries.map(printSummary)
     }
@@ -362,7 +362,7 @@ object HTMLSerializer {
             tbody(
               summary.sortedDefinitions
                 .map(row => {
-                  tr(td(row._2), td(row._1))
+                  tr(td(row.occurrences), td(row.name))
                 })
                 .toSeq
             )
@@ -379,7 +379,7 @@ object HTMLSerializer {
           h4(b("Summary")),
           printSummary(
             overallSummary.copy(
-              definitions = overallSummary.sortedDefinitions.take(10).toMap))
+              definitions = overallSummary.sortedDefinitions.take(10)))
         )
       ) ++
         projectSummaries.map(printSummary)

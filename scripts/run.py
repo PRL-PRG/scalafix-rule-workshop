@@ -468,6 +468,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
 @task
 def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
     cwd = os.getcwd()
+    P = Pipeline()
     P.info("[Reports] Gathering reports")
     # I don't think it's worth it to parametrize the report filenames
     for report in BASE_CONFIG["report_files"]:
@@ -481,9 +482,8 @@ def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
                 if os.path.exists(project_report_path):
                     with open(project_report_path) as project_report_file:
                         project_report = csv.DictReader(project_report_file)
-                        if not headers:
-                            header = list(project_report.fieldnames)
-                            header.append("project")
+                        if not headers: # We are processing project.csv files
+                            header = list(["build", "gh_stars", "scala_loc", "project", "url", "version", "reponame", "last_commit", "total_loc", "name"])
                             writer.writerow(header)
                             headers = True
                         for line in project_report:
