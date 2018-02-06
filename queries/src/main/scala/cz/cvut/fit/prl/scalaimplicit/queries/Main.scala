@@ -9,5 +9,6 @@ object Main {
     PredefinedQueries.typeClass()
     PredefinedQueries.declarationsByCallSite()
     PredefinedQueries.moreThanOneParam()
+    PredefinedQueries.typeClassClassification()
   }
 }

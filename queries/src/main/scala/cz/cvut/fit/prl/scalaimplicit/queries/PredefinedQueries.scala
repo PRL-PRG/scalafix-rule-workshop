@@ -5,14 +5,76 @@ import java.nio.file.{Files, Paths}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{
+  TCFamily,
+  TCItem
+}
 import cz.cvut.fit.prl.scalaimplicit.core.reports.{
   DefinitionSummary,
+  ProjectMetadata,
   ProjectReport,
   SlimReport
 }
 import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 
+import scala.collection.immutable
+
 object PredefinedQueries {
+  def typeClassClassification() = {
+    def parentCandidate(s: Declaration): Boolean = {
+      s.signature.get.typeParams.nonEmpty &&
+      (s.kind.endsWith("trait") || s.kind.endsWith("abstract class"))
+    }
+    def instanceCandidate(s: Declaration): Boolean = {
+      s.isImplicit &&
+      (s.kind.contains("object") || s.kind.contains("def") || s.kind.contains(
+        "class")) &&
+      s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
+    }
+    def isTCInstanceOf(parent: Declaration, inst: Declaration): Boolean = {
+      inst.parents.exists(_.name == parent.name)
+    }
+
+    val data = DATASET
+    val defns: Seq[(Declaration, ProjectMetadata)] =
+      for {
+        proj <- data
+        defn <- proj.result.declarations
+          .filter(d => parentCandidate(d) || instanceCandidate(d))
+      } yield {
+        defn -> proj.metadata
+      }
+
+    val families = (for {
+      parent <- defns.filter(d => parentCandidate(d._1))
+      children = defns.filter(x =>
+        instanceCandidate(x._1) && isTCInstanceOf(parent._1, x._1))
+    } yield {
+      TCFamily(
+        TCItem(SlimDefinition(parent._1), parent._2),
+        children.map(
+          child =>
+            TCItem(
+              SlimDefinition(child._1),
+              child._2
+          ))
+      )
+    }).filter(_.instances.nonEmpty)
+
+    val outfile = OUTFOLDER + "/specialqueries/tcclassification"
+
+    Files.write(
+      Paths.get(outfile + ".html"),
+      HTMLSerializer
+        .createSlimDocument(families, HTMLSerializer.TCListDocument)
+        .getBytes
+    )
+
+    Files.write(
+      Paths.get(outfile + ".json"),
+      OutputHelper.TCFamiliesJSONSummary(families).getBytes
+    )
+  }
 
   val DATASET =
     ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")

@@ -1,6 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
   PrettyDeclaration,
   PrettyLocation
@@ -385,5 +386,71 @@ object HTMLSerializer {
         projectSummaries.map(printSummary)
     }
 
+  }
+
+  case class TCItem(defn: SlimDefinition, metadata: ProjectMetadata)
+  case class TCFamily(parent: TCItem, instances: Seq[TCItem])
+  object TCListDocument extends HTMLDocument[TCFamily] {
+    override def sidebar(data: Seq[TCFamily]): Seq[HTMLTag] = {
+      Seq(
+        a(href := s"#summary", `class` := "w3-bar-item w3-button")(
+          "all/summary")
+      ) ++
+        data
+          .groupBy(_.parent.metadata)
+          .keys
+          .map(res =>
+            a(href := s"#${res.reponame.replace("/", "-")}",
+              `class` := "w3-bar-item w3-button")(s"${res.reponame}"))
+    }
+
+    override def body(data: Seq[TCFamily]): Seq[HTMLTag] = {
+      def printInstances(items: Seq[TCItem]): HTMLTag = {
+        ul(
+          items.map(
+            item =>
+              li(
+                a(href := HLocation.composeGHURL(item.defn.location.get,
+                                                 item.metadata))(
+                  item.defn.kindedName
+                )))
+        )
+      }
+
+      def printFamily(family: TCFamily) = {
+        div(
+          b(
+            a(href := HLocation.composeGHURL(family.parent.defn.location.get,
+                                             family.parent.metadata))(
+              family.parent.defn.kindedName)),
+          div(
+            b("Internal Instances"),
+            printInstances(
+              family.instances.filter(_.metadata == family.parent.metadata))
+          ),
+          div(
+            b("External Instances"),
+            printInstances(
+              family.instances.filter(_.metadata != family.parent.metadata))
+          )
+        )
+      }
+      Seq(
+        h3("Type classes per project"),
+        div(
+          data
+            .groupBy(_.parent.metadata)
+            .map(project => {
+              div(id := s"${project._1.reponame.replace("/", "-")}")(
+                h4(s"Type Classes defined in ${project._1.reponame}"),
+                table(`class` := "w3-table w3-bordered")(
+                  tbody(
+                    project._2.map(fam => tr(td(printFamily(fam))))
+                  ))
+              )
+            })
+            .toSeq)
+      )
+    }
   }
 }
