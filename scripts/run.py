@@ -16,7 +16,6 @@ import datetime
 
 BASE_CONFIG = {
     "debug_info": True,
-    "sbt_projects": "../materials/singlecodebase",
     "projects_dest": "./projects",
     "default_location_depth": 0,
     "temporal_git_repo_storage": "_gitrepotmp",
@@ -26,10 +25,7 @@ BASE_CONFIG = {
     "max_backwards_steps": 5,
 
     "report_files": [
-        "project.csv",
-        "funs.clean.csv",
-        "params_funs.csv",
-        "params.clean.csv"
+        "project.csv"
     ],
 
     "supported_build_systems": [
@@ -37,13 +33,12 @@ BASE_CONFIG = {
     ],
 
     "tools_dir": "tools",
-    "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/implicit-context/scripts/",
-    "semanticdb_plugin_name": "scalameta-config",
+    "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/blorente/update-schema/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_jvm_options": "-Xmx2g",
-    "cleanup_tool_name": "clean-data.py",
-    "db_push_tool_name": "push-to-db.R",
-    "push_to_db_enabled": False,
+
+    "sbt_plugins": ["scalameta-config", "classpath-extractor"],
+    "sbt_versions": ["0.13", "1.0"],
 
     "condensed_report": "condensed-report.txt",
 
@@ -51,8 +46,7 @@ BASE_CONFIG = {
     "compilation_report": "COMPILATION_REPORT.TXT",
     "semanticdb_report": "SEMANTICDB_REPORT.TXT",
     "analyzer_report": "ANALYZER_REPORT.TXT",
-    "cleanup_report": "CLEANUP_REPORT.TXT",
-    "db_push_report": "DB_PUSH_REPORT.TXT"
+    "classpath_report": "CLEANUP_REPORT.TXT"
 }
 
 def log(msg, color='magenta'):
@@ -347,50 +341,44 @@ def gen_sdb(
             P.info("[GenSDB][%s] Compilation report found (%s). Skipping" % (project_name, report))
             sys.exit(0)
 
+def analysis_command(project_path, project_name, title, command, report_kind):
+    P = Pipeline()
+    success = True
+    report = P.get_report(project_path, report_kind)
+    if report is None or report == 'ERROR':
+        failed = P.local_canfail(title, command, project_path)
+        if not failed:
+            P.write_report('SUCCESS', project_path, report_kind)
+            P.info("[Analysis][%s] Done" % project_name)
+        else:
+            P.write_report('ERROR', project_path, report_kind)
+            P.error("[Analysis][%s] Skipping project" % project_name)
+            success = False
+    else:
+        P.info("[Analysis][%s] %s report found (%s). Skipping" % (project_name, title, report))
+    return success
+
+
+def run_classpath_tool(project_name, project_path):
+    P = Pipeline()
+    P.info("[Analysis][%s] Generating classpath..." % project_name)
+    title = "Classpath generation"
+    command = "sbt -batch gcp" 
+    return analysis_command(project_path, project_name, title, command, "classpath_report")
+
+def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
+    P = Pipeline()
+    P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
+    title = "Semanticdb file analysis"
+    command = "java -jar %s %s . ./classpath.dat ./%s" % (jvm_options, tool_path, BASE_CONFIG["reports_folder"])
+    return analysis_command(project_path, project_name, title, command, "analyzer_report")
+
 @task
 def analyze(
     project_path,
     tools_dir=BASE_CONFIG["tools_dir"],
-    always_abort=True,
-    push_to_db=BASE_CONFIG["push_to_db_enabled"]
+    always_abort=True
     ):
-    def analysis_command(project_path, project_name, title, command, report_kind):
-        success = True
-        report = P.get_report(project_path, report_kind)
-        if report is None or report == 'ERROR':
-            failed = P.local_canfail(title, command, project_path)
-            if not failed:
-                P.write_report('SUCCESS', project_path, report_kind)
-                P.info("[Analysis][%s] Done" % project_name)
-            else:
-                P.write_report('ERROR', project_path, report_kind)
-                P.error("[Analysis][%s] Skipping project" % project_name)
-                success = False
-        else:
-            P.info("[Analysis][%s] %s report found (%s). Skipping" % (project_name, title, report))
-        return success
-
-    def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
-        P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
-        title = "Semanticdb file analysis"
-        command = "java -jar %s %s . ./classpath.dat ./_reports" % (jvm_options, tool_path)
-        return analysis_command(project_path, project_name, title, command, "analyzer_report")
-
-    def run_classpath_tool(project_name, project_path, tool_path):
-        P.info("[Analysis][%s] Generating classpath..." % project_name)
-        title = "Classpath generation"
-        command = "sbt -batch gcp" 
-        return analysis_command(project_path, project_name, title, command, "cleanup_report")
-
-    def upload_to_database(project_name, project_path, tool_path):
-        P.info("[Analysis][%s] Uploading to database..." % project_name)
-        command = "Rscript %s ." % (tool_path)
-        title = "DB upload"
-        success = analysis_command(project_path, project_name, title, command, "db_push_report")
-        if success:
-            P.write_report('SUCCESS', project_path, "db_push_report")
-            P.info("[Analysis][%s] Changes commited to the database" % project_name)
-        return success
 
     P = Pipeline()
     setup(tools_dir)
@@ -398,38 +386,42 @@ def analyze(
     cwd = os.getcwd()
     jvm_options = BASE_CONFIG["analyzer_jvm_options"]
     analysis_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["analyzer_name"])
-    cleanup_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["cleanup_tool_name"])
-    db_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["db_push_tool_name"])
 
     project_name = os.path.split(project_path)[1]
 
-    compilation_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
-    continue_analysis = not compilation_failed
-    if continue_analysis:
-        continue_analysis = run_classpath_tool(project_name, project_path, cleanup_tool_path)
-    if continue_analysis:
-        continue_analysis = run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
-    if continue_analysis and push_to_db:
-       continue_analysis = upload_to_database(project_name, project_path, db_tool_path)
+    analysis_failed = P.local_canfail("Clean compilation", "fab compile:project_path=%s" % (project_path), cwd, verbose=True)
+    if not analysis_failed:
+        analysis_failed = P.local_canfail("Project info", "fab create_project_info:project_path=%s" % (project_path), cwd, verbose=True)
+    if not analysis_failed:
+        analysis_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
+    if not analysis_failed:
+        analysis_failed = not run_classpath_tool(project_name, project_path)
+    if not analysis_failed:
+        analysis_failed = not run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     P.info("[Analysis][%s] Analysis concluded" % project_name)
-    sys.exit(0 if continue_analysis else 1)
+    sys.exit(1 if analysis_failed else 0)
+
+@task
+def classpath(project_path):
+    cwd = os.getcwd()
+    P = Pipeline()
+    project_name = os.path.split(project_path)[1]
+    run_classpath_tool(project_name, project_path)
 
 @task
 def setup(tools_dest=BASE_CONFIG["tools_dir"]):
     cwd = os.getcwd()
     P = Pipeline()
 
-    def download_plugin(sbt_folder, version):
+    def download_plugin(sbt_folder, plugin_name, version):
         # Stick to default plugin urls
-        version_name = version.replace(".", "-")
-        plugin_name = "%s-%s.scala" % (BASE_CONFIG["semanticdb_plugin_name"], version_name)
         plugin_url = BASE_CONFIG["tools_base_url"] + plugin_name
         plugins_folder = os.path.join(sbt_folder, version, "plugins")
         if not os.path.exists(plugins_folder):
             os.mkdir(plugins_folder)
         if not os.path.exists(os.path.join(plugins_folder, plugin_name)):
             failed = P.local_canfail(
-                "download sbt plugin for v%s" % version,
+                "download sbt plugin %s for v%s" % (plugin_name, version),
                 "wget -O %s %s" % (plugin_name, plugin_url),
                 plugins_folder
                 )
@@ -439,13 +431,16 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
 
     def download_sbt_plugins():
         sbt_folder = os.path.expanduser(os.path.join("~", ".sbt"))
-        sbt_versions = ["0.13", "1.0"]
+        sbt_versions = BASE_CONFIG["sbt_versions"]
+        sbt_plugins = BASE_CONFIG["sbt_plugins"]
         if not os.path.exists(sbt_folder):
             P.error("[Setup] No .sbt folder found. Exiting")
             sys.exit(1)
         for version in sbt_versions:
-            if os.path.exists(os.path.join(sbt_folder, version)):
-                download_plugin(sbt_folder, version)
+            for name in sbt_plugins:
+                plugin_name = "%s-%s.scala" % (name, version.replace(".", "-"))
+                if os.path.exists(os.path.join(sbt_folder, version)):
+                    download_plugin(sbt_folder, plugin_name, version)
 
     def download_tool(title, name):
         url = BASE_CONFIG["tools_base_url"] + name
@@ -461,8 +456,6 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
         os.mkdir(tools_dir)
     # Stick to default tool names
     download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
-    download_tool("Data cleanup tool", BASE_CONFIG["cleanup_tool_name"])
-    download_tool("Database upload tool", BASE_CONFIG["db_push_tool_name"])
     P.info("[Setup] Done")
 
 @task
@@ -522,15 +515,14 @@ def condense_reports(
 
     def write_manifest(manifest):
        with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
-           manifest_file.write("{\"projects\":[\n")
-           for proj in manifest[:-1]:
-               if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
-                   manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" %
-                                      (proj[0], proj[1]))
-           if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
-               manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % 
-                                  (proj[0], proj[1]))
-           manifest_file.write("]}")
+            manifest_file.write("{\"projects\":[\n")
+            for proj in manifest[:-1]:
+                if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
+                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" % (proj[0], proj[1]))
+            last = manifest[-1]
+            if os.path.exists(last[0]) and os.path.exists(last[1]): 
+                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
+            manifest_file.write("]}")
 
     cwd = os.getcwd()
     P = Pipeline()
@@ -544,8 +536,7 @@ def condense_reports(
             "compilation_report": (0, 0),
             "semanticdb_report": (0, 0),
             "analyzer_report": (0, 0),
-            "cleanup_report": (0, 0),
-            "db_push_report": (0, 0)
+            "classpath_report": (0, 0)
         }
         total_projects = 0
         for project_path in get_project_list(projects_path, int(float(project_depth))):
@@ -558,7 +549,7 @@ def condense_reports(
                 res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
                 reports[report] = tuple(map(sum, zip(reports[report], res)))
             full_path = os.path.join(cwd, project_path)
-            manifest.append(("%s/project.csv" % full_path, "%s/_reports/results.json" % full_path))
+            manifest.append(("%s/project.csv" % full_path, "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"])))
         write_summary(reports, total_projects, report_file)
     write_manifest(manifest)
 
