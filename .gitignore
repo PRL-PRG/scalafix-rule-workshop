@@ -9,3 +9,4 @@ temp
 .ensime
 *.pyc
 test_repos
+.rstudio

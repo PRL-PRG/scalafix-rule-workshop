@@ -6,27 +6,23 @@ services:
       - 7123:3838
     volumes:
       - "./logs:/var/log/shiny-server"
-      - "./scala-implicit-browser:/srv/shiny-server"
+      - "../scala-implicit-browser/:/srv/shiny-server"
     links:
       - mysql
+    restart: always
 
   mysql:
     image: mysql
     ports:
       - 6612:3306
     volumes:
-      - "./data:/var/lib/mysql"
+      - "db-data:/var/lib/mysql"
     environment:
       MYSQL_ALLOW_EMPTY_PASSWORD: 1
       MYSQL_DATABASE: scala
       MYSQL_USER: scala
       MYSQL_PASSWORD: scala
-  
-  rstudio:
-    image: fikovnik/rstudio
-    ports:
-      - 8789:8787
-    volumes:
-      - "../:/home/rstudio"
-    links:
-      - mysql
+    restart: always
+
+volumes:
+  db-data:
