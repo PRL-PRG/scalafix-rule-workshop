@@ -65,7 +65,7 @@ lazy val classpathExtractor =
       version := "0.4-SNAPSHOT"
     )
 
-lazy val implicitExtractor = (project in file("application"))
+lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)
   .settings(
     assemblyJarName in assembly := "implicit-collector.jar"

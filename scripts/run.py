@@ -33,7 +33,7 @@ BASE_CONFIG = {
     ],
 
     "tools_dir": "tools",
-    "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/blorente/update-schema/scripts/",
+    "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/master/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
