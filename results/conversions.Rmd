@@ -1,0 +1,201 @@
+---
+title: "Conversions Rabbit Hole"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width=12, 
+  fig.height=8, 
+  fig.path='Figs/',
+  echo=FALSE,
+  warning=FALSE,
+  message=FALSE
+  )
+```
+
+```{r setup}
+library(readr)
+library(dplyr)
+library(calibrate)
+results_summary <- read_csv("~/work/scala/results/conversion/results.callsite.summary.csv") %>% 
+  mutate(transitive = !transitive) # Should fix that in the impl
+``` 
+
+# Exploration of transitive conversions
+
+First we filter the dataset
+
+```{r}
+transitive_conversions = results_summary[results_summary$transitive,] %>%
+  group_by(name) %>%
+  summarise(occurrences = sum(occurrences)) %>%
+  arrange(-occurrences)
+```
+
+Now we define the filters that we found for call sites:
+
+```{r}
+
+knownTestingFramework = function(name) {
+  grepl("^utest", name) |
+  grepl("^org.scalatest", name) |
+  grepl("^org.specs2", name)
+}
+
+arrowAssoc = function(name) {
+  name == "scala.Predef.ArrowAssoc"
+}
+
+otherScalaPredefs = function(name) {
+  (grepl("^scala.Predef", name) & !arrowAssoc(name))
+}
+
+lowPrioImplicits = function(name) {
+  grepl("scala.LowPriorityImplicits", name)
+}
+
+containsQuote = function(name) {
+  grepl("[qQ]uote", name)
+}
+
+scalaOption = function(name) {
+  grepl("^scala.Option", name)
+}
+
+otherOptions = function(name) {
+  !scalaOption(name) &
+  grepl("Option", name)
+}
+
+otherScala = function(name) {
+  !arrowAssoc(name) &
+  !otherScalaPredefs(name) &
+  !scalaOption(name) &
+  grepl("^scala.", name)
+}
+
+akkaActor = function(name) {
+  grepl("^akka.actor.actorRef2Scala", name) |
+  grepl("^akka.actor.scala2ActorRef", name)
+}
+```
+
+And some helper traversal functions:
+
+```{r}
+
+filterName = function(df, f) {
+  df[f(df$name),]
+}
+
+filterOccurrences = function(df, f) {
+  df[f(df$occurrences),]
+}
+
+sumOccurrences = function(df) {
+  sum(df$occurrences)
+}
+
+remainder = function(data, filters) {
+   data[Reduce("&", Map({function(fun) !fun(data$name)}, functions)), ]
+}
+
+printgraph = function(data, names, title) {
+  data = as.integer(data)
+  pct <- round(data/sum(data)*100)
+  #names = paste(names, ": ", sep="")
+  #names = paste(names, data)
+  names = paste(names, "(")
+  names = paste(names, pct) # add percents to labels
+  names = paste(names,"%)",sep="") # ad % to labels
+  barplot(data, names.arg = names, horiz = TRUE, main=title, cex.names = 0.6, las = 2)
+}
+```
+
+And finally, we can produce the graph
+
+```{r}
+total = sumOccurrences(transitive_conversions)
+pietitle = paste("Distribution of transitive conversions by use ", total)
+names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
+functions = c(knownTestingFramework, arrowAssoc, otherScalaPredefs, lowPrioImplicits, containsQuote, scalaOption, otherOptions, otherScala, akkaActor)
+distribution = Map({function(fun) sumOccurrences(filterName(transitive_conversions, fun))}, functions)
+
+withTotals = c(
+  sumOccurrences(remainder(transitive_conversions, functions)),
+  distribution
+)
+
+printgraph(withTotals, names, pietitle)
+```
+
+# Non-transitive conversions
+
+Now let's plot the non-transitive conversion distribution. First, we filter out the transitive calls:
+
+```{r}
+nontransitive_conversions = results_summary[!results_summary$transitive,]
+```
+
+Then, we get the frequency counts, and we print it:
+
+```{r}
+summary = nontransitive_conversions %>%
+  group_by(name) %>%
+  summarise(occurrences = sum(occurrences)) %>%
+  arrange(-occurrences)
+
+freqCounts = nontransitive_conversions %>%
+  group_by(occurrences) %>%
+  summarise(count = n()) %>%
+  arrange(occurrences, count)
+plot(
+  x = as.integer(freqCounts$count), 
+  y = as.integer(freqCounts$occurrences), 
+  log="yx", 
+  xlab = "Number of implicits with that frequence",
+  ylab= "Frequence: Number of conversions by this implicit", 
+  main="Distribution of conversions by number of appearances"
+)
+```
+
+This is not extremely useful, unfortunately.
+
+Now, if we _don't_ mush the projects together, maybe we can gather some metadata. First, load the project stats.
+
+```{r}
+project_metadata <- read_csv("~/work/scala/results/project_metadata.csv")
+```
+
+Then, add LOC information to the nontransitive conversions:
+
+```{r}
+locDistribution = 
+  left_join(nontransitive_conversions, project_metadata, by=c("project" = "reponame")) %>%
+  mutate(name = name.x) %>%
+  group_by(project) %>%
+  summarise(
+    occurrences = sum(occurrences), 
+    scala_loc = min(scala_loc),
+    call_density = occurrences / scala_loc)
+
+relevantNames = function(df) {
+ Map({function(row) {if (row.call_density < 0.1) {row.project = ""}}}, df)
+}
+
+plot(
+  x = as.integer(locDistribution$scala_loc),
+  y = as.integer(locDistribution$occurrences), 
+  xlab = "Scala LOC", 
+  ylab = "Non-transitive implicit conversions", 
+  main="Distribution of non-transitive implicit conversions by scala LOC"
+  )
+textxy(
+  locDistribution$scala_loc, 
+  locDistribution$occurrences,
+  locDistribution$project
+  )
+```

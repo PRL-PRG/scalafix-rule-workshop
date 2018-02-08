@@ -1,0 +1,253 @@
+// ==============================
+// Seq(Student("Alice"))
+// ==============================
+
+CallSite(
+    Location(...)
+    Name("test.this.JsonWriter")
+    Code("test.this.JsonWriter[Seq[Student]](*)(test.this.seq2json[Student](test.this.Student2Json))")
+    isSynthetic(True)
+    Declaration(/* 0 */)
+    TypeArguments(
+        Type(
+            Name("Seq")
+            Constraints?(None)
+            TypeParameters(
+                Type(
+                    Name("Student")
+                    Constraints?(None)
+                    TypeParameters?(None)
+                )
+            )
+        )
+    )
+    ImplicitArguments(
+        ImplicitArgument(
+            /* 1 */
+        )
+    )
+)
+
+/* 0 */
+Declaration(
+    Location(...)
+    Name("test.this.JsonWriter")
+    Kind("implicit class")
+    isImplicit(True)
+    Signature?(
+        TypeParameters(
+            TypeParameter(
+                Name("T")
+                Constraints?(": JsonConverter")
+            )
+        )
+        ParameterLists(
+            ParameterList(
+                Parameter(
+                    Name("that")
+                    Type("T")
+                )
+            )
+            ImplicitParameterList(
+                Parameter(
+                    Name("evidence")
+                    Type(
+                        Name("T")
+                        Constraints?(": JsonConverter")
+                        TypeParameters?(None)
+                    )
+                )
+            )
+        )
+        ReturnType(
+            Type(
+                Name("JsonWriter")
+                Constraints?(None)
+                TypeParameters(
+                    Type(
+                        Name("T")
+                        Constraints?(None)
+                        TypeParameters?(None)
+                    )
+                )
+        )
+    )
+    Parent?(None)
+)
+
+/* 1 */
+CallSite(
+    Location(...)
+    Name("test.this.seq2json")
+    Code("test.this.seq2json[Student](test.this.Student2Json)")
+    isSynthetic(True)
+    Declaration(/* 2 */)
+    TypeArguments(
+        Type(
+            Name("Student")
+            Constraints?(None)
+            TypeParameters?(None)
+        )
+    )
+    ImplicitArguments(
+        ImplicitArgument(
+            Name("test.this.Student2Json")
+        )
+    )
+)
+
+/* 2 */
+Declaration(
+    Location(...)
+    Name("test.this.seq2json")
+    Kind("implicit def")
+    isImplicit(True)
+    Signature?(
+        TypeParameters(
+            Type(
+                Name("T")
+                Constraints?(": JsonConverter")
+                TypeParameters?(None)
+            )
+        )
+        ParameterLists(
+            ImplicitParameterList(
+                Parameter(
+                    Name("evidence")
+                    Type(
+                        Name("T")
+                        Constraints?(": JsonConverter")
+                        TypeParameters?(None)
+                    )
+                )
+            )
+        )
+        ReturnType(
+            Type(
+                Name("JsonConverter")
+                Constraints?(None)
+                TypeParameters?(
+                    Type(
+                        Name("Seq[T]")
+                        Constraints?(None)
+                        TypeParameters?(
+                            Type(
+                                Name("T")
+                                Constraints?(None)
+                                TypeParameters?(None)
+                            )
+                        )
+                    )
+                )
+        )
+    )
+    Parent?(None)
+)
+
+/* 3 */
+Declaration(
+    Location(...)
+    Name("test.this.Student2Json")
+    Kind("implicit object")
+    isImplicit(True)
+    Signature?(None)
+    Parent?(
+        Name("JsonConverter")
+        TypeArguments?(
+            Type(
+                Name("Student")
+                Constraints?(None)
+                TypeParameters?(None)
+            )
+        )
+        Declaration(/* 4 */)
+    )
+)
+
+/* 4 */
+Declaration(
+    Location(...)
+    Name("test.this.JsonConverter")
+    Kind("trait")
+    isImplicit(False)
+    Signature?(
+        TypeParameters(
+            Type(
+                Name("A")
+                Constraints?(None)
+                TypeParameters?(None)
+            )
+        )
+    )
+)
+
+// ==================================
+// write(that)
+// ==================================
+
+CallSite(
+    Location(...)
+    Name("_empty_.test.write(Ljava/lang/Object;Ltest/JsonConverter;)Ljava/lang/String;.")
+    Code("write(that)")
+    isSynthetic(True)
+    Declaration(/* 5 */)
+    TypeArguments(
+        Type(
+            Name("Student")
+            Constraints?(None)
+            TypeParameters?(None)
+        )
+    )
+    ImplicitArgument(
+        Name("JsonWriter.this.evidence$2") // Evidence passed as an implicit param to JsonWriter's constructor
+        Declaration(/* 0? Not really sure about this */)
+    )
+)
+
+/* 5 */
+Declaration(
+    Location(...)
+    Name("_empty_.test.write(Ljava/lang/Object;Ltest/JsonConverter;)Ljava/lang/String;.")
+    Kind("def")
+    isImplicit(True)
+    Signature?(
+        TypeParameters(
+            TypeParameter(
+                Name("A")
+                Constraints("")
+            )
+        )
+        ParameterLists(
+            ParameterList(
+                Parameter(
+                    Name("a")
+                    Type("A")
+                )
+            )
+            ImplicitParameterList(
+                Parameter(
+                    Name("c")
+                    Type(
+                        Name("JsonConverter")
+                        Constraints?(None)
+                        TypeParameters(
+                            Type(
+                                Name("A")
+                                Constraints?(None)
+                                TypeParameters?(None)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        ReturnType(
+            Type(
+                Name("String")
+                Constraints?(None)
+                TypeParameters?(None)
+            )
+        )
+    )
+    Parent?(None)
+)
