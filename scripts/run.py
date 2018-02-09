@@ -37,7 +37,7 @@ BASE_CONFIG = {
     "analyzer_name": "implicit-analyzer.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
-    "sbt_plugins": ["scalameta-config", "classpath-extractor"],
+    "sbt_plugins": ["scalameta-config"],
     "sbt_versions": ["0.13", "1.0"],
 
     "condensed_report": "condensed-report.txt",
@@ -363,7 +363,7 @@ def run_classpath_tool(project_name, project_path):
     P = Pipeline()
     P.info("[Analysis][%s] Generating classpath..." % project_name)
     title = "Classpath generation"
-    command = "sbt -batch gcp" 
+    command = """sbt -batch "show test:fullClasspath" | sed -n -E 's/Attributed\(([^)]*)\)[,]?/\\n\\1\\n/gp' | grep "^/" > classpath.dat"""
     return analysis_command(project_path, project_name, title, command, "classpath_report")
 
 def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
@@ -406,7 +406,13 @@ def classpath(project_path):
     cwd = os.getcwd()
     P = Pipeline()
     project_name = os.path.split(project_path)[1]
-    run_classpath_tool(project_name, project_path)
+    compilation_report = P.get_report(project_path, "compilation_report")
+    if compilation_report is None or compilation_report == 'ERROR':
+        P.error("[Classpath][%s] Clean compilation reported unsuccessful. Aborting" % project_name)
+        sys.exit(1)
+
+    success = run_classpath_tool(project_name, project_path)
+    sys.exit(0 if success else 1)
 
 @task
 def setup(tools_dest=BASE_CONFIG["tools_dir"]):
