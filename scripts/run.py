@@ -395,7 +395,7 @@ def analyze(
     if not analysis_failed:
         analysis_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
     if not analysis_failed:
-        analysis_failed = not run_classpath_tool(project_name, project_path)
+        analysis_failed = P.local_canfail("Classpath generation", "fab classpath:project_path=%s" % project_path, cwd, verbose=True)
     if not analysis_failed:
         analysis_failed = not run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
     P.info("[Analysis][%s] Analysis concluded" % project_name)
@@ -411,8 +411,14 @@ def classpath(project_path):
         P.error("[Classpath][%s] Clean compilation reported unsuccessful. Aborting" % project_name)
         sys.exit(1)
 
-    success = run_classpath_tool(project_name, project_path)
-    sys.exit(0 if success else 1)
+    classpath_report = P.get_report(project_path, "classpath_report")
+    if classpath_report is None:
+        P.info("[Classpath][%s] Previous report not found. Running task" % project_name)
+        success = run_classpath_tool(project_name, project_path)
+        sys.exit(0 if success else 1)
+    else:
+        P.info("[Classpath][%s] Project report found (%s). Skipping." % (project_name, classpath_report))
+        sys.exit(0 if classpath_report.startswith("SUCCESS") else 1)
 
 @task
 def setup(tools_dest=BASE_CONFIG["tools_dir"]):
