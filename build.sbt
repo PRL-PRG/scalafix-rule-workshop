@@ -1,3 +1,5 @@
+scalaVersion in ThisBuild := "2.12.4"
+
 lazy val commonSettings = Seq(
   scalaVersion := "2.12.4",
   crossScalaVersions := Vector("2.12.4", "2.11.11"),
@@ -46,7 +48,8 @@ lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "scalatags" % "0.6.7"
+      "com.lihaoyi" %% "scalatags" % "0.6.7",
+      "org.typelevel" %% "cats-core" % "1.0.1"
     ))
   .dependsOn(coreutils % "test->test", macros)
 
@@ -54,6 +57,7 @@ lazy val classpathExtractor =
   (project in file("sbt-classpath-extractor"))
     .settings(
       sbtVersion in Global := "0.13.16",
+      scalaVersion := "2.12.4",
       crossSbtVersions := Vector("0.13.16", "1.0.4"),
       sbtPlugin := true,
       scalaCompilerBridgeSource := {
