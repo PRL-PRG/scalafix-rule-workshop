@@ -20,22 +20,15 @@ knitr::opts_chunk$set(
 library(readr)
 library(dplyr)
 library(calibrate)
-results_summary <- read_csv("~/work/scala/results/conversion/results.callsite.summary.csv") %>% 
+results_summary <- read_csv("~/work/scala/workshop/results/rawdata/conversion/results.callsite.summary.csv") %>% 
   mutate(transitive = !transitive) # Should fix that in the impl
 ``` 
 
-# Exploration of transitive conversions
+# Exploration of conversions
 
-First we filter the dataset
+## Helper functions
 
-```{r}
-transitive_conversions = results_summary[results_summary$transitive,] %>%
-  group_by(name) %>%
-  summarise(occurrences = sum(occurrences)) %>%
-  arrange(-occurrences)
-```
-
-Now we define the filters that we found for call sites:
+We define the filters that we found for call sites:
 
 ```{r}
 
@@ -86,7 +79,6 @@ akkaActor = function(name) {
 And some helper traversal functions:
 
 ```{r}
-
 filterName = function(df, f) {
   df[f(df$name),]
 }
@@ -114,6 +106,47 @@ printgraph = function(data, names, title) {
   barplot(data, names.arg = names, horiz = TRUE, main=title, cex.names = 0.6, las = 2)
 }
 ```
+
+## All conversions per use
+
+Modify the dataset to count conversions:
+
+```{r}
+all_conversions = results_summary %>%
+  group_by(name) %>%
+  summarise(occurrences = sum(occurrences)) %>%
+  arrange(-occurrences)
+```
+
+Output the graph
+
+```{r}
+total = sumOccurrences(all_conversions)
+pietitle = paste("Distribution of all conversions by use ", total)
+names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
+functions = c(knownTestingFramework, arrowAssoc, otherScalaPredefs, lowPrioImplicits, containsQuote, scalaOption, otherOptions, otherScala, akkaActor)
+distribution = Map({function(fun) sumOccurrences(filterName(all_conversions, fun))}, functions)
+
+withTotals = c(
+  sumOccurrences(remainder(all_conversions, functions)),
+  distribution
+)
+
+printgraph(withTotals, names, pietitle)
+```
+
+
+## Exploration of transitive conversions
+
+First we filter the dataset
+
+```{r}
+transitive_conversions = results_summary[results_summary$transitive,] %>%
+  group_by(name) %>%
+  summarise(occurrences = sum(occurrences)) %>%
+  arrange(-occurrences)
+```
+
 
 And finally, we can produce the graph
 
@@ -167,7 +200,7 @@ This is not extremely useful, unfortunately.
 Now, if we _don't_ mush the projects together, maybe we can gather some metadata. First, load the project stats.
 
 ```{r}
-project_metadata <- read_csv("~/work/scala/results/project_metadata.csv")
+project_metadata <- read_csv("~/work/scala/workshop/results/rawdata/project-metadata.csv")
 ```
 
 Then, add LOC information to the nontransitive conversions:
