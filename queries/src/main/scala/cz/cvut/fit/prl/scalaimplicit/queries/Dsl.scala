@@ -5,10 +5,10 @@ import cats.implicits._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.CallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
+import org.scalatest.matchers.MatchResult
 
 import scala.language.reflectiveCalls
 import scala.language.implicitConversions
-import scala.runtime.ScalaNumberProxy
 
 // TODO: or
 // TODO: query | matches
@@ -23,24 +23,18 @@ trait Matchers {
   private val defaultValueFormatter: ValueFormat[Any] = x => x match {
     case x: String => "\"" + x + "\""
     case x: Char => s"'$x'"
-    case _: Boolean | _:Byte | _:Short | _:Int | _:Long | _:Float | _:Double => s"$x"
+    case _: Boolean | _: Byte | _: Short | _: Int | _: Long | _: Float | _: Double => s"$x"
     case _ => s"`$x'"
   }
 
   private def fmt[A](x: A)(implicit vf: ValueFormat[_ >: A] = defaultValueFormatter): String = vf.format(x)
-
-  trait ImplicitValueFormats {
-//    implicit val stringValueFormat: ValueFormat[String] = (x: String) => s"'$x'"
-//    implicit val intValueFormat: ValueFormat[Int] = (x: Int) => s"$x"
-//    implicit val booleanValueFormat: ValueFormat[Boolean] = (x: Boolean) => s"$x"
-//    implicit val otherValueFormat: ValueFormat[Any] = (x: Any) => s"`$x'"
-  }
 
   trait ImplicitMatchResult {
     implicit def matchResult2Boolean(that: MatchResult[_]): Boolean = that.matches
   }
 
   trait ImplicitMatchers {
+
     implicit class AnyMatcher[A](that: A) {
       def matches(ms: Matcher[A]): MatchResult[A] = ms(that)
     }
@@ -48,13 +42,40 @@ trait Matchers {
     implicit def any2matcher[A](x: A): Matcher[A] = is(x)
   }
 
-  object implicits extends ImplicitValueFormats with ImplicitMatchResult with ImplicitMatchers
+  object implicits extends ImplicitMatchResult with ImplicitMatchers
 
-  case class MatchResult[A](matches: Boolean, matcher: Matcher[A]) {
-    def unary_! = MatchResult(!matches, matcher)
+  final class MatchResult[A](val matches: Boolean,
+                             val matcher: Matcher[A],
+                             private[queries] val matchReason: String,
+                             private[queries] val mismatchReason: String) {
+
+    def this(matches: Boolean,
+             matcher: Matcher[A],
+             matchReason: Option[String],
+             mismatchReason: Option[String]) = this(matches, matcher, matchReason.getOrElse(""), mismatchReason.getOrElse(""))
+
+    def reason: String = if (matches) matchReason else mismatchReason
+
+    override def toString: String = s"MatchResult($matches, '$reason', ${matcher.description})"
+
+    override def equals(other: Any): Boolean = other match {
+      case that: MatchResult[_] =>
+        matches == that.matches &&
+          matcher == that.matcher &&
+          matchReason == that.matchReason &&
+          mismatchReason == that.mismatchReason
+      case _ => false
+    }
+
+    override def hashCode(): Int = {
+      val state = Seq(matches, matcher, matchReason, mismatchReason)
+      state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
+    }
   }
 
-  trait Matcher[A] extends (A => MatchResult[A]) {
+  trait Matcher[A] extends (A => MatchResult[A]) { self =>
+    def matches(v :A): Boolean
+
     def description: String
 
     def negativeDescription: String
@@ -66,35 +87,47 @@ trait Matchers {
     //    def &&(m: Matcher[A]): Matcher[A] = new Matcher[A] {
     //      override def describeMismatch(v: A): String = ???
     //      override def describeMatch(v: A): String = ???
-    //      override def apply(v: A): Boolean = Matcher.this(v) && m.apply(v)
+    //      override def apply(v: A): Boolean = self(v) && m.apply(v)
     //    }
     //
-    //    def ||(m: Matcher[A]): Matcher[A] = new Matcher[A] {
-    //      override def describeMismatch(v: A): String = ???
-    //      override def describeMatch(v: A): String = ???
-    //      override def apply(v: A): Boolean = Matcher.this(v) || m.apply(v)
-    //    }
+    def ||(m: Matcher[A]): Matcher[A] = new Matcher[A] {
+      override def matches(v: A): Boolean = self.matches(v) || m.matches(v)
 
-    def unary_! = new Matcher[A] {
-      override def description: String = Matcher.this.negativeDescription
+      override def description: String = self.description + " || " + m.description
 
-      override def negativeDescription: String = Matcher.this.description
+      override def negativeDescription: String = self.negativeDescription + " && " + m.negativeDescription
 
-      override def apply(v: A): MatchResult[A] = !Matcher.this.apply(v)
+      override def describeMatch(v: A): Option[String] = self(v) match {
+        case result if result.matches => self.describeMatch(v)
+        case _ => m.describeMatch(v)
+      }
 
-      override def describeMatch(v: A): Option[String] = Matcher.this.describeMismatch(v)
-
-      override def describeMismatch(v: A): Option[String] = Matcher.this.describeMatch(v)
+      override def describeMismatch(v: A): Option[String] =
+        self.describeMismatch(v).map(_ + " && ") |+| m.describeMismatch(v)
     }
+
+    def unary_!():Matcher[A] = new Matcher[A] {
+      override def matches(v: A): Boolean = !self.matches(v)
+
+      override def description: String = self.negativeDescription
+
+      override def negativeDescription: String = self.description
+
+      override def describeMatch(v: A): Option[String] = self.describeMismatch(v)
+
+      override def describeMismatch(v: A): Option[String] = self.describeMatch(v)
+    }
+
+    override def apply(v: A): MatchResult[A] = new MatchResult[A](matches(v), this, describeMatch(v), describeMismatch(v))
   }
 
-
+  // TODO: this should be and
   implicit def matcherSemigroup[A]: Semigroup[Matcher[A]] = (x: Matcher[A], y: Matcher[A]) => new Matcher[A] {
     //    implicit val matcherDescriptionSemigroup: Semigroup[String] = (x: String, y: String) => x + "\n" + y
 
     override def description: String = x.description + "\n" + y.description
 
-    override def negativeDescription: String = x.negativeDescription |+| y.negativeDescription
+    override def negativeDescription: String = x.negativeDescription + "\n" + y.negativeDescription
 
     override def describeMatch(v: A): Option[String] = (x.describeMatch(v), y.describeMatch(v)) match {
       case (Some(a), Some(b)) => Some(a |+| b)
@@ -103,11 +136,17 @@ trait Matchers {
 
     override def describeMismatch(v: A): Option[String] = x.describeMismatch(v) |+| y.describeMismatch(v)
 
-    override def apply(v: A): MatchResult[A] = x(v) |+| y(v)
+    override def matches(v: A): Boolean = x(v).matches && y(v).matches
   }
 
+  // TODO: remove
   implicit def matchResultSemigroup[A]: Semigroup[MatchResult[A]] = (x: MatchResult[A], y: MatchResult[A]) => {
-    MatchResult(x.matches && y.matches, x.matcher |+| y.matcher)
+    new MatchResult(
+      x.matches && y.matches,
+      x.matcher |+| y.matcher,
+      x.matchReason |+| y.matchReason,
+      x.mismatchReason |+| y.mismatchReason
+    )
   }
 
   // TODO: isn't this in cats already?
@@ -141,7 +180,7 @@ trait Matchers {
       }
     }
 
-    override def apply(v: A): MatchResult[A] = MatchResult(fun(v), this)
+    override def matches(v: A): Boolean = fun(v)
   }
 
   object FunMatcher {
@@ -165,7 +204,7 @@ trait Matchers {
 
     override def describeMismatch(v: A): Option[String] = matcher.describeMismatch(property(v)).map(name + " " + _)
 
-    override def apply(v: A): MatchResult[A] = MatchResult(matcher(property(v)).matches, this)
+    override def matches(v: A): Boolean = matcher(property(v)).matches
   }
 
   object PropertyMatcher {
@@ -175,39 +214,36 @@ trait Matchers {
 
   class PropertyMatchHelper[A, B](val name: String, val property: A => B) {
     def ==(x: B): Matcher[A] = new PropertyMatcher[A, B](name, property, is(x))
+
     def !=(x: B): Matcher[A] = new PropertyMatcher[A, B](name, property, not(is(x)))
   }
 
   trait OrderingPropertyMatchHelper[A, B] extends PropertyMatchHelper[A, B] {
     def >(x: B)(implicit ev: Ordering[B]): Matcher[A] = new PropertyMatcher[A, B](name, property, gt(x))
+
     def <(x: B)(implicit ev: Ordering[B]): Matcher[A] = new PropertyMatcher[A, B](name, property, lt(x))
+
     def >=(x: B)(implicit ev: Ordering[B]): Matcher[A] = new PropertyMatcher[A, B](name, property, gteq(x))
+
     def <=(x: B)(implicit ev: Ordering[B]): Matcher[A] = new PropertyMatcher[A, B](name, property, lteq(x))
   }
 
-  //  class FunPropertyMatcherHelper[A, B](private val _name: String, private val _property: A => B) extends PropertyMatcherHelper[A, B] {
-  //    def name = _name
-  //    def property(x: A): B = _property(x)
-  //  }
+  def is[A](x: A)(implicit fmt: ValueFormat[_ >: A] = defaultValueFormatter): Matcher[A] =
+    FunMatcher[A](v => v == x, s"== ${fmt.format(x)}", s"!= ${fmt.format(x)}")
 
-
-  def is[A](x: A): Matcher[A] = FunMatcher[A](v => v == x, s"== ${fmt(x)}", s"!= ${fmt(x)}")
   def not[A](x: Matcher[A]): Matcher[A] = !x
 
   def gt[A: Ordering](x: A): Matcher[A] =
     FunMatcher[A](v => implicitly[Ordering[A]].gt(v, x), s"> ${fmt(x)}", s"< ${fmt(x)}")
+
   def lt[A: Ordering](x: A): Matcher[A] =
     FunMatcher[A](v => implicitly[Ordering[A]].lt(v, x), s"< ${fmt(x)}", s"> ${fmt(x)}")
+
   def gteq[A: Ordering](x: A): Matcher[A] =
     FunMatcher[A](v => implicitly[Ordering[A]].gteq(v, x), s">= ${fmt(x)}", s"<= ${fmt(x)}")
+
   def lteq[A: Ordering](x: A): Matcher[A] =
     FunMatcher[A](v => implicitly[Ordering[A]].lteq(v, x), s"<= ${fmt(x)}", s">= ${fmt(x)}")
-
-  //  def size[A <: WithIntSize] =
-  //    new FunPropertyMatcherHelper[A, Int]("size", x => x.size) with
-  //        IntPropertyMatcherHelper[A] with
-  //        EqPropertyMatcherHelper[A, Int]
-  //
 
   def in[A](xs: A*): Matcher[A] = FunMatcher[A](
     v => xs.contains(v),
@@ -215,12 +251,12 @@ trait Matchers {
     "not in " + xs.map(x => fmt(x)).mkString("{", ",", "}")
   )
 
-  // TODO: can we create a macro for this
-  def size[A, B <: {def size: A}](x: Matcher[A], xs: Matcher[A]*): Matcher[B] =
+  // TODO: create a macro for this
+  def size[A, B <: {def size : A}](x: Matcher[A], xs: Matcher[A]*): Matcher[B] =
     PropertyMatcher[B, A]("size", v => v.size, x, xs)
 
-  def size[A, B <: {def size: A}] = new PropertyMatchHelper[B, A]("size", v => v.size)
-  //
+  def size[A, B <: {def size : A}] = new PropertyMatchHelper[B, A]("size", v => v.size)
+
   //  implicit def int2matcher(x: Int): Matcher[Int] = is(x)
   //
   //  trait PropertyMatcherHelper[A, B] {
