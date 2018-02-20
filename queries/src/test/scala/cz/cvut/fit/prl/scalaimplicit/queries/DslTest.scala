@@ -125,10 +125,11 @@ class DslTest extends FunSuite with STMatchers {
   //  }
 
   test("collection matching") {
+    val q = is(2) || is(4)
     val col = Seq(1, 2, 3, 4)
 
-   (col query is(2) || is(4)) map (_.toOption) should contain theSameElementsInOrderAs Seq(None, Some(2), None, Some(4))
-   (col query is(2) || is(4)) map (_.toEither) should contain theSameElementsInOrderAs Seq(Left("1 != 2 && 1 != 4"), Right(2), Left("3 != 2 && 3 != 4"), Right(4))
-
+   (col query q) should contain theSameElementsInOrderAs Seq(Mismatch(1, q), Match(2, q), Mismatch(3, q), Match(4, q))
+   (col query q) map (_.toOption) should contain theSameElementsInOrderAs Seq(None, Some(2), None, Some(4))
+   (col query q) map (_.toEither) should contain theSameElementsInOrderAs Seq(Left("1 != 2 && 1 != 4"), Right(2), Left("3 != 2 && 3 != 4"), Right(4))
   }
 }

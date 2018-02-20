@@ -12,9 +12,6 @@ import scala.collection.generic.CanBuildFrom
 import scala.language.reflectiveCalls
 import scala.language.implicitConversions
 
-// TODO: or
-// TODO: query | matches
-// TODO: add result to MatchResult
 // TODO: generate matchers for represenation
 trait Matchers {
 
@@ -51,55 +48,23 @@ trait Matchers {
 
   object implicits extends ImplicitMatchResult with ImplicitMatchers
 
-  final class MatchResult[A](val instance: A,
-                             val matches: Boolean,
-                             val matcher: Matcher[A],
-                             private[queries] val matchReason: String,
-                             private[queries] val mismatchReason: String) {
-
-    def this(instance: A,
-             matches: Boolean,
-             matcher: Matcher[A],
-             matchReason: Option[String],
-             mismatchReason: Option[String]) = this(instance, matches, matcher, matchReason.getOrElse(""), mismatchReason.getOrElse(""))
-
-    def reason: String = if (matches) matchReason else mismatchReason
+  sealed trait MatchResult[A] {
+    def instance: A
+    def matches: Boolean
+    def matcher: Matcher[A]
+    def reason: String
     def toOption: Option[A] = if (matches) Some(instance) else None
     def toEither: Either[String, A] = if (matches) Right(instance) else Left(reason)
-
-    override def toString: String = s"MatchResult($matches, '$reason', ${matcher.description})"
-
-    override def equals(other: Any): Boolean = other match {
-      case that: MatchResult[_] =>
-        matches == that.matches &&
-          matcher == that.matcher &&
-          matchReason == that.matchReason &&
-          mismatchReason == that.mismatchReason
-      case _ => false
-    }
-
-    override def hashCode(): Int = {
-      val state = Seq(matches, matcher, matchReason, mismatchReason)
-      state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
-    }
   }
 
-  object Match {
-    def unapply[A](result: MatchResult[A]): Option[(A, String)] =
-      if (result.matches) {
-        Some((result.instance, result.reason))
-      } else {
-        None
-      }
+  case class Match[A](instance: A, matcher: Matcher[A]) extends MatchResult[A] {
+    override def matches: Boolean = true
+    override def reason: String = matcher.describeMatch(instance).get
   }
 
-  object Mismatch {
-    def unapply[A](result: MatchResult[A]): Option[(A, String)] =
-      if (!result.matches) {
-        Some((result.instance, result.reason))
-      } else {
-        None
-      }
+  case class Mismatch[A](instance: A, matcher: Matcher[A]) extends MatchResult[A] {
+    override def matches: Boolean = false
+    override def reason: String = matcher.describeMismatch(instance).get
   }
 
   trait Matcher[A] extends (A => MatchResult[A]) {
@@ -115,7 +80,11 @@ trait Matchers {
 
     def describeMismatch(v: A): Option[String]
 
-    override def apply(v: A): MatchResult[A] = new MatchResult[A](v, matches(v), this, describeMatch(v), describeMismatch(v))
+    override def apply(v: A): MatchResult[A] = if (matches(v)) {
+      Match(v, this)
+    } else {
+      Mismatch(v, this)
+    }
 
     def &&(other: Matcher[A]): Matcher[A] = new Matcher[A] {
       override def matches(v: A): Boolean = self.matches(v) && other.matches(v)
@@ -276,28 +245,6 @@ trait Matchers {
     PropertyMatcher[B, A]("size", v => v.size, x, xs)
 
   def size[A, B <: {def size : A}] = new PropertyMatchHelper[B, A]("size", v => v.size)
-
-  //  implicit def int2matcher(x: Int): Matcher[Int] = is(x)
-  //
-  //  trait PropertyMatcherHelper[A, B] {
-  //    def name: String
-  //    def property(x: A): B
-  //  }
-  //
-  //  trait IntPropertyMatcherHelper[A] extends PropertyMatcherHelper[A, Int] {
-  //    def >(x: Int): Matcher[A] = new PropertyMatcher[A, Int](name, property, gt(x))
-  //    def <(x: Int): Matcher[A] = new PropertyMatcher[A, Int](name, property, lt(x))
-  //  }
-  //
-  //  trait EqPropertyMatcherHelper[A, B] extends PropertyMatcherHelper[A, B] {
-  //    def ==(x: B): Matcher[A] = new PropertyMatcher[A, B](name, property, is(x))
-  //    def !=(x: B): Matcher[A] = new PropertyMatcher[A, B](name, property, not(is(x)))
-  //  }
-  //
-  //  class FunPropertyMatcherHelper[A, B](private val _name: String, private val _property: A => B) extends PropertyMatcherHelper[A, B] {
-  //    def name = _name
-  //    def property(x: A): B = _property(x)
-  //  }
 }
 
 object Matchers extends Matchers
