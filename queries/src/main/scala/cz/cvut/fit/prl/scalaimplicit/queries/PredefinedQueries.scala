@@ -87,6 +87,10 @@ object PredefinedQueries {
     query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
   }
 
+  object MyCallSite {
+    def unapply(arg: CallSite): Option[(String, Boolean)] = ???
+  }
+
   val conversionFunction: CallSite => Boolean = {
     case CallSite(
         _,

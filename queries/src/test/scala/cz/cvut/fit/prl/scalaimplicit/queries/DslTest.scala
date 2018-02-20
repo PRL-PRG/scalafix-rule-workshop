@@ -4,6 +4,7 @@ import org.scalatest.matchers.{MatchResult => STMatchResult, Matcher => STMatche
 
 class DslTest extends FunSuite with STMatchers {
 
+  import cz.cvut.fit.prl.scalaimplicit.queries._
   import cz.cvut.fit.prl.scalaimplicit.queries.Matchers._
   import cz.cvut.fit.prl.scalaimplicit.queries.Matchers.implicits._
 
