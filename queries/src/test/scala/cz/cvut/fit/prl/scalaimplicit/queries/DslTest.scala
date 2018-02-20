@@ -16,7 +16,7 @@ class DslTest extends FunSuite with STMatchers {
 
           STMatchResult(
             matches = reasonCheck.matches,
-            s"$left ${if (matches) "" else "mis"}matched but with different reason: ${reasonCheck.failureMessage}",
+            s"$left ${if (matches) "" else "mis"}matched but with a different reason: ${reasonCheck.failureMessage}",
             s"$left ${if (matches) "" else "mis"}matched ${left.reason}"
           )
         } else {
@@ -47,26 +47,29 @@ class DslTest extends FunSuite with STMatchers {
     (1 matches is(2)) should mismatched
   }
 
-  test("combine matchers") {
+  test("combine matchers using default combinator AND") {
     val c = is(2) |+| is(1)
-    c.description shouldBe "== 2\n== 1"
-    c.negativeDescription shouldBe "!= 2\n!= 1"
+    c.description shouldBe "== 2 && == 1"
+    c.negativeDescription shouldBe "!= 2 || != 1"
 
     (2 matches c) should mismatched("2 != 1")
     (1 matches c) should mismatched("1 != 2")
   }
 
-  test("not") {
+  test("negate matcher") {
     (1 matches !is(2)) should matched("1 != 2")
   }
 
-  test("not not") {
+  test("negate negated matcher") {
     //noinspection DoubleNegationScala
     (1 matches !(!is(1))) should matched("1 == 1")
   }
 
-  test("or") {
+  test("combine matchers using OR") {
     val c = is(1) || is(2) || is(3)
+    c.description shouldBe "== 1 || == 2 || == 3"
+    c.negativeDescription shouldBe "!= 1 && != 2 && != 3"
+
     (1 matches c) should matched("1 == 1")
     (2 matches c) should matched("2 == 2")
     (3 matches c) should matched("3 == 3")
@@ -120,4 +123,12 @@ class DslTest extends FunSuite with STMatchers {
   //    m.describeMatch(3 :: x) shouldBe empty
   //    m.describeMismatch(3 :: x) should contain ("size `3' != `2'")
   //  }
+
+  test("collection matching") {
+    val col = Seq(1, 2, 3, 4)
+
+   (col query is(2) || is(4)) map (_.toOption) should contain theSameElementsInOrderAs Seq(None, Some(2), None, Some(4))
+   (col query is(2) || is(4)) map (_.toEither) should contain theSameElementsInOrderAs Seq(Left("1 != 2 && 1 != 4"), Right(2), Left("3 != 2 && 3 != 4"), Right(4))
+
+  }
 }

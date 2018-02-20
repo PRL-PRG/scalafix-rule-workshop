@@ -7,6 +7,8 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representatio
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
 import org.scalatest.matchers.MatchResult
 
+import scala.collection.TraversableLike
+import scala.collection.generic.CanBuildFrom
 import scala.language.reflectiveCalls
 import scala.language.implicitConversions
 
@@ -40,21 +42,30 @@ trait Matchers {
     }
 
     implicit def any2matcher[A](x: A): Matcher[A] = is(x)
+
+    implicit class QueryCollectionSupport[A, +Repr](that: TraversableLike[A, Repr]) {
+      def query[That](matcher: Matcher[A])(implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That =
+        that.map(matcher)
+    }
   }
 
   object implicits extends ImplicitMatchResult with ImplicitMatchers
 
-  final class MatchResult[A](val matches: Boolean,
+  final class MatchResult[A](val instance: A,
+                             val matches: Boolean,
                              val matcher: Matcher[A],
                              private[queries] val matchReason: String,
                              private[queries] val mismatchReason: String) {
 
-    def this(matches: Boolean,
+    def this(instance: A,
+             matches: Boolean,
              matcher: Matcher[A],
              matchReason: Option[String],
-             mismatchReason: Option[String]) = this(matches, matcher, matchReason.getOrElse(""), mismatchReason.getOrElse(""))
+             mismatchReason: Option[String]) = this(instance, matches, matcher, matchReason.getOrElse(""), mismatchReason.getOrElse(""))
 
     def reason: String = if (matches) matchReason else mismatchReason
+    def toOption: Option[A] = if (matches) Some(instance) else None
+    def toEither: Either[String, A] = if (matches) Right(instance) else Left(reason)
 
     override def toString: String = s"MatchResult($matches, '$reason', ${matcher.description})"
 
@@ -73,8 +84,28 @@ trait Matchers {
     }
   }
 
-  trait Matcher[A] extends (A => MatchResult[A]) { self =>
-    def matches(v :A): Boolean
+  object Match {
+    def unapply[A](result: MatchResult[A]): Option[(A, String)] =
+      if (result.matches) {
+        Some((result.instance, result.reason))
+      } else {
+        None
+      }
+  }
+
+  object Mismatch {
+    def unapply[A](result: MatchResult[A]): Option[(A, String)] =
+      if (!result.matches) {
+        Some((result.instance, result.reason))
+      } else {
+        None
+      }
+  }
+
+  trait Matcher[A] extends (A => MatchResult[A]) {
+    self =>
+
+    def matches(v: A): Boolean
 
     def description: String
 
@@ -84,29 +115,45 @@ trait Matchers {
 
     def describeMismatch(v: A): Option[String]
 
-    //    def &&(m: Matcher[A]): Matcher[A] = new Matcher[A] {
-    //      override def describeMismatch(v: A): String = ???
-    //      override def describeMatch(v: A): String = ???
-    //      override def apply(v: A): Boolean = self(v) && m.apply(v)
-    //    }
-    //
-    def ||(m: Matcher[A]): Matcher[A] = new Matcher[A] {
-      override def matches(v: A): Boolean = self.matches(v) || m.matches(v)
+    override def apply(v: A): MatchResult[A] = new MatchResult[A](v, matches(v), this, describeMatch(v), describeMismatch(v))
 
-      override def description: String = self.description + " || " + m.description
+    def &&(other: Matcher[A]): Matcher[A] = new Matcher[A] {
+      override def matches(v: A): Boolean = self.matches(v) && other.matches(v)
 
-      override def negativeDescription: String = self.negativeDescription + " && " + m.negativeDescription
+      override def description: String = self.description + " && " + other.description
+
+      override def negativeDescription: String = self.negativeDescription + " || " + other.negativeDescription
 
       override def describeMatch(v: A): Option[String] = self(v) match {
         case result if result.matches => self.describeMatch(v)
-        case _ => m.describeMatch(v)
+        case _ => None
+      }
+
+      override def describeMismatch(v: A): Option[String] = (self.describeMismatch(v), other.describeMismatch(v)) match {
+        case (Some(m1), Some(m2)) => Some(m1 + " || " + m2)
+        case (m1@Some(_), None) => m1
+        case (None, m2@Some(_)) => m2
+        case _ => None
+      }
+    }
+
+    def ||(other: Matcher[A]): Matcher[A] = new Matcher[A] {
+      override def matches(v: A): Boolean = self.matches(v) || other.matches(v)
+
+      override def description: String = self.description + " || " + other.description
+
+      override def negativeDescription: String = self.negativeDescription + " && " + other.negativeDescription
+
+      override def describeMatch(v: A): Option[String] = self(v) match {
+        case result if result.matches => self.describeMatch(v)
+        case _ => other.describeMatch(v)
       }
 
       override def describeMismatch(v: A): Option[String] =
-        self.describeMismatch(v).map(_ + " && ") |+| m.describeMismatch(v)
+        self.describeMismatch(v).map(_ + " && ") |+| other.describeMismatch(v)
     }
 
-    def unary_!():Matcher[A] = new Matcher[A] {
+    def unary_!(): Matcher[A] = new Matcher[A] {
       override def matches(v: A): Boolean = !self.matches(v)
 
       override def description: String = self.negativeDescription
@@ -117,37 +164,10 @@ trait Matchers {
 
       override def describeMismatch(v: A): Option[String] = self.describeMatch(v)
     }
-
-    override def apply(v: A): MatchResult[A] = new MatchResult[A](matches(v), this, describeMatch(v), describeMismatch(v))
   }
 
-  // TODO: this should be and
-  implicit def matcherSemigroup[A]: Semigroup[Matcher[A]] = (x: Matcher[A], y: Matcher[A]) => new Matcher[A] {
-    //    implicit val matcherDescriptionSemigroup: Semigroup[String] = (x: String, y: String) => x + "\n" + y
-
-    override def description: String = x.description + "\n" + y.description
-
-    override def negativeDescription: String = x.negativeDescription + "\n" + y.negativeDescription
-
-    override def describeMatch(v: A): Option[String] = (x.describeMatch(v), y.describeMatch(v)) match {
-      case (Some(a), Some(b)) => Some(a |+| b)
-      case (_, _) => None
-    }
-
-    override def describeMismatch(v: A): Option[String] = x.describeMismatch(v) |+| y.describeMismatch(v)
-
-    override def matches(v: A): Boolean = x(v).matches && y(v).matches
-  }
-
-  // TODO: remove
-  implicit def matchResultSemigroup[A]: Semigroup[MatchResult[A]] = (x: MatchResult[A], y: MatchResult[A]) => {
-    new MatchResult(
-      x.matches && y.matches,
-      x.matcher |+| y.matcher,
-      x.matchReason |+| y.matchReason,
-      x.mismatchReason |+| y.mismatchReason
-    )
-  }
+  // default combinator is AND
+  implicit def matcherSemigroup[A]: Semigroup[Matcher[A]] = (x: Matcher[A], y: Matcher[A]) => x && y
 
   // TODO: isn't this in cats already?
   private def reduce[A: Semigroup](x: A, xs: Seq[A]): A = xs match {
