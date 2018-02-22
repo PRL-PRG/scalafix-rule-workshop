@@ -597,7 +597,7 @@ def merge_slocs(
         projects = P.exclude_non_successful(projects)
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
-    with open("project_metadata.csv", 'w') as metadata:
+    with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
     sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
     sloc_csvs = load_many(sloc_files)
