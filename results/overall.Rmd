@@ -22,11 +22,17 @@ library(readr)
 library(dplyr)
 library(igraph)
 library(stringr)
-project_data = read_csv("~/work/scala/test_repos/report_project.csv")
+basedir = "~/work/scala/workshop/results/rawdata/big/"
+from_basedir = function(folder) {
+  read_csv(paste(basedir, folder, sep=""))
+}
+project_data = from_basedir("project-metadata.csv")
 sorted_by_sloc = project_data[order(project_data$scala_loc), ]
 ```
 
-Overall information about projects.
+# Overall information about projects.
+
+Some basic information about the LOC distribution in projects:
 
 ```{r}
 barplot(
@@ -38,7 +44,7 @@ barplot(
   )
 ```
 ```{r}
-slocs = read_csv("~/work/scala/test_repos/slocs.csv")
+slocs = from_basedir("slocs.csv")
 slocs = slocs %>%
   filter(grepl("Scala|Java|Javascript", language)) %>%
   select(c("code", "project", "language"))
@@ -74,6 +80,8 @@ barplot(
   )
 ```
 
+Note that projects whose star count we couldn't get were omitted.
+
 ```{r}
 # Sloc / gh stars
 data = sorted_by_sloc[which(sorted_by_sloc$gh_stars != -1), ]
@@ -87,6 +95,8 @@ plot(
   sub = paste("cor: ", cor(data$gh_stars, data$scala_loc))
 )
 ```
+
+# Reverse dependency graph (under construction)
 
 ```{r}
 library(jsonlite)
@@ -118,5 +128,9 @@ edges = read_csv("~/work/scala/scaladex/scaladex.processed.edges.csv")
 #   main = "Rerverse dependency graph, Unfinished"
 #   )
 ```
+
+# Pattern appearance per project
+
+The main idea is to see at a glance which projects include which patterns in what form.
 
 
