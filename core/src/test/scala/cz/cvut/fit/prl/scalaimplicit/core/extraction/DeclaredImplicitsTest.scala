@@ -31,16 +31,13 @@ class DeclaredImplicitsTest extends SemanticdbTest {
             isImplicit = true,
             signature = Some(
               r.Signature(
-                typeParams = Seq(),
+                typeParameters = Seq(),
                 parameterLists = Seq(
-                  r.DeclaredParameterList(
-                    params = Seq(
-                      r.DeclaredParameter(
-                        name = "a",
-                        tipe = r.Type("java.lang.String")
-                      )),
-                    isImplicit = false
-                  )
+                  r.DeclaredParameterList(isImplicit = false, parameters = Seq(
+                    r.DeclaredParameter(
+                      name = "a",
+                      parameterType = r.Type("java.lang.String")
+                    )))
                 ),
                 returnType = Some(r.Type("String"))
               )),

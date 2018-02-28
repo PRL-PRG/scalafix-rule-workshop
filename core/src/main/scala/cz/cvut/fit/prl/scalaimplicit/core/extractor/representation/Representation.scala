@@ -11,16 +11,16 @@ import scala.reflect.runtime.{universe => u}
   */
 object Representation {
 
+  case class CallSite(name: String,
+                      code: String,
+                      location: Option[Location],
+                      isSynthetic: Boolean,
+                      declaration: Declaration,
+                      typeArguments: Seq[Type],
+                      implicitArguments: Seq[ArgumentLike])
+
   case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
-  }
-  case class Type(name: String, parameters: Seq[Type] = Seq()) {
-    def shortName =
-      name
-        .split("""\{""")
-        .head
-        .split("""\n""")
-        .head
   }
 
   case class Declaration(name: String,
@@ -29,36 +29,45 @@ object Representation {
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
-  case class Signature(typeParams: Seq[Type] = Seq(),
+
+  case class Type(name: String, typeParameters: Seq[Type] = Seq()) {
+    def shortName =
+      name
+        .split("""\{""")
+        .head
+        .split("""\n""")
+        .head
+  }
+
+  case class Signature(typeParameters: Seq[Type] = Seq(),
                        parameterLists: Seq[DeclaredParameterList] = Seq(),
                        returnType: Option[Type] = None)
+
   case class Parent(name: String,
                     declaration: Declaration,
                     typeArguments: Seq[Type])
-  case class DeclaredParameterList(params: Seq[DeclaredParameter],
-                                   isImplicit: Boolean)
-  case class DeclaredParameter(name: String, tipe: Type)
 
-  case class CallSite(name: String,
-                      code: String,
-                      location: Option[Location],
-                      isSynthetic: Boolean,
-                      declaration: Declaration,
-                      typeArguments: Seq[Type],
-                      implicitArguments: Seq[ArgumentLike])
-  trait ArgumentLike {
+  case class DeclaredParameter(name: String, parameterType: Type)
+
+  case class DeclaredParameterList(isImplicit: Boolean, parameters: Seq[DeclaredParameter])
+
+  sealed trait ArgumentLike {
     def code: String
   }
+
   case class Argument(code: String) extends ArgumentLike
+
   case class ImplicitArgument(name: String,
                               code: String,
                               declaration: Declaration,
                               typeArguments: Seq[Type],
-                              arguments: Seq[ArgumentLike])
-      extends ArgumentLike
+                              arguments: Seq[ArgumentLike]) extends ArgumentLike
+
 }
 
+// TODO: move them to apply in objects
 object Factories {
+
   import Representation._
 
   def createLocation(pos: Position = Position.None): Option[Location] = {
@@ -78,6 +87,7 @@ object Factories {
   /**
     * Get the parent representation of a class symbol.
     * TODO We assume for now that we only want a single level of inheritance, but it's easy to make it recursive
+    *
     * @param parent
     * @param ctx
     * @return
@@ -99,18 +109,16 @@ object Factories {
     )
   }
 
-  def createParam(ctx: ReflectiveCtx, symbol: u.Symbol): DeclaredParameter = {
-    DeclaredParameter(
-      name = symbol.name.toString,
-      tipe = createTypeParameter(symbol.typeSignature.typeSymbol.asType)
-    )
-  }
+  /*
+   name = symbol.name.toString,
+      parameterType = createTypeParameter(symbol.typeSignature.typeSymbol.asType)
 
-  def createParamList(ctx: ReflectiveCtx,
-                      paramList: List[u.Symbol]): DeclaredParameterList = {
+   */
+
+  def createParamList(ctx: ReflectiveCtx, paramList: List[u.Symbol]): DeclaredParameterList = {
     DeclaredParameterList(
-      isImplicit = paramList.nonEmpty && paramList.head.isImplicit, // We assume that if one param is implicit, every param is
-      params = paramList.map(createParam(ctx, _))
+      isImplicit = paramList.nonEmpty && paramList.head.isImplicit,
+      parameters = paramList.map(x => DeclaredParameter(x.name.toString, createTypeParameter(x.typeSignature.typeSymbol.asType)))
     )
   }
 
@@ -122,7 +130,7 @@ object Factories {
 
     Some(
       Signature(
-        typeParams = typeParams,
+        typeParameters = typeParams,
         parameterLists = reflection.paramLists.map(createParamList(ctx, _)),
         returnType = Some(createTypeArgument(reflection.returnType))
       ))
@@ -144,7 +152,7 @@ object Factories {
   def createTypeParameter(tipe: u.TypeSymbol): Type = {
     Type(
       name = tipe.fullName,
-      parameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
+      typeParameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
     )
   }
 
@@ -155,7 +163,7 @@ object Factories {
   def createTypeArgument(targ: ReflectiveTArg): Type = {
     Type(
       name = targ.fullName,
-      parameters = targ.args.map(createTypeArgument)
+      typeParameters = targ.args.map(createTypeArgument)
     )
   }
 

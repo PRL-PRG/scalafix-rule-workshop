@@ -1,64 +1,30 @@
-import org.scalatest.{FunSuite, Matchers => STMatchers}
+package cz.cvut.fit.prl.scalaimplicit.queries
+
+import org.scalatest.{FunSuite, Matchers => ScalaTestMatchers}
 import cats.syntax.semigroup._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{CallSite, Declaration, Location, Parent}
-import cz.cvut.fit.prl.scalaimplicit.queries.Matchers
-import org.scalatest.matchers.{MatchResult => STMatchResult, Matcher => STMatcher}
+import cz.cvut.fit.prl.scalaimplicit.queries.implicits._
 
-class DslTest extends FunSuite with STMatchers with Matchers {
+class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchingSupport with Matchers {
 
-  import cz.cvut.fit.prl.scalaimplicit.queries._
-  import cz.cvut.fit.prl.scalaimplicit.queries.Matchers.implicits._
+  object TestClasses {
 
-  trait MatcherTesting {
-    private def test(matches: Boolean, reason: Option[String]) = new STMatcher[MatchResult[_]] {
-      def apply(left: MatchResult[_]): STMatchResult = {
-        if (left.matches == matches) {
-          val reasonCheck =
-            reason.map(STMatchers.be(_).apply(left.reason)).getOrElse(STMatchResult(true, "", ""))
-
-          STMatchResult(
-            matches = reasonCheck.matches,
-            s"$left ${if (matches) "" else "mis"}matched but with a different reason: ${reasonCheck.failureMessage}",
-            s"$left ${if (matches) "" else "mis"}matched ${left.reason}"
-          )
-        } else {
-          // TODO: on of this is wrong - should be mismatched
-          STMatchResult(
-            matches = false,
-            s"$left ${if (matches) "" else "mis"}matched ${left.reason}",
-            s"$left ${if (!matches) "" else "mis"}matched ${left.reason}"
-          )
-        }
-      }
+    class X {
+      def x = 1
     }
 
-    def matched(reason: String): STMatcher[MatchResult[_]] = test(true, Some(reason))
+    class Y extends X {
+      def y = 2
+    }
 
-    def matched: STMatcher[MatchResult[_]] = test(true, None)
+    val x1 = new X
+    val y1 = new Y
 
-    def mismatched(reason: String): STMatcher[MatchResult[_]] = test(false, Some(reason))
-
-    def mismatched: STMatcher[MatchResult[_]] = test(false, None)
+    val lx: List[X] = x1 :: y1 :: Nil
+    val ly: List[Y] = y1 :: Nil
   }
 
-  object MatcherTesting extends MatcherTesting
-
-  import MatcherTesting._
-
-  class X {
-    def x = 1
-  }
-
-  class Y extends X {
-    def y = 2
-  }
-
-  val x1 = new X
-  val y1 = new Y
-
-  val lx: List[X] = x1 :: y1 :: Nil
-  val ly: List[Y] = y1 :: Nil
-
+  import TestClasses._
 
   test("is matcher matches an instance of ") {
     (2 matches is(2)) should matched
@@ -94,7 +60,7 @@ class DslTest extends FunSuite with STMatchers with Matchers {
     (4 matches c) should mismatched("4 is not 1 && 4 is not 2 && 4 is not 3")
   }
 
-  test("plymorphism") {
+  test("polymorphism") {
     val mx = FunMatcher[X](v => v.x == 1, "", "")
     val my = FunMatcher[Y](v => v.y == 2, "", "")
 
@@ -112,37 +78,20 @@ class DslTest extends FunSuite with STMatchers with Matchers {
     assertDoesNotCompile("lx matches mly")
   }
 
-  test("Option") {
-    //  (None matches allOf(2)) should mismatched("is empty")
-
-    //    def matches[A](what: A, mather: Matcher[A]) = mather.matches(what)
-    //
-    //    matches[Container[Int]](Option(1), isEmpty())
-    //
-    //    matches(Option(1), isEmpty())
-    //
-    //    isEmpty[Int]().apply(Option(1))
-    //
-    //    Option(1) matches(isEmpty())
-
-    //isEmpty().apply(Option(null))
-    //(Option(null) matches isEmpty()) should matched("`None' is empty")
-  }
-
   test("isEmpty - option") {
-    (Option(1) matches isEmpty()) should mismatched("Some(1) is not empty")
-    (Option(null) matches isEmpty()) should matched("None is empty")
-    (None matches isEmpty()) should matched("None is empty")
+    (Option(1) matches isEmpty) should mismatched("Some(1) is not empty")
+    (Option(null) matches isEmpty) should matched("None is empty")
+    (None matches isEmpty) should matched("None is empty")
   }
 
   test("isEmpty - sequences") {
-    (Seq(1) matches isEmpty()) should mismatched("List(1) is not empty")
-    (Nil matches isEmpty()) should matched("List() is empty")
-    (List() matches isEmpty()) should matched("List() is empty")
+    (Seq(1) matches isEmpty) should mismatched("List(1) is not empty")
+    (Nil matches isEmpty) should matched("List() is empty")
+    (List() matches isEmpty) should matched("List() is empty")
   }
 
   test("isEmpty - map") {
-    (Map(1 -> 2, 2 -> 3) matches isEmpty()) should mismatched("Map(1 -> 2, 2 -> 3) is not empty")
+    (Map(1 -> 2, 2 -> 3) matches isEmpty) should mismatched("Map(1 -> 2, 2 -> 3) is not empty")
   }
 
   test("allOf - sequence") {
@@ -224,7 +173,7 @@ class DslTest extends FunSuite with STMatchers with Matchers {
 
   test("callsite test") {
 
-    import RepresentationMatchers._
+    import cz.cvut.fit.prl.scalaimplicit.queries.SchemaMatchers._
 
     val cs = CallSite(
       "name-1",
@@ -236,12 +185,16 @@ class DslTest extends FunSuite with STMatchers with Matchers {
       null
     )
 
-    cs.matches(
+    val m = cs.matches(
       name(startsWith("name")) &&
       declaration(
         kind(in("def", "val")) && location(contains(file(startsWith("file"))))
       )
-    ) should mismatched("declaration location Some(fil:3:4) does not contain file that starts with \"file\"")
+    )
 
+    m should mismatched("declaration location Some(fil:3:4) does not contain file that starts with \"file\"")
+
+    println(m.matcher.description)
+    println(m.matcher.negativeDescription)
   }
 }
