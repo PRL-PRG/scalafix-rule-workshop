@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 ```{r setup}
 library("jsonlite")
 library("dplyr")
-tcdata <- fromJSON("~/work/scala/results/specialqueries/tcclassification.json")
+tcdata <- fromJSON("~/work/scala/workshop/results/rawdata/specialqueries/tcclassification.json")
 ```
 
 ```{r}

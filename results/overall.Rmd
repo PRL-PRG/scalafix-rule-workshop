@@ -22,7 +22,7 @@ library(readr)
 library(dplyr)
 library(igraph)
 library(stringr)
-basedir = "~/work/scala/workshop/results/rawdata/big/"
+basedir = "~/work/scala/workshop/results/rawdata/small/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
 }

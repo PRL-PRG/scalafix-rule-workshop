@@ -1,0 +1,161 @@
+---
+title: "Exploration of implicit parameters"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width=12, 
+  fig.height=8, 
+  fig.path='Figs/',
+  echo=FALSE,
+  warning=FALSE,
+  message=FALSE
+  )
+```
+
+```{r setup}
+library(readr)
+library(dplyr)
+library(calibrate)
+results_summary <- read_csv("~/work/scala/workshop/results/rawdata/small/contextcandidates/definitions.csv")
+``` 
+
+We can begin with some basic statistics, such as occurreces bunched together
+
+```{r}
+all_together = results_summary %>%
+  group_by(name) %>%
+  summarise(occurrences = sum(occurrences)) %>%
+  arrange(occurrences)
+```
+
+This is a general function to help us filter the corpus:
+
+```{r}
+with_cuttoffs = function(dataset, min_density, max_rows) {
+  dataset %>%
+    filter(call_density > min_density) %>%
+    arrange(-call_density)  %>%
+    top_n(max_rows)
+}
+```
+
+Then we follow with some graphs about call density. Here we plot the most dense declarations:
+
+```{r}
+
+density_cuttoff = 0.000001
+top_cuttoff = 1000000000
+call_densities = with_cuttoffs(results_summary, density_cuttoff, top_cuttoff)
+
+barplot(
+  call_densities$call_density,
+  names.arg = call_densities$name,
+  #horiz = TRUE,
+  las = 2,
+  cex.names = 50 / nrow(call_densities),
+  log = 'y'
+)
+```
+
+For our next trick, it's important to know what a "good call-density is"
+```{r}
+box_dataset = results_summary[results_summary$occurrences > 2, ]
+top_percentage = 100
+nrows = function(percentage) { round(nrow(box_dataset) / (100 / percentage)) }
+
+boxplot(
+  x = with_cuttoffs(box_dataset, min_density = 0.0, max_rows = nrows(top_percentage))$call_density,
+  log = 'y'
+)
+```
+
+We can also try to do some manual hand-picking by name. Here we have all the parameters that have "context" or "config" somewhere in the last part of their fqns. This can highlight successes of the context, but not point out failures (because we haven't considered the whole set of clients):
+
+```{r}
+hand_filter = function(name) {
+  !grepl("^param ", name) &
+  (grepl(".[^.]*config[^.]*$", name, ignore.case = TRUE) |
+    grepl(".[^.]*context[^.]*$", name, ignore.case = TRUE))
+}
+
+hand_picked = results_summary[hand_filter(results_summary$name), ] %>%
+  #filter(occurrences > 1) %>%
+  arrange(-call_density)
+
+barplot(
+  hand_picked$call_density,
+  names.arg = hand_picked$name,
+  #horiz = TRUE,
+  las = 2,
+  cex.names = 50 / nrow(call_densities),
+  log = 'y'
+)
+```
+
+We can also subdivide by project:
+
+```{r}
+vals = hand_picked %>% 
+  group_by(project) %>%
+  summarise(
+    mean_dens = mean(call_density), 
+    num_points = n())
+
+total_points = sum(vals$num_points)
+
+to_print = vals %>% 
+  mutate(col_width = num_points / total_points)
+
+barplot(
+  to_print$mean_dens,
+  width = to_print$col_width,
+  names.arg = to_print$project,
+  horiz = TRUE,
+  las = 2
+)
+abline(
+  h = 10
+)
+```
+
+This is not very useful without total occurrence counts:
+
+```{r}
+by_project = function(dataset) {
+  to_print = dataset %>% 
+    mutate(proj_id = dataset %>%
+           group_indices(project)) %>%
+    arrange(proj_id)
+  
+  palette = sample(rainbow(max(to_print$proj_id)))
+  
+  to_print = to_print %>%
+    mutate(color = palette[proj_id])
+
+  barplot(
+    to_print$call_density,
+    col = to_print$color,
+    horiz = TRUE,
+    las = 2,
+  )
+}
+
+```
+
+```{r}
+by_project(hand_picked)
+```
+
+The same processing without the filter becomes very overwhelming very fast
+
+```{r}
+by_project(results_summary)
+```
+
+
+
+

@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 library(readr)
 library(dplyr)
 library(calibrate)
-results_summary <- read_csv("~/work/scala/workshop/results/rawdata/conversion/results.callsite.summary.csv") %>% 
+results_summary <- read_csv("~/work/scala/workshop/results/rawdata/small/conversion/results.callsite.summary.csv") %>% 
   mutate(transitive = !transitive) # Should fix that in the impl
 ``` 
 
@@ -197,10 +197,27 @@ plot(
 
 This is not extremely useful, unfortunately.
 
+We can envision another graph, with the same data but the axes changed:
+
+```{r}
+intervals = c(0, 1, 10, 100, 1000, 1000000)
+partitioned = 
+  split(summary, cut(summary$occurrences, intervals, include.lowest=TRUE))
+
+palette = sample(heat.colors(length(intervals)))
+barplot(
+ sapply(partitioned,nrow),
+ log = 'x',
+ horiz = TRUE,
+ las = 2
+)
+```
+
+
 Now, if we _don't_ mush the projects together, maybe we can gather some metadata. First, load the project stats.
 
 ```{r}
-project_metadata <- read_csv("~/work/scala/workshop/results/rawdata/project-metadata.csv")
+project_metadata <- read_csv("~/work/scala/workshop/results/rawdata/small/project-metadata.csv")
 ```
 
 Then, add LOC information to the nontransitive conversions:
@@ -225,10 +242,5 @@ plot(
   xlab = "Scala LOC", 
   ylab = "Non-transitive implicit conversions", 
   main="Distribution of non-transitive implicit conversions by scala LOC"
-  )
-textxy(
-  locDistribution$scala_loc, 
-  locDistribution$occurrences,
-  locDistribution$project
   )
 ```
