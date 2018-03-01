@@ -2,13 +2,10 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ImplicitArgument
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{Argument, ImplicitArgument}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.TCFamily
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{ReportSummary, SlimReport}
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{DefinitionSummary, ReportSummary, SlimReport}
 import org.json4s.{NoTypeHints, ShortTypeHints}
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.write
