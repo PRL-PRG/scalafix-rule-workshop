@@ -82,6 +82,26 @@ object OutputHelper {
     s"$header\n$values"
   }
 
+  def definitionCSVSummary(projectSummaries: Seq[DefinitionSummary]): String = {
+    def pV(x: String): String = {
+      // FIXME: properly escape " in x
+      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
+    }
+
+    def bV(x: Boolean): String = if (x) "T" else "F"
+
+    val header = "project, sloc, name, occurrences, call_density"
+    val values = projectSummaries
+      .flatMap(
+        report =>
+          report.definitions
+            .map(row =>
+              s"""${pV(report.metadata.reponame)}, ${report.metadata.scalaLOC}, ${row._1}, ${row._2}, ${row._2.toDouble / report.metadata.scalaLOC.toDouble}""")
+      )
+      .mkString("\n")
+    s"$header\n$values"
+  }
+
   def TCFamiliesJSONSummary(data: Seq[TCFamily]): String = {
     implicit val formats = Serialization.formats(NoTypeHints)
     write(data)

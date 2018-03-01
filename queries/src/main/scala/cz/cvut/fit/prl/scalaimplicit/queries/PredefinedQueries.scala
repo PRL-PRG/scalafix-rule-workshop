@@ -191,6 +191,11 @@ object PredefinedQueries {
           HTMLSerializer.DefinitionDocument$)
         .getBytes
     )
+
+    Files.write(
+      Paths.get(OUTFOLDER + "/contextcandidates/definitions.csv"),
+      OutputHelper.definitionCSVSummary(decls).getBytes()
+    )
   }
 
   def moreThanOneParam(): Unit = {
