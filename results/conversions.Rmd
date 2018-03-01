@@ -207,9 +207,10 @@ partitioned =
 palette = sample(heat.colors(length(intervals)))
 barplot(
  sapply(partitioned,nrow),
- log = 'x',
  horiz = TRUE,
- las = 2
+ las = 2,
+ main = "Occurrence intervals of non-transitive implicit conversions",
+ xlab = "Number of conversions"
 )
 ```
 
