@@ -614,25 +614,34 @@ def extract_paths(
     project_path,
 ):
     P = Pipeline()
-    sbt_output_transformer_script = """\
-$2 ~ /test:scalaSource$/ { title = substr($2, 0, length($2) - 17); kind = "test"; } \
-$2 ~ /compile:scalaSource$/ { title = substr($2, 0, length($2) - 20); kind = "compile"; } \
-$2 ~ /^\// { path = $2; print title ", " path ", " kind; title = "garbage"; kind = "garbage" }"""
+    project_name = os.path.split(project_path)[1]
+    P.info("[Paths][%s] Extracting paths" % project_name)
+    def gen_paths_command(project, scope):
+        # Generates an AWK script that matches all lines that look like paths,
+        # And outputs them in nice CSV format.
+        def gen_processor_script(project, scope):
+            return ("$2 ~ /^\// { path = $2; print \"%s, \" path \", %s\";}" %
+                    (project, scope))
+        return ("sbt -batch -Dsbt.log.noformat=true %s:scalaSource | awk '%s' >> %s/paths.csv" %
+                (scope, gen_processor_script(project_name, scope), BASE_CONFIG["reports_folder"]))
+
+
+    P.info("[Paths][%s] Cleaning up previous paths" % project_name)
     P.local(
         "echo 'project, path, kind' > %s/paths.csv" % BASE_CONFIG["reports_folder"],
         project_path
     )
+
+    P.info("[Paths][%s] Extracting Compile path" % project_name)
     P.local_canfail(
         "Get Source Paths",
-        "sbt -batch -Dsbt.log.noformat=true scalaSource | awk '%s' >> %s/paths.csv" %
-            (sbt_output_transformer_script, BASE_CONFIG["reports_folder"]),
-        project_path,
-        True
+        gen_paths_command(project_name, "compile"),
+        project_path
     )
+    P.info("[Paths][%s] Extracting Test path" % project_name)
     P.local_canfail(
         "Get Test Paths",
-        "sbt -batch -Dsbt.log.noformat=true test:scalaSource | awk '%s' >> %s/paths.csv" %
-            (sbt_output_transformer_script, BASE_CONFIG["reports_folder"]),
+        gen_paths_command(project_name, "test"),
         project_path
     )
 
