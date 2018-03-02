@@ -639,10 +639,14 @@ $2 ~ /^\// { path = $2; print title ", " path ", " kind; title = "garbage"; kind
 @task
 def merge_paths(
     project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"]
+    projects_path=BASE_CONFIG["projects_dest"],
+    exclude_unfinished=True
 ):
+    P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
     projects = get_project_list(projects_path, project_depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects)
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
     augmented = merge_all(
         map(
@@ -650,7 +654,7 @@ def merge_paths(
             zip(projects, paths_files))
     )
     
-    with open("paths_all.csv", 'w') as pathsfile:
+    with open("paths.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(augmented))
 
 ####################
