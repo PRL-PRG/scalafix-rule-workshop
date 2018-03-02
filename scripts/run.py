@@ -657,14 +657,10 @@ def merge_paths(
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects)
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
-    augmented = merge_all(
-        map(
-            lambda (proj, paths_csv): extend_csv(paths_csv, "project", os.path.split(proj)[1]), 
-            zip(projects, paths_files))
-    )
+    merged = merge_all(paths_files)
     
     with open("paths.all.csv", 'w') as pathsfile:
-        pathsfile.write(print_csv(augmented))
+        pathsfile.write(print_csv(merged))
 
 ####################
 # CSVManip
