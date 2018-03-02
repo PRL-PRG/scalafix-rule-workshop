@@ -584,7 +584,7 @@ def cleanup_reports(project_path):
         sys.exit(1)
 
 @task
-def merge_slocs(    
+def merge_metadata(    
     project_depth=BASE_CONFIG["default_location_depth"],
     projects_path=BASE_CONFIG["projects_dest"],
     exclude_unfinished=True
@@ -607,6 +607,51 @@ def merge_slocs(
     with open("slocs.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
 
+# Run sbt to extract test and compile source paths
+# Store them in _reports/paths.csv
+@task
+def extract_paths(
+    project_path,
+):
+    P = Pipeline()
+    sbt_output_transformer_script = """\
+$2 ~ /test:scalaSource$/ { title = substr($2, 0, length($2) - 17); kind = "test"; } \
+$2 ~ /compile:scalaSource$/ { title = substr($2, 0, length($2) - 20); kind = "compile"; } \
+$2 ~ /^\// { path = $2; print title ", " path ", " kind; title = "garbage"; kind = "garbage" }"""
+    P.local(
+        "echo 'project, path, kind' > %s/paths.csv" % BASE_CONFIG["reports_folder"],
+        project_path
+    )
+    P.local_canfail(
+        "Get Source Paths",
+        "sbt -batch -Dsbt.log.noformat=true scalaSource | awk '%s' >> %s/paths.csv" %
+            (sbt_output_transformer_script, BASE_CONFIG["reports_folder"]),
+        project_path,
+        True
+    )
+    P.local_canfail(
+        "Get Test Paths",
+        "sbt -batch -Dsbt.log.noformat=true test:scalaSource | awk '%s' >> %s/paths.csv" %
+            (sbt_output_transformer_script, BASE_CONFIG["reports_folder"]),
+        project_path
+    )
+
+@task
+def merge_paths(
+    project_depth=BASE_CONFIG["default_location_depth"],
+    projects_path=BASE_CONFIG["projects_dest"]
+):
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, project_depth)
+    paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
+    augmented = merge_all(
+        map(
+            lambda (proj, paths_csv): extend_csv(paths_csv, "project", os.path.split(proj)[1]), 
+            zip(projects, paths_files))
+    )
+    
+    with open("paths_all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(augmented))
 
 ####################
 # CSVManip
