@@ -33,7 +33,7 @@ object SlimRepresentation {
       kind = from.kind,
       signature = from.signature.slim,
       paramLists = from.signature.get.parameterLists.map(pl =>
-        SlimParamList(pl.parameters.size, pl.isImplicit)),
+        SlimParamList(pl.params.size, pl.isImplicit)),
       location = from.location
     )
   }

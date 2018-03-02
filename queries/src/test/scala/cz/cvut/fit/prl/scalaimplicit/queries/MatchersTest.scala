@@ -2,7 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import org.scalatest.{FunSuite, Matchers => ScalaTestMatchers}
 import cats.syntax.semigroup._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{CallSite, Declaration, Location, Parent}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.queries.implicits._
 
 class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchingSupport with Matchers {
@@ -115,50 +115,27 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     (Map(1 -> 2) matches allOf(1 -> 3)) should mismatched("Map(1 -> 2) is missing [(1,3)]")
   }
 
-  //  test("in") {
-  //    in(1, 2, 3) matches 2
-  //    in(1, 2, 3).describeMatch(2) should contain ("2 in {1,2,3}")
-  //    !in(1, 2, 3) matches 4
-  //  }
+  test("in") {
+    (in(1, 2, 3) matches 2) should matched("2 is 2")
+    (in(1, 2, 3) matches 4) should mismatched("4 is not in [1, 2, 3]")
+  }
+
+  test("in regex") {
+    (in("class".r, "def".r) matches "final class") should matched("\"final class\" matches Regex(\"class\")")
+    (in("class".r, "def".r) matches "val") should mismatched("\"val\" is not in [Regex(\"class\"), Regex(\"def\")]")
+  }
   //
   //  test("ordering") {
   //    gt(2) matches 3
   //  }
   //
-  //  test("value format") {
-  //    class A
-  //    implicit val avf = new ValueFormat[A] { def format(x:A) = "My A" }
-  //    val a = new A
-  //
-  //    is(a).describeMatch(a) should contain ("My A")
-  //  }
-  //
-  //  test(" fasdf ") {
-  //    val x = 1 :: 2 :: Nil
-  //
-  //    x.matches(queries.Matchers.size(!in(1,2)))
-  //
-  //    val m: Matcher[List[Int]] = queries.Matchers.size(!in(1,2))
-  //
-  //    m.describeMismatch(x) should contain ("size 2 in {1,2}")
-  //    m.describeMatch(3 :: x) should contain ("size 3 not in {1,2}")
-  //
-  //    class A {
-  //      def size = 4
-  //    }
-  //
-  //    val a = new A
-  //    val am: Matcher[A] = queries.Matchers.size(!in(1,2))
-  //    am.describeMatch(a) should contain ("size 4 not in {1,2}")
-  //
-  //  }
-  //
+
   test("property matcher - size") {
     val x = 1 :: 2 :: Nil
     val m: Matcher[List[Int]] = Matchers.size(is(2))
 
     (x matches Matchers.size(is(2))) should matched("size 2 is 2")
-    (Set(1,2) matches size(is(2))) should matched("size 2 is 2")
+    (Set(1, 2) matches size(is(2))) should matched("size 2 is 2")
   }
 
 
@@ -171,30 +148,151 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     (col query q) map (_.toEither) should contain theSameElementsInOrderAs Seq(Left("1 is not 2 && 1 is not 4"), Right(2), Left("3 is not 2 && 3 is not 4"), Right(4))
   }
 
-  test("callsite test") {
+  test("pgs") {
 
-    import cz.cvut.fit.prl.scalaimplicit.queries.SchemaMatchers._
+    case class C(b1: Boolean, b2: Boolean, b3: Boolean)
 
-    val cs = CallSite(
-      "name-1",
-      "code",
-      Some(Location("file", 1, 2)),
-      true,
-      Declaration("decl-name", "def", Some(Location("fil",3,4)), true, None, Seq(Parent("parent", null, null))),
-      null,
-      null
+    //    def b1[A <: {def b1: Boolean}]: Matcher[A] =
+    //      PropertyMatcher[A]("b1", _.b1)
+    //    def b2[A <: {def b2: Boolean}]: Matcher[A] =
+    //      PropertyMatcher[A]("b1", _.b2)
+    //    def b3[A <: {def b3: Boolean}]: Matcher[A] =
+    //      PropertyMatcher[A]("b1", _.b3)
+
+    trait X {
+      type B1
+      type B2
+      type B3
+
+      implicit val PG_C_b1 = PG[C, B1, Boolean](_.b1)
+      implicit val PG_C_b2 = PG[C, B2, Boolean](_.b2)
+      implicit val PG_C_b3 = PG[C, B3, Boolean](_.b3)
+
+      def b1[A](implicit pg: PG[A, B1, Boolean]): Matcher[A] = BooleanPropertyMatcher("b1")
+
+      def b2[A](implicit pg: PG[A, B2, Boolean]): Matcher[A] = BooleanPropertyMatcher("b2")
+
+      def b3[A](implicit pg: PG[A, B3, Boolean]): Matcher[A] = BooleanPropertyMatcher("b3")
+
+      type Size
+
+      implicit val PG_OPTION_SIZE = PG[Option[_], Size, Int](x => if (x.isEmpty) 0 else 1)
+      implicit val PG_Iterable_Size = PG[Iterable[_], Size, Int](_.size)
+
+      type Contains
+
+      def size1[A](x: Matcher[Int])(implicit pg: PG[A, Size, Int]): Matcher[A] = PropertyMatcher("size", x, Nil)
+    }
+
+    object X extends X
+    import X._
+
+    println(
+      (Seq(C(true, true, true), C(true, true, true)) matches contains(b1 && !b2 && b3)).reason
     )
 
-    val m = cs.matches(
-      name(startsWith("name")) &&
-      declaration(
-        kind(in("def", "val")) && location(contains(file(startsWith("file"))))
-      )
-    )
+    println(C(true, false, true) matches b1 && !b2 && b3)
 
-    m should mismatched("declaration location Some(fil:3:4) does not contain file that starts with \"file\"")
+    println(Option(1) matches size1(is(1)))
+    println(Seq(1, 2) matches size1(is(2)))
 
-    println(m.matcher.description)
-    println(m.matcher.negativeDescription)
   }
+
+
+  test("pgs2") {
+    case class C(b1: Boolean, b2: Boolean, b3: Boolean)
+
+    //    trait PG2[In] {
+    //      type Out
+    //
+    //      def f(x: In): Out
+    //    }
+    //
+    //    object PG2 {
+    //      type Aux[A, B] = PG2[A] { type Out = B }
+    //
+    //      def apply[A, B](ff: A => B): Aux[A, B] = new PG2[A] {
+    //        override type Out = B
+    //
+    //        override def f(x: A): B = ff(x)
+    //      }
+    //    }
+    //
+    //    implicit val cb1 = PG2[C, Boolean](_.b1)
+    //
+    //    def b1[A](implicit pg2: PG2.Aux[A, Boolean]): Matcher[A] =
+    //      new FunMatcher(pg2.f, "", "")
+
+    trait X {
+      type B1
+      type B2
+      type B3
+
+      implicit val PG_C_b1 = PG[C, B1, Boolean](_.b1)
+      implicit val PG_C_b2 = PG[C, B2, Boolean](_.b2)
+      implicit val PG_C_b3 = PG[C, B3, Boolean](_.b3)
+
+      def b1[A](implicit pg: PG[A, B1, Boolean]): Matcher[A] = BooleanPropertyMatcher("b1")
+
+      def b2[A](implicit pg: PG[A, B2, Boolean]): Matcher[A] = BooleanPropertyMatcher("b2")
+
+      def b3[A](implicit pg: PG[A, B3, Boolean]): Matcher[A] = BooleanPropertyMatcher("b3")
+
+      type Size
+
+      implicit val PG_OPTION_SIZE = PG[Option[_], Size, Int](x => if (x.isEmpty) 0 else 1)
+      implicit val PG_Iterable_Size = PG[Iterable[_], Size, Int](_.size)
+
+      type Contains
+
+      def size1[A](x: Matcher[Int])(implicit pg: PG[A, Size, Int]): Matcher[A] = PropertyMatcher("size", x, Nil)
+    }
+
+    object X extends X
+    import X._
+
+    println(
+      (Seq(C(true, true, true), C(true, true, true)) matches contains(b1 && !b2 && b3)).reason
+    )
+
+    println(C(true, false, true) matches b1 && !b2 && b3)
+
+    println(Option(1) matches size1(is(1)))
+    println(Seq(1, 2) matches size1(is(2)))
+
+  }
+
+  test("Imports") {
+    import SchemaMatchers._
+
+    CallSite("A", null, None, true, null, Seq(), Seq()) matches name(is("A"))
+    DeclaredParameter("B", null) matches name(is("A"))
+  }
+
+  //  test("callsite test") {
+  //
+  //    import cz.cvut.fit.prl.scalaimplicit.queries.SchemaMatchers._
+  //
+  //    val cs = CallSite(
+  //      "name-1",
+  //      "code",
+  //      Some(Location("file", 1, 2)),
+  //      true,
+  //      Declaration("decl-name", "def", Some(Location("fil",3,4)), true, None, Seq(Parent("parent", null, null))),
+  //      null,
+  //      null
+  //    )
+  //
+  //    val m = cs.matches(
+  //      name(startsWith("name")) &&
+  //      declaration(
+  //        kind(in("def", "val")) && location(contains(file(startsWith("file"))))
+  //      )
+  //    )
+  //
+  //    m should mismatched("declaration location Some(fil:3:4) does not contain file that starts with \"file\"")
+  //
+  //    println(m.matcher.description)
+  //    println(m.matcher.negativeDescription)
+  //  }
 }

@@ -21,7 +21,7 @@ object PrettyPrinters {
 
     implicit object PrettyType extends PrettyPrintable[Type] {
       override def pretty(t: Type, indent: Int): String = {
-        prettyPrint(t.typeParameters, indent + 2) match {
+        prettyPrint(t.parameters, indent + 2) match {
           case p if p == "" => s"${t.name}"
           case p => s"${t.name}[$p]"
         }
@@ -40,7 +40,7 @@ object PrettyPrinters {
     implicit object PrettyDeclaredParameter
         extends PrettyPrintable[DeclaredParameter] {
       override def pretty(t: DeclaredParameter, indent: Int): String = {
-        s"${t.name}: ${prettyPrint(t.parameterType, indent + 2)}"
+        s"${t.name}: ${prettyPrint(t.tipe, indent + 2)}"
       }
     }
 
@@ -48,7 +48,7 @@ object PrettyPrinters {
         extends PrettyPrintable[DeclaredParameterList] {
       override def pretty(t: DeclaredParameterList, indent: Int): String = {
         val prefix = if (t.isImplicit) s"implicit " else ""
-        s"(${prefix}${prettyPrint(t.parameters, indent + 2)})"
+        s"(${prefix}${prettyPrint(t.params, indent + 2)})"
       }
     }
 
@@ -57,7 +57,7 @@ object PrettyPrinters {
       override def pretty(sign: Option[Signature], indent: Int): String = {
         sign match {
           case Some(sign) => {
-            val typeParams = wrapIfSome(prettyPrint(sign.typeParameters), "[", "]")
+            val typeParams = wrapIfSome(prettyPrint(sign.typeParams), "[", "]")
             val parameterLists = prettyPrint(sign.parameterLists)
             val retType = wrapIfSome(prettyPrint(sign.returnType), ": ")
             s"$typeParams$parameterLists$retType"
@@ -77,7 +77,7 @@ object PrettyPrinters {
       }
 
       override def pretty(t: Parent, indent: Int): String = {
-        val tparams = t.declaration.signature.get.typeParameters
+        val tparams = t.declaration.signature.get.typeParams
         val targs =
           wrapIfSome(getMatchedTypes(tparams, t.typeArguments), "[", "]")
         val kind =

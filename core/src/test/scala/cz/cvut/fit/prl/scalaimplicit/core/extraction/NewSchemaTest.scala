@@ -142,29 +142,35 @@ class NewSchemaTest extends SemanticdbTest {
               isImplicit = true,
               signature = Some(
                 Signature(
-                  typeParameters = Seq(),
+                  typeParams = Seq(),
                   parameterLists = Seq(
-                    DeclaredParameterList(isImplicit = false, parameters = Seq(
-                      DeclaredParameter(
-                        name = "a",
-                        parameterType = Type("nested.A")
-                      ))),
-                    DeclaredParameterList(isImplicit = true, parameters = Seq(
-                      DeclaredParameter(
-                        name = "b",
-                        parameterType = Type(name = "scala.Function1",
-                          typeParameters =
-                            Seq(Type("scala.Function1.T1"),
-                              Type("scala.Function1.R")))
-                      ),
-                      DeclaredParameter(
-                        name = "c",
-                        parameterType = Type(name = "scala.Function1",
-                          typeParameters =
-                            Seq(Type("scala.Function1.T1"),
-                              Type("scala.Function1.R")))
+                    DeclaredParameterList(
+                      isImplicit = false,
+                      params = Seq(
+                        DeclaredParameter(
+                          name = "a",
+                          tipe = Type("nested.A")
+                        ))
+                    ),
+                    DeclaredParameterList(
+                      isImplicit = true,
+                      params = Seq(
+                        DeclaredParameter(
+                          name = "b",
+                          tipe = Type(name = "scala.Function1",
+                            parameters =
+                              Seq(Type("scala.Function1.T1"),
+                                Type("scala.Function1.R")))
+                        ),
+                        DeclaredParameter(
+                          name = "c",
+                          tipe = Type(name = "scala.Function1",
+                            parameters =
+                              Seq(Type("scala.Function1.T1"),
+                                Type("scala.Function1.R")))
+                        )
                       )
-                    ))
+                    )
                   ),
                   returnType = Some(Type("nested.C"))
                 )
@@ -187,13 +193,16 @@ class NewSchemaTest extends SemanticdbTest {
                   isImplicit = true,
                   signature = Some(
                     Signature(
-                      typeParameters = Seq(),
+                      typeParams = Seq(),
                       parameterLists = Seq(
-                        DeclaredParameterList(isImplicit = false, parameters = Seq(
-                          DeclaredParameter(
-                            name = "a",
-                            parameterType = Type("nested.A")
-                          )))),
+                        DeclaredParameterList(
+                          isImplicit = false,
+                          params = Seq(
+                            DeclaredParameter(
+                              name = "a",
+                              tipe = Type("nested.A")
+                            ))
+                        )),
                       returnType = Some(Type("nested.B"))
                     )
                   )
@@ -215,13 +224,16 @@ class NewSchemaTest extends SemanticdbTest {
                   isImplicit = true,
                   signature = Some(
                     Signature(
-                      typeParameters = Seq(),
+                      typeParams = Seq(),
                       parameterLists = Seq(
-                        DeclaredParameterList(isImplicit = false, parameters = Seq(
-                          DeclaredParameter(
-                            name = "b",
-                            parameterType = Type("nested.B")
-                          )))),
+                        DeclaredParameterList(
+                          isImplicit = false,
+                          params = Seq(
+                            DeclaredParameter(
+                              name = "b",
+                              tipe = Type("nested.B")
+                            ))
+                        )),
                       returnType = Some(Type("nested.C"))
                     )
                   )
@@ -277,21 +289,27 @@ class NewSchemaTest extends SemanticdbTest {
           isImplicit = true,
           signature = Some(
             Signature(
-              typeParameters = Seq(Type("classConv.Hello.T")),
+              typeParams = Seq(Type("classConv.Hello.T")),
               parameterLists = Seq(
-                DeclaredParameterList(isImplicit = false, parameters =
-                  Seq(DeclaredParameter("s", Type("classConv.Hello.T")))),
-                DeclaredParameterList(isImplicit = true, parameters = Seq(
-                  DeclaredParameter(
-                    name = "evidence$1",
-                    parameterType = Type(
-                      name = "classConv.Writer",
-                      typeParameters = Seq(Type("classConv.Writer.A"))
-                    )
-                  )))
+                DeclaredParameterList(
+                  isImplicit = false,
+                  params =
+                    Seq(DeclaredParameter("s", Type("classConv.Hello.T")))
+                ),
+                DeclaredParameterList(
+                  isImplicit = true,
+                  params = Seq(
+                    DeclaredParameter(
+                      name = "evidence$1",
+                      tipe = Type(
+                        name = "classConv.Writer",
+                        parameters = Seq(Type("classConv.Writer.A"))
+                      )
+                    ))
+                )
               ),
               returnType =
-                Some(Type("classConv.Hello[T]", typeParameters = Seq(Type("T"))))
+                Some(Type("classConv.Hello[T]", parameters = Seq(Type("T"))))
             )),
           parents = Seq()
         ),
@@ -333,7 +351,7 @@ class NewSchemaTest extends SemanticdbTest {
                     isImplicit = false,
                     signature = Some(
                       Signature(
-                        typeParameters = Seq(Type("classConv.Writer.A")),
+                        typeParams = Seq(Type("classConv.Writer.A")),
                         returnType = Some(Type("<notype>"))
                       ))
                   ),

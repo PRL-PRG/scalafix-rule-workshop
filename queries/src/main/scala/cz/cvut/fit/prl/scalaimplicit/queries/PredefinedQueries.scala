@@ -22,14 +22,14 @@ import scala.collection.immutable
 object PredefinedQueries {
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
-      s.signature.get.typeParameters.nonEmpty &&
+      s.signature.get.typeParams.nonEmpty &&
       (s.kind.endsWith("trait") || s.kind.endsWith("abstract class"))
     }
     def instanceCandidate(s: Declaration): Boolean = {
       s.isImplicit &&
       (s.kind.contains("object") || s.kind.contains("def") || s.kind.contains(
         "class")) &&
-        s.signature.get.returnType.isDefined && s.signature.get.returnType.get.typeParameters.isEmpty
+        s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
     }
     def isTCInstanceOf(parent: Declaration, inst: Declaration): Boolean = {
       inst.parents.exists(_.name == parent.name)
@@ -87,10 +87,6 @@ object PredefinedQueries {
     query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
   }
 
-  object MyCallSite {
-    def unapply(arg: CallSite): Option[(String, Boolean)] = ???
-  }
-
   val conversionFunction: CallSite => Boolean = {
     case CallSite(
         _,
@@ -104,7 +100,7 @@ object PredefinedQueries {
           true,
           Some(
             Signature(_,
-            Seq(DeclaredParameterList(false, Seq(parameter))),
+            Seq(DeclaredParameterList(Seq(parameter), false)),
                       _)),
           _),
         _,
@@ -150,7 +146,7 @@ object PredefinedQueries {
                           k => k.contains("def") || k.contains("object"))
                         && QueryEngine.matches[Option[Type]](
                           arg.declaration.signature.get.returnType,
-                        rt => rt.isDefined && rt.get.typeParameters.isEmpty)
+                        rt => rt.isDefined && rt.get.parameters.isEmpty)
                         && QueryEngine.contains[Parent](
                           arg.declaration.parents,
                           parent =>
@@ -158,7 +154,7 @@ object PredefinedQueries {
                               parent.declaration,
                               d =>
                                 d.kind
-                                  .contains("trait") && d.signature.get.typeParameters.size == 1)
+                                  .contains("trait") && d.signature.get.typeParams.size == 1)
                               && parent.typeArguments.size == 1
                         ))
                     case _ => false

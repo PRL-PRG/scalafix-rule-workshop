@@ -83,9 +83,12 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     // trying to figure out if we run from intellij or from sbt
     // FIXME: is there any smarter way to do this?
     findJar(".*/scala-plugin-runners\\.jar$") match {
-      case Success(_) => emptySettings.usejavacp.value = true // intellij
-      case Failure(_) => emptySettings.embeddedDefaults[SemanticdbTest] // sbt
+      case Success(_) =>
+        emptySettings.usejavacp.value = true // intellij
+      case Failure(_) =>
+        emptySettings.embeddedDefaults[SemanticdbTest] // sbt
     }
+    emptySettings.usejavacp.value = true // intellij
 
     val command = new CompilerCommand(args, emptySettings)
     val reporter = new ConsoleReporter(command.settings)

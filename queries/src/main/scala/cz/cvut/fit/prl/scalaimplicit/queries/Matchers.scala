@@ -5,6 +5,7 @@ import cats.implicits._
 
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom
+import scala.util.matching.Regex
 
 trait ImplicitMatchers {
 
@@ -28,6 +29,7 @@ trait Matchers {
 
   // TODO: make it a default instance of some Pretifier
   def fmt[A](s: A): String = s match {
+    case x: Regex => "Regex(\"" + x + "\")"
     case x: String => "\"" + x + "\""
     case x: Char => s"'$x'"
     case x@(_: Boolean | _: Byte | _: Short | _: Int | _: Long | _: Float | _: Double) => s"$x"
@@ -38,7 +40,6 @@ trait Matchers {
   def fmtRight[A](s: A): String = s match {
     case x: Traversable[_] => x.map(fmt).mkString("[", ", ", "]")
   }
-
 
   // default Matcher combinator is AND
   implicit def matcherSemigroup[A]: Semigroup[Matcher[A]] = (x: Matcher[A], y: Matcher[A]) => x && y
@@ -91,11 +92,27 @@ trait Matchers {
     override def test(v: A): Boolean = matcher.test(property(v))
   }
 
+  /**
+    * Property getter - a helper class for type-safe properties
+    *
+    * @param get
+    * @tparam A
+    * @tparam B a marker type
+    * @tparam C
+    */
+  case class PG[-A, B, +C](get: A => C)
+
   object PropertyMatcher {
-    def apply[A, B](name: String, property: A => B, matcher: Matcher[B], matchers: Seq[Matcher[B]]) =
+    def apply[A, B](name: String, property: A => B, matcher: Matcher[B], matchers: Seq[Matcher[B]]): Matcher[A] =
       new PropertyMatcher[A, B](name, property, reduce(matcher, matchers))
 
-    def apply[A](name: String, property: A => Boolean) =
+    def apply[A, B](name: String, matcher: Matcher[B], matchers: Seq[Matcher[B]] = Seq())
+                   (implicit pg: PG[A, _, B]): Matcher[A] =
+      apply(name, pg.get, matcher, matchers)
+  }
+
+  object BooleanPropertyMatcher {
+    def apply[A](name: String, property: A => Boolean): Matcher[A] =
       new PropertyMatcher[A, Boolean](name, property, is(true)) {
         override def description: String = s"is $name"
 
@@ -107,6 +124,8 @@ trait Matchers {
         override def describeMismatch(v: A): Option[String] =
           if (!test(v)) Some(s"$v is not $name") else None
       }
+
+    def apply[A](name: String)(implicit pg: PG[A, _, Boolean]): Matcher[A] = apply(name, pg.get)
   }
 
   class PropertyMatchHelper[A, B](val name: String, val property: A => B) {
@@ -158,6 +177,7 @@ trait Matchers {
   // matchers for collections
   def contains[A, B](x: Matcher[A]): Matcher[B] = {
     new AbstractMatcher[B](s"contains ${x.description}", s"does not contain ${x.description}") {
+      // TODO: B should be constrained
       def exists(v: B, p: A => Boolean): Boolean = v match {
         case v: Option[A] => v.exists(p)
         case v: Seq[A] => v.exists(p)
@@ -194,21 +214,37 @@ trait Matchers {
   }
 
   def isEmpty[A <: {def isEmpty : Boolean}]: Matcher[A] =
-    PropertyMatcher("empty", _.isEmpty)
+    BooleanPropertyMatcher("empty", _.isEmpty)
 
   // TODO: types(anyOf(1,2,3))
   // TODO: types(only(1,2,3))
   // TODO: types(inOrderOnly(1,2,3))
   // TODO: types(inOrder(1,2,3))
 
-  // TODO x, xs
-  // TODO: fmt
-  def in[A](xs: A*): Matcher[A] =
-    FunMatcher[A](
-      v => xs.contains(v),
-      "is in " + xs.map(x => fmt(x)).mkString("{", ",", "}"),
-      "is not in " + xs.map(x => fmt(x)).mkString("{", ",", "}")
-    )
+  def regex(x: Regex): Matcher[String] =
+    FunMatcher(x.findFirstIn(_).isDefined, s"matches ${fmt(x)}", s"does not match ${fmt(x)}")
+
+  def in(x: Regex, xs: Regex*): Matcher[String] = {
+    val all = x +: xs
+    inCombine(all, all.map(regex))
+  }
+
+  def in[A](x: A, xs: A*): Matcher[A] = {
+    val all = x +: xs
+    inCombine(all, all.map(is))
+  }
+
+  private def inCombine[A, B](items: Seq[B], all: Seq[Matcher[A]]): Matcher[A] = {
+
+    new AbstractMatcher[A](s"is in ${fmtRight(items)}", s"is not in ${fmtRight(items)}") {
+      def findMatching(v: A): Option[Matcher[A]] = all.find(_.matches(v).matches)
+
+      override def test(v: A): Boolean = findMatching(v).isDefined
+
+      override def describeMatch(v: A): Option[String] =
+        findMatching(v).flatMap(_.describeMatch(v))
+    }
+  }
 
   def startsWith(x: String): Matcher[String] =
     FunMatcher(
@@ -218,10 +254,11 @@ trait Matchers {
     )
 
   // TODO: create a macro for this
-  def size[A, B <: {def size : A}](x: Matcher[A], xs: Matcher[A]*): Matcher[B] =
-    PropertyMatcher[B, A]("size", v => v.size, x, xs)
+  def size[A >: Traversable[_]](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
+    PropertyMatcher[A, Int]("size", { v: Any => v.asInstanceOf[Iterable[_]].size }, x, xs)
 
-  def size[A, B <: {def size : A}] = new PropertyMatchHelper[B, A]("size", v => v.size)
+  //
+  //  def size[A, B <: {def size : A}] = new PropertyMatchHelper[B, A]("size", v => v.size)
 }
 
 object Matchers extends Matchers
