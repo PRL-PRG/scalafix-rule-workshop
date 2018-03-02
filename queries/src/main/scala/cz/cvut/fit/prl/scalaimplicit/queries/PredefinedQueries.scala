@@ -20,6 +20,16 @@ import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 import scala.collection.immutable
 
 object PredefinedQueries {
+
+  implicit class oneOf(what: String) {
+    def isOneOF(args: String*): Boolean = args.contains(what)
+  }
+
+  val DATASET =
+    ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
+
+  val OUTFOLDER = "../tmp/results"
+
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
       s.signature.get.typeParams.nonEmpty &&
@@ -75,11 +85,6 @@ object PredefinedQueries {
       OutputHelper.TCFamiliesJSONSummary(families).getBytes
     )
   }
-
-  val DATASET =
-    ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
-
-  val OUTFOLDER = "../results"
 
   import OutputHelper._
 
@@ -175,7 +180,7 @@ object PredefinedQueries {
         proj.result.callSites
           .flatMap(cs =>
             cs.implicitArguments.collect {
-              case arg: ImplicitArgument if arg.declaration.isImplicit =>
+              case arg: ImplicitArgument if arg.declaration.isImplicit && arg.typeArguments.isEmpty =>
                 (SlimDefinition(arg.declaration), 1)
           })
           .groupBy(_._1.kindedName)
@@ -191,11 +196,61 @@ object PredefinedQueries {
           HTMLSerializer.DefinitionDocument$)
         .getBytes
     )
+
+    Files.write(
+      Paths.get(OUTFOLDER + "/contextcandidates/definitions.csv"),
+      OutputHelper.definitionCSVSummary(decls).getBytes()
+    )
   }
 
   def moreThanOneParam(): Unit = {
     query(OUTFOLDER,
           Seq(CSFilterQuery("morethanone", _.implicitArguments.size > 1)))
+  }
+
+  def badConversions(): Unit = {
+    def isPrimitive(name: String): Boolean = {
+      name.isOneOF(
+        "scala.Predef.String",
+        "java.lang.String",
+        "scala.Int",
+        "scala.Float",
+        "scala.Double",
+        "scala.Short",
+        "scala.Byte",
+        "scala.Any",
+        "scala.AnyVal"
+      )
+    }
+
+    def hasPrimitiveParam(cs: CallSite): Boolean = {
+      val sign = cs.declaration.signature.get
+
+      sign.parameterLists.exists(list =>
+        !list.isImplicit && list.params.exists(p => isPrimitive(p.tipe.name))
+      )
+    }
+
+    def hasPrimitiveRetType(cs: CallSite): Boolean = {
+      val sign = cs.declaration.signature.get
+
+      isPrimitive(sign.returnType.get.name)
+    }
+
+    query(
+      OUTFOLDER,
+      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-param", hasPrimitiveParam))
+    )
+
+    query(
+      OUTFOLDER,
+      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-return", hasPrimitiveRetType))
+    )
+
+    query(
+      OUTFOLDER,
+      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-both", x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
+    )
   }
 
   def query(outfolder: String,

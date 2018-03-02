@@ -103,6 +103,12 @@ class Pipeline():
         with open(report_path, 'w') as report:
             return report.write(content)
 
+    def exclude_non_successful(self, projects):
+        return filter(
+            lambda proj: self.get_report(proj, "analyzer_report") == "SUCCESS",
+            projects
+        )
+
     def info(self, msg):
         if BASE_CONFIG["debug_info"]:
             log(msg)
@@ -580,14 +586,18 @@ def cleanup_reports(project_path):
 @task
 def merge_slocs(    
     project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"]
+    projects_path=BASE_CONFIG["projects_dest"],
+    exclude_unfinished=True
 ):
     #import csvmanip
+    P = Pipeline()
     depth = int(float(project_depth))
     projects = get_project_list(projects_path, depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects)
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
-    with open("project_metadata.csv", 'w') as metadata:
+    with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
     sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
     sloc_csvs = load_many(sloc_files)
@@ -608,7 +618,6 @@ import csv
 #   header: List[Str],
 #   data: List[List[Str]]
 #}
-
 
 def load_csv(path):
     data = []
