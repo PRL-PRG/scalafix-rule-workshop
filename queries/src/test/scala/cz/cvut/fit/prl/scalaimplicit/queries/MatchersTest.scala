@@ -9,7 +9,11 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
 
   object TestClasses {
 
-    class X {
+    class W {
+
+    }
+
+    class X extends W {
       def x = 1
     }
 
@@ -17,9 +21,11 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
       def y = 2
     }
 
+    val w1 = new X
     val x1 = new X
     val y1 = new Y
 
+    val lw: List[X] = w1 :: x1 :: y1 :: Nil
     val lx: List[X] = x1 :: y1 :: Nil
     val ly: List[Y] = y1 :: Nil
   }
@@ -78,16 +84,16 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     assertDoesNotCompile("lx matches mly")
   }
 
-  test("isEmpty - option") {
-    (Option(1) matches isEmpty) should mismatched("Some(1) is not empty")
-    (Option(null) matches isEmpty) should matched("None is empty")
-    (None matches isEmpty) should matched("None is empty")
-  }
+  //  test("isEmpty - option") {
+  //    (Option(1) matches isEmpty) should mismatched("Some(1) is not empty")
+  //    (Option(null) matches isEmpty) should matched("is empty")
+  //    (None matches isEmpty) should matched("is empty")
+  //  }
 
   test("isEmpty - sequences") {
     (Seq(1) matches isEmpty) should mismatched("List(1) is not empty")
-    (Nil matches isEmpty) should matched("List() is empty")
-    (List() matches isEmpty) should matched("List() is empty")
+    (Nil matches isEmpty) should matched("is empty")
+    (List() matches isEmpty) should matched("is empty")
   }
 
   test("isEmpty - map") {
@@ -96,19 +102,35 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
 
   test("allOf - sequence") {
     (lx matches allOf(x1)) should matched
-    (lx matches allOf(y1)) should matched
+    //    (lx matches allOf(y1)) should matched
 
-    val mx1: Matcher[List[X]] = allOf(y1)
-    (lx matches mx1) should matched
+    lx.contains(w1)
+    lx.contains(x1)
+    lx.contains(y1)
+
+    val xx: Matcher[List[X]] = allOf(y1)
+    val yy: Matcher[List[Y]] = allOf(y1)
+
+    val yyy: List[X] = ly
+
+    //    val mx1: Matcher[List[X]] = allOf(y1)
+    //    (lx matches mx1) should matched
 
     (Seq(1) matches allOf(1)) should matched("contains all of [1]")
     (Seq(1, 2) matches allOf(1, 2, 3, 4)) should mismatched("List(1, 2) is missing [3, 4]")
   }
 
-  test("allOf -  option") {
-    (Option(1) matches allOf(1)) should matched("contains all of [1]")
-    (None matches allOf(1)) should mismatched("None is missing [1]")
+  test("aaaa") {
+    (lx matches allOf(x1))
+    (lx matches allOf(y1))
+    (x1 matches allOf(x1))
   }
+
+  //  test("allOf -  option") {
+  //    (Option(1) matches allOf(1)) should matched("contains all of [1]")
+  //    val o: Option[Int] = None
+  //    (o matches allOf(1)) should mismatched("None is missing [1]")
+  //  }
 
   test("allOf - map") {
     (Map(1 -> 2) matches allOf(1 -> 2)) should matched("contains all of [(1,2)]")
@@ -124,6 +146,19 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     (in("class".r, "def".r) matches "final class") should matched("matches Regex(\"class\")")
     (in("class".r, "def".r) matches "val") should mismatched("\"val\" is not in [Regex(\"class\"), Regex(\"def\")]")
   }
+
+  test("cd") {
+    (Seq(1) matches allOf(1) && allOf(2) && contains(is(3)) && allOf(1)) should matched("")
+    (Seq(1, 2) matches size(is(1)) && isEmpty && contains(is(1)) && size(is(1))) should matched("")
+  }
+
+  test("comb") {
+    //    //Seq(1) matches (size(is(1)) && contains(is(1)))
+    //    val x : Matcher[Iterable[Int]] = contains(is(1)) && contains(is(1))
+    //    Seq(1) matches (x)
+    //    Seq(1) matches (contains(is(1)) ++ contains(is(1)))
+  }
+
   //
   //  test("ordering") {
   //    gt(2) matches 3

@@ -88,7 +88,29 @@ trait SchemaMatchers {
 
   def parameters[A](x: Matcher[Seq[DeclaredParameter]])(implicit pg: PG[A, PParameters, Seq[DeclaredParameter]]): Matcher[A] = PropertyMatcher("parameters", x)
 
-  def signature[A](x: Matcher[Option[Signature]])(implicit pg: PG[A, PSignature, Option[Signature]]): Matcher[A] = PropertyMatcher("signature", x)
+  trait OverloadHack1
+
+  trait OverloadHack2
+
+  implicit val overloadHack1 = new OverloadHack1 {}
+  implicit val overloadHack2 = new OverloadHack2 {}
+
+  def signature[A](x: Matcher[Option[Signature]])(implicit pg: PG[A, PSignature, Option[Signature]], ov: OverloadHack1): Matcher[A] = PropertyMatcher("signature", x)
+
+  def signature[A](x: Matcher[Signature])(implicit pg: PG[A, PSignature, Option[Signature]], ov: OverloadHack2): Matcher[A] = new OptionMatcher(pg.get, x)
+
+  class OptionMatcher[A, B](f: A => Option[B], x: Matcher[B]) extends Matcher[A] {
+    override def test(v: A): Boolean = f(v).exists(x.test)
+
+    override def description: String = ???
+
+    override def negativeDescription: String = ???
+
+    override def describeMatch(v: A): Option[String] = ???
+
+    override def describeMismatch(v: A): Option[String] = ???
+  }
+
 
   //  def isImplicit[A <: {def isImplicit : Boolean}]: Matcher[A] = PropertyMatcher[A]("implicit", _.isImplicit)
   //
