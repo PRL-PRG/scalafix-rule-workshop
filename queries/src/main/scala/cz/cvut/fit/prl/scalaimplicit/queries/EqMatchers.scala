@@ -6,9 +6,10 @@ trait EqMatchers {
 
   def not[A](x: Matcher[A]): Matcher[A] = !x
 
+  // TODO: make consistent with the other combinators
   def in[A](x: A, xs: A*): Matcher[A] = {
     val all = x +: xs
-    inCombine(all, all.map(is))
+    combineIn(all, all.map(is))
   }
 }
 

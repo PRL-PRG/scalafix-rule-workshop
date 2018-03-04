@@ -9,23 +9,21 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
 
   object TestClasses {
 
-    class W {
+    class W
 
+    class X(val x: Int) extends W {
+      override def toString: String = s"X($x)"
     }
 
-    class X extends W {
-      def x = 1
+    class Y(x: Int, val y: Int) extends X(x) {
+      override def toString: String = s"Y($x,$y)"
     }
 
-    class Y extends X {
-      def y = 2
-    }
+    val w1 = new W
+    val x1 = new X(1)
+    val y1 = new Y(1, 1)
 
-    val w1 = new X
-    val x1 = new X
-    val y1 = new Y
-
-    val lw: List[X] = w1 :: x1 :: y1 :: Nil
+    val lw: List[W] = w1 :: x1 :: y1 :: Nil
     val lx: List[X] = x1 :: y1 :: Nil
     val ly: List[Y] = y1 :: Nil
   }
@@ -38,7 +36,7 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
   }
 
   test("combine matchers using default combinator AND") {
-    val c = is(2) && is(1)
+    val c = and(is(2), is(1))
     c.description shouldBe "is 2 && is 1"
     c.negativeDescription shouldBe "is not 2 || is not 1"
 
@@ -56,7 +54,7 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
   }
 
   test("combine matchers using OR") {
-    val c = is(1) || is(2) || is(3)
+    val c = or(or(is(1), is(2)), is(3))
     c.description shouldBe "is 1 || is 2 || is 3"
     c.negativeDescription shouldBe "is not 1 && is not 2 && is not 3"
 
@@ -68,7 +66,7 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
 
   test("polymorphism") {
     val mx = FunMatcher[X](v => v.x == 1, "", "")
-    val my = FunMatcher[Y](v => v.y == 2, "", "")
+    val my = FunMatcher[Y](v => v.y == 1, "", "")
 
     (x1 matches mx) should matched
     (y1 matches mx) should matched
@@ -76,7 +74,7 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     assertDoesNotCompile("x1 matches my")
 
     val mlx = FunMatcher[List[X]](v => v.head.x == 1, "", "")
-    val mly = FunMatcher[List[Y]](v => v.head.y == 2, "", "")
+    val mly = FunMatcher[List[Y]](v => v.head.y == 1, "", "")
 
     (lx matches mlx) should matched
     (ly matches mlx) should matched
@@ -121,9 +119,50 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
   }
 
   test("aaaa") {
-    (lx matches allOf(x1))
+    (lx matches and(contains(is(x1)), contains(is(y1)))) should matched("contains [is X(1)] && contains [is Y(1,1)]")
+    (lx matches contains(is(x1), is(y1))) should matched("contains [is X(1), is Y(1,1)]")
+    (lx matches and(allOf(x1), allOf(y1))) should matched("contains [is X(1)] && contains [is Y(1,1)]")
+    (lx matches allOf(x1, y1)) should matched("contains [is X(1), is Y(1,1)]")
+
+    (lx matches and(size(1), allOf(y1))) should matched("contains [is X(1)] && contains [is Y(1,1)]")
+
+    (lx matches and(contains(is(x1)), contains(is(y1))))
+    (lx matches and(contains(is(y1)), contains(is(x1))))
+
+    (lx matches and(allOf(x1), size(is(2))))
     (lx matches allOf(y1))
-    (x1 matches allOf(x1))
+
+    (lx matches and(allOf(y1), allOf(x1)))
+    (lx matches and(allOf(x1), allOf(y1)))
+    (lx matches allOf(y1, x1, 1))
+    //    (x1 matches allOf(y1, x1, 1))
+
+    lx matches is(List(lx))
+  }
+
+  test("case") {
+    case class C(xx: Int, yy: Seq[X])
+    case class D(xx: Int, yy: Seq[Y])
+
+    trait Pxx
+    trait Pyy
+
+    implicit val Cxx: PG[C, Pxx, Int] = PG(_.xx)
+    implicit val Dxx: PG[D, Pxx, Int] = PG(_.xx)
+
+    def xx[A](m: Matcher[Int])(implicit pg: PG[A, Pxx, Int]): Matcher[A] =
+      PropertyMatcher("xx", m, Seq())
+
+    def yy(m: Matcher[Seq[X]]): Matcher[C] =
+      PropertyMatcher("yy", _.yy, m, Seq())
+
+    val c = C(1, Seq(x1, y1))
+    val d = D(2, Seq(y1))
+
+    val mc: Matcher[C] = and(xx(is(2)), yy(and(contains(is(y1)), size(1))))
+    val md: Matcher[D] = xx(is(1))
+
+    (c matches and(mc, yy(allOf(y1)))) should matched("")
   }
 
   //  test("allOf -  option") {
@@ -148,8 +187,9 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
   }
 
   test("cd") {
-    (Seq(1) matches allOf(1) && allOf(2) && contains(is(3)) && allOf(1)) should matched("")
-    (Seq(1, 2) matches size(is(1)) && isEmpty && contains(is(1)) && size(is(1))) should matched("")
+    Seq(1) matches allOf(1)
+    //    (Seq(1) matches allOf(1) && allOf(2) && contains(is(3)) && allOf(1)) should matched("")
+    //    (Seq(1, 2) matches size(is(1)) && isEmpty && contains(is(1)) && size(is(1))) should matched("")
   }
 
   test("comb") {
@@ -172,7 +212,7 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
 
 
   test("collection matching") {
-    val q = is(2) || is(4)
+    val q = or(is(2), is(4))
     val col = Seq(1, 2, 3, 4)
 
     (col query q) should contain theSameElementsInOrderAs Seq(Mismatch(1, q), Match(2, q), Mismatch(3, q), Match(4, q))

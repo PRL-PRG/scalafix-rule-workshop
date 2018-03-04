@@ -1,14 +1,13 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.queries.OverloadHacks._
+
 import scala.language.reflectiveCalls
 
 // TODO: do we want too keep helpers
 // TODO: do we want to keep explict && combination using ','
 trait SchemaMatchers {
-
-  import Matchers._
-  import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-
 
   //  def arguments[A <: {def arguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
   //    PropertyMatcher[A, Seq[ArgumentLike]]("arguments", _.arguments, x, xs)
@@ -74,43 +73,23 @@ trait SchemaMatchers {
 
   implicit def PGSignature[A <: {def signature : Option[Signature]}]: PG[A, PSignature, Option[Signature]] = PG(_.signature)
 
-  def declaration[A](x: Matcher[Declaration])(implicit pg: PG[A, PDeclaration, Declaration]): Matcher[A] = PropertyMatcher("declaration", x)
+  def declaration[A](x: Matcher[Declaration], xs: Matcher[Declaration]*)(implicit pg: PG[A, PDeclaration, Declaration]): Matcher[A] = PropertyMatcher("declaration", x, xs)
 
   def isImplicit[A](implicit pg: PG[A, PIsImplicit, Boolean]): Matcher[A] = BooleanPropertyMatcher("implicit")(pg)
 
   def isSynthetic[A](implicit pg: PG[A, PIsSynthetic, Boolean]): Matcher[A] = BooleanPropertyMatcher("synthetic")(pg)
 
-  def kind[A](x: Matcher[String])(implicit pg: PG[A, PKind, String]): Matcher[A] = PropertyMatcher("kind", x)
+  def kind[A](x: Matcher[String], xs: Matcher[String]*)(implicit pg: PG[A, PKind, String]): Matcher[A] = PropertyMatcher("kind", x, xs)
 
-  def name[A](x: Matcher[String])(implicit pg: PG[A, PName, String]): Matcher[A] = PropertyMatcher("name", x)
+  def name[A](x: Matcher[String], xs: Matcher[String]*)(implicit pg: PG[A, PName, String]): Matcher[A] = PropertyMatcher("name", x, xs)
 
-  def parameterLists[A](x: Matcher[Seq[DeclaredParameterList]])(implicit pg: PG[A, PParameterLists, Seq[DeclaredParameterList]]): Matcher[A] = PropertyMatcher("parameter list", x)
+  def parameterLists[A](x: Matcher[Seq[DeclaredParameterList]], xs: Matcher[Seq[DeclaredParameterList]]*)(implicit pg: PG[A, PParameterLists, Seq[DeclaredParameterList]]): Matcher[A] = PropertyMatcher("parameter list", x, xs)
 
-  def parameters[A](x: Matcher[Seq[DeclaredParameter]])(implicit pg: PG[A, PParameters, Seq[DeclaredParameter]]): Matcher[A] = PropertyMatcher("parameters", x)
+  def parameters[A](x: Matcher[Seq[DeclaredParameter]], xs: Matcher[Seq[DeclaredParameter]]*)(implicit pg: PG[A, PParameters, Seq[DeclaredParameter]]): Matcher[A] = PropertyMatcher("parameters", x, xs)
 
-  trait OverloadHack1
+  def signature[A](x: Matcher[Option[Signature]], xs: Matcher[Option[Signature]]*)(implicit pg: PG[A, PSignature, Option[Signature]], oh: OverloadHack1): Matcher[A] = PropertyMatcher("signature", x, xs)
 
-  trait OverloadHack2
-
-  implicit val overloadHack1 = new OverloadHack1 {}
-  implicit val overloadHack2 = new OverloadHack2 {}
-
-  def signature[A](x: Matcher[Option[Signature]])(implicit pg: PG[A, PSignature, Option[Signature]], ov: OverloadHack1): Matcher[A] = PropertyMatcher("signature", x)
-
-  def signature[A](x: Matcher[Signature])(implicit pg: PG[A, PSignature, Option[Signature]], ov: OverloadHack2): Matcher[A] = new OptionMatcher(pg.get, x)
-
-  class OptionMatcher[A, B](f: A => Option[B], x: Matcher[B]) extends Matcher[A] {
-    override def test(v: A): Boolean = f(v).exists(x.test)
-
-    override def description: String = ???
-
-    override def negativeDescription: String = ???
-
-    override def describeMatch(v: A): Option[String] = ???
-
-    override def describeMismatch(v: A): Option[String] = ???
-  }
-
+  def signature[A](x: Matcher[Signature], xs: Matcher[Signature]*)(implicit pg: PG[A, PSignature, Option[Signature]], oh: OverloadHack2): Matcher[A] = new OptionPropertyMatcher(pg.get, x, xs)
 
   //  def isImplicit[A <: {def isImplicit : Boolean}]: Matcher[A] = PropertyMatcher[A]("implicit", _.isImplicit)
   //

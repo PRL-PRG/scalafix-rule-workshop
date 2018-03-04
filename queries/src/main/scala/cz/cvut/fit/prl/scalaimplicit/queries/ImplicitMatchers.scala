@@ -9,8 +9,11 @@ trait ImplicitMatchers {
   // implicit def any2matcher[A](x: A): Matcher[A] = is(x)
 
   implicit class QueryCollectionSupport[A, +Repr](that: TraversableLike[A, Repr]) {
-    def query[That](matcher: Matcher[A])(implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That =
-      that.map(matcher.matches)
+    def query[That](matcher: Matcher[A], matchers: Matcher[A]*)(implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That = {
+      // TODO: make it a semigroup?
+      val combined = (matcher +: matchers) reduce (combineAnd(_, _))
+      that.map(combined.matches)
+    }
   }
 
   implicit class AnyMatcher[A](that: A) {

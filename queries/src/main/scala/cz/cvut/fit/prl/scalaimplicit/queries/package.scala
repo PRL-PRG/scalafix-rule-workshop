@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit
 
+import cats.kernel.Semigroup
+
 import scala.util.matching.Regex
 
 package object queries {
@@ -56,7 +58,7 @@ package object queries {
       new FunMatcher[A](fun, description, negativeDescription)
   }
 
-  def inCombine[A, B](items: Seq[B], all: Seq[Matcher[A]]): Matcher[A] =
+  def combineIn[A, B](items: Seq[B], all: Seq[Matcher[A]]): Matcher[A] =
     new AbstractMatcher[A](s"is in ${fmtRight(items)}", s"is not in ${fmtRight(items)}") {
       def findMatching(v: A): Option[Matcher[A]] = all.find(_.matches(v).matches)
 
@@ -66,4 +68,49 @@ package object queries {
         findMatching(v).flatMap(_.describeMatch(v))
     }
 
+  def combineAnd[A](m1: Matcher[A], m2: Matcher[A]): Matcher[A] = new Matcher[A] {
+    override def test(v: A): Boolean = m1.test(v) && m2.test(v)
+
+    override def description: String = m1.description + " && " + m2.description
+
+    override def negativeDescription: String = m1.negativeDescription + " || " + m2.negativeDescription
+
+    override def describeMatch(v: A): Option[String] =
+      for {
+        d1 <- m1.describeMatch(v)
+        d2 <- m2.describeMatch(v)
+      } yield d1 + " && " + d2
+
+    override def describeMismatch(v: A): Option[String] = (m1.describeMismatch(v), m2.describeMismatch(v)) match {
+      case (Some(m1), Some(m2)) => Some(s"($m1) && ($m2)")
+      case (m1@Some(_), None) => m1
+      case (None, m2@Some(_)) => m2
+      case _ => None
+    }
+  }
+
+  def combineOr[A](m1: Matcher[A], m2: Matcher[A]): Matcher[A] = new Matcher[A] {
+    override def test(v: A): Boolean = m1.test(v) || m2.test(v)
+
+    override def description: String = m1.description + " || " + m2.description
+
+    override def negativeDescription: String = m1.negativeDescription + " && " + m2.negativeDescription
+
+    override def describeMatch(v: A): Option[String] = m1.matches(v) match {
+      case result if result.matches => m1.describeMatch(v)
+      case _ => m2.describeMatch(v)
+    }
+
+    override def describeMismatch(v: A): Option[String] = (m1.describeMismatch(v), m2.describeMismatch(v)) match {
+      case (Some(m1), Some(m2)) => Some(s"($m1) && ($m2)")
+      case (m1@Some(_), None) => m1
+      case _ => None
+    }
+  }
+
+  def and[A](x1: Matcher[A], x2: Matcher[A], xs: Matcher[A]*): Matcher[A] =
+    (x1 +: x2 +: xs) reduce (combineAnd(_, _))
+
+  def or[A](x1: Matcher[A], x2: Matcher[A], xs: Matcher[A]*): Matcher[A] =
+    (x1 +: x2 +: xs) reduce (combineOr(_, _))
 }

@@ -8,7 +8,7 @@ trait StringMatchers {
 
   def in(x: Regex, xs: Regex*): Matcher[String] = {
     val all = x +: xs
-    inCombine(all, all.map(regex))
+    combineIn(all, all.map(regex))
   }
 
   def startsWith(x: String): Matcher[String] =

@@ -1,7 +1,5 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
-import cats.implicits._
-
 import scala.language.reflectiveCalls
 import scala.language.implicitConversions
 
@@ -51,41 +49,8 @@ trait Matcher[-A] {
     Mismatch(v, this)
   }
 
-  def &&[A1 <: A](other: Matcher[A1]): Matcher[A1] = new Matcher[A1] {
-    override def test(v: A1): Boolean = self.test(v) && other.test(v)
-
-    override def description: String = self.description + " && " + other.description
-
-    override def negativeDescription: String = self.negativeDescription + " || " + other.negativeDescription
-
-    override def describeMatch(v: A1): Option[String] = self.matches(v) match {
-      case result if result.matches => self.describeMatch(v)
-      case _ => None
-    }
-
-    override def describeMismatch(v: A1): Option[String] = (self.describeMismatch(v), other.describeMismatch(v)) match {
-      case (Some(m1), Some(m2)) => Some(m1 + " || " + m2)
-      case (m1@Some(_), None) => m1
-      case (None, m2@Some(_)) => m2
-      case _ => None
-    }
-  }
-
-  def ||[A1 <: A](other: Matcher[A1]): Matcher[A1] = new Matcher[A1] {
-    override def test(v: A1): Boolean = self.test(v) || other.test(v)
-
-    override def description: String = self.description + " || " + other.description
-
-    override def negativeDescription: String = self.negativeDescription + " && " + other.negativeDescription
-
-    override def describeMatch(v: A1): Option[String] = self.matches(v) match {
-      case result if result.matches => self.describeMatch(v)
-      case _ => other.describeMatch(v)
-    }
-
-    override def describeMismatch(v: A1): Option[String] =
-      self.describeMismatch(v).map(_ + " && ") |+| other.describeMismatch(v)
-  }
+  // TODO: will it be possible to define &&
+  // TODO: will it be possible to define ||
 
   def unary_!(): Matcher[A] = new Matcher[A] {
     override def test(v: A): Boolean = !self.test(v)
@@ -98,4 +63,6 @@ trait Matcher[-A] {
 
     override def describeMismatch(v: A): Option[String] = self.describeMatch(v)
   }
+
+  override def toString: String = description
 }
