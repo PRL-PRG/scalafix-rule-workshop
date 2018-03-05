@@ -29,55 +29,61 @@ results_summary <- read_csv("~/work/scala/results/conversion/results.callsite.su
 First we filter the dataset
 
 ```{r}
-transitive_conversions = results_summary[results_summary$transitive,] %>%
-  group_by(name) %>%
-  summarise(occurrences = sum(occurrences)) %>%
-  arrange(-occurrences)
+count_transitive = function(df) {
+  df[df$transitive,] %>%
+    group_by(name) %>%
+    summarise(occurrences = sum(occurrences)) %>%
+    arrange(-occurrences)
+}
+
+transitive_conversions = count_transitive(results_summary)
+transitive_in_main = count_transitive(in_main)
+transitive_in_test = count_transitive(in_test)
 ```
 
 Now we define the filters that we found for call sites:
 
 ```{r}
 
-knownTestingFramework = function(name) {
+known_testing_framework = function(name) {
   grepl("^utest", name) |
   grepl("^org.scalatest", name) |
   grepl("^org.specs2", name)
 }
 
-arrowAssoc = function(name) {
+arrow_assoc = function(name) {
   name == "scala.Predef.ArrowAssoc"
 }
 
-otherScalaPredefs = function(name) {
-  (grepl("^scala.Predef", name) & !arrowAssoc(name))
+other_scala_predefs = function(name) {
+  (grepl("^scala.Predef", name) & !arrow_assoc(name))
 }
 
-lowPrioImplicits = function(name) {
+low_prio_implicits = function(name) {
   grepl("scala.LowPriorityImplicits", name)
 }
 
-containsQuote = function(name) {
+contains_quote = function(name) {
   grepl("[qQ]uote", name)
 }
 
-scalaOption = function(name) {
+scala_option = function(name) {
   grepl("^scala.Option", name)
 }
 
-otherOptions = function(name) {
-  !scalaOption(name) &
+other_options = function(name) {
+  !scala_option(name) &
   grepl("Option", name)
 }
 
-otherScala = function(name) {
-  !arrowAssoc(name) &
-  !otherScalaPredefs(name) &
-  !scalaOption(name) &
+other_scala = function(name) {
+  !arrow_assoc(name) &
+  !other_scala_predefs(name) &
+  !scala_option(name) &
   grepl("^scala.", name)
 }
 
-akkaActor = function(name) {
+akka_actor = function(name) {
   grepl("^akka.actor.actorRef2Scala", name) |
   grepl("^akka.actor.scala2ActorRef", name)
 }
@@ -87,15 +93,15 @@ And some helper traversal functions:
 
 ```{r}
 
-filterName = function(df, f) {
+filter_name = function(df, f) {
   df[f(df$name),]
 }
 
-filterOccurrences = function(df, f) {
+filter_occurrences = function(df, f) {
   df[f(df$occurrences),]
 }
 
-sumOccurrences = function(df) {
+sum_ocurrences = function(df) {
   sum(df$occurrences)
 }
 
@@ -148,13 +154,13 @@ summary = nontransitive_conversions %>%
   summarise(occurrences = sum(occurrences)) %>%
   arrange(-occurrences)
 
-freqCounts = nontransitive_conversions %>%
+freq_counts = nontransitive_conversions %>%
   group_by(occurrences) %>%
   summarise(count = n()) %>%
   arrange(occurrences, count)
 plot(
-  x = as.integer(freqCounts$count), 
-  y = as.integer(freqCounts$occurrences), 
+  x = as.integer(freq_counts$count),
+  y = as.integer(freq_counts$occurrences),
   log="yx", 
   xlab = "Number of implicits with that frequence",
   ylab= "Frequence: Number of conversions by this implicit", 
@@ -167,13 +173,13 @@ This is not extremely useful, unfortunately.
 Now, if we _don't_ mush the projects together, maybe we can gather some metadata. First, load the project stats.
 
 ```{r}
-project_metadata <- read_csv("~/work/scala/results/project_metadata.csv")
+project_metadata <- read_csv("~/work/scala/tmp/results/project-metadata.csv")
 ```
 
 Then, add LOC information to the nontransitive conversions:
 
 ```{r}
-locDistribution = 
+loc_distribution =
   left_join(nontransitive_conversions, project_metadata, by=c("project" = "reponame")) %>%
   mutate(name = name.x) %>%
   group_by(project) %>%
@@ -187,15 +193,15 @@ relevantNames = function(df) {
 }
 
 plot(
-  x = as.integer(locDistribution$scala_loc),
-  y = as.integer(locDistribution$occurrences), 
+  x = as.integer(loc_distribution$scala_loc),
+  y = as.integer(loc_distribution$occurrences),
   xlab = "Scala LOC", 
   ylab = "Non-transitive implicit conversions", 
   main="Distribution of non-transitive implicit conversions by scala LOC"
   )
 textxy(
-  locDistribution$scala_loc, 
-  locDistribution$occurrences,
-  locDistribution$project
+  loc_distribution$scala_loc,
+  loc_distribution$occurrences,
+  loc_distribution$project
   )
 ```
