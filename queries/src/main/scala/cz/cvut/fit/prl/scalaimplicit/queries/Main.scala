@@ -10,5 +10,8 @@ object Main {
     PredefinedQueries.declarationsByCallSite()
     PredefinedQueries.moreThanOneParam()
     PredefinedQueries.typeClassClassification()
+    PredefinedQueries.mainTest()
+    PredefinedQueries.conversionInMain()
+    PredefinedQueries.conversionInTest()
   }
 }
