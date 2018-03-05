@@ -1,6 +1,6 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
-private[queries] trait OverloadHacks {
+private[matcher] trait OverloadHacks {
 
   trait OverloadHack1
 
@@ -10,4 +10,4 @@ private[queries] trait OverloadHacks {
   implicit val overloadHack2 = new OverloadHack2 {}
 }
 
-private[queries] object OverloadHacks extends OverloadHacks
+private[matcher] object OverloadHacks extends OverloadHacks

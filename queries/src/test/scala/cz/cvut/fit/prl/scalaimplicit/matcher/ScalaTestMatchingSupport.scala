@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
 import org.scalatest.{Matchers => ScalaTestMatchers}
 import org.scalatest.matchers.{MatchResult => ScalaTestMatchResult, Matcher => ScalaTestMatcher}

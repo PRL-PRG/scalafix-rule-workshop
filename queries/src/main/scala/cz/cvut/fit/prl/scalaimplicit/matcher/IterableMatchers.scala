@@ -1,6 +1,6 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
-import cz.cvut.fit.prl.scalaimplicit.queries.EqMatchers._
+import cz.cvut.fit.prl.scalaimplicit.matcher.EqMatchers._
 
 trait IterableMatchers {
 

@@ -1,5 +1,8 @@
 scalaVersion in ThisBuild := "2.12.4"
 
+lazy val fs2Version = "0.10.1"
+lazy val circeVersion = "0.9.0"
+
 lazy val commonSettings = Seq(
   scalaVersion := "2.12.4",
   crossScalaVersions := Vector("2.12.4", "2.11.11"),
@@ -49,7 +52,9 @@ lazy val queries = (project in file("queries"))
   .settings(
     libraryDependencies ++= Seq(
       "com.lihaoyi" %% "scalatags" % "0.6.7",
-      "org.typelevel" %% "cats-core" % "1.0.1"
+      "co.fs2" %% "fs2-io" % fs2Version,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-fs2" % circeVersion
     ))
   .dependsOn(coreutils % "test->test", macros)
 

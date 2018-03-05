@@ -1,12 +1,12 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.queries.OverloadHacks._
+import cz.cvut.fit.prl.scalaimplicit.matcher.OptionPropertyMatcher
+import cz.cvut.fit.prl.scalaimplicit.matcher.OverloadHacks._
 
 import scala.language.reflectiveCalls
 
 // TODO: do we want too keep helpers
-// TODO: do we want to keep explict && combination using ','
 trait SchemaMatchers {
 
   //  def arguments[A <: {def arguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =

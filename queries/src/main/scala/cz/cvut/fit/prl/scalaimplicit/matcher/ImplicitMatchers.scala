@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom

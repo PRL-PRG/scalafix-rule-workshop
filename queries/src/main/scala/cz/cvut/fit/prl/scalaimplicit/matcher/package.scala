@@ -4,7 +4,7 @@ import cats.kernel.Semigroup
 
 import scala.util.matching.Regex
 
-package object queries {
+package object matcher {
 
   object implicits extends ImplicitMatchers
 

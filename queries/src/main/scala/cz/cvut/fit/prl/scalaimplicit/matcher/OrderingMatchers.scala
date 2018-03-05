@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
 trait OrderingMatchers {
   def gt[A: Ordering](x: A): Matcher[A] =

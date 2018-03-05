@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
 trait EqMatchers {
   def is[A](x: A): Matcher[A] =

@@ -1,9 +1,10 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.query
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, FailFastReflectExtract}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, FailFastReflectExtract}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import cz.cvut.fit.prl.scalaimplicit.core.reports.ProjectReport
+import cz.cvut.fit.prl.scalaimplicit.matcher.{ImplicitMatchers, Matchers, SchemaMatchers}
 
 class QueriesTest extends SemanticdbTest with Matchers with ImplicitMatchers with SchemaMatchers {
 

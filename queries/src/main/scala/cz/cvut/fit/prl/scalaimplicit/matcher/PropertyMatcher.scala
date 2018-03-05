@@ -1,6 +1,6 @@
-package cz.cvut.fit.prl.scalaimplicit.queries
+package cz.cvut.fit.prl.scalaimplicit.matcher
 
-import cz.cvut.fit.prl.scalaimplicit.queries.EqMatchers._
+import cz.cvut.fit.prl.scalaimplicit.matcher.EqMatchers._
 
 class PropertyMatcher[A, B](val name: String, private val property: A => B, private val matcher: Matcher[B]) extends Matcher[A] {
 
