@@ -584,7 +584,7 @@ def cleanup_reports(project_path):
         sys.exit(1)
 
 @task
-def merge_slocs(    
+def merge_metadata(    
     project_depth=BASE_CONFIG["default_location_depth"],
     projects_path=BASE_CONFIG["projects_dest"],
     exclude_unfinished=True
@@ -607,6 +607,60 @@ def merge_slocs(
     with open("slocs.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
 
+# Run sbt to extract test and compile source paths
+# Store them in _reports/paths.csv
+@task
+def extract_paths(
+    project_path,
+):
+    P = Pipeline()
+    project_name = os.path.split(project_path)[1]
+    P.info("[Paths][%s] Extracting paths" % project_name)
+    def gen_paths_command(project, scope):
+        # Generates an AWK script that matches all lines that look like paths,
+        # And outputs them in nice CSV format.
+        def gen_processor_script(project, scope):
+            return ("$2 ~ /^\// { path = $2; print \"%s, \" path \", %s\";}" %
+                    (project, scope))
+        return ("sbt -batch -Dsbt.log.noformat=true %s:scalaSource | awk '%s' >> %s/paths.csv" %
+                (scope, gen_processor_script(project_name, scope), BASE_CONFIG["reports_folder"]))
+
+
+    P.info("[Paths][%s] Cleaning up previous paths" % project_name)
+    P.local(
+        "echo 'project, path, kind' > %s/paths.csv" % BASE_CONFIG["reports_folder"],
+        project_path
+    )
+
+    P.info("[Paths][%s] Extracting Compile path" % project_name)
+    P.local_canfail(
+        "Get Source Paths",
+        gen_paths_command(project_name, "compile"),
+        project_path
+    )
+    P.info("[Paths][%s] Extracting Test path" % project_name)
+    P.local_canfail(
+        "Get Test Paths",
+        gen_paths_command(project_name, "test"),
+        project_path
+    )
+
+@task
+def merge_paths(
+    project_depth=BASE_CONFIG["default_location_depth"],
+    projects_path=BASE_CONFIG["projects_dest"],
+    exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, project_depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects)
+    paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
+    merged = merge_all(paths_files)
+    
+    with open("paths.all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
 
 ####################
 # CSVManip
