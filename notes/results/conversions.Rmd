@@ -20,7 +20,11 @@ knitr::opts_chunk$set(
 library(readr)
 library(dplyr)
 library(calibrate)
-results_summary <- read_csv("~/work/scala/results/conversion/results.callsite.summary.csv") %>% 
+results_summary <- read_csv("~/work/scala/tmp/results/conversion/results.callsite.summary.csv") %>%
+  mutate(transitive = !transitive) # Should fix that in the impl
+in_main = read_csv("~/work/scala/tmp/results/conversion/in-main/results.callsite.summary.csv") %>%
+  mutate(transitive = !transitive) # Should fix that in the impl
+in_test = read_csv("~/work/scala/tmp/results/conversion/in-test/results.callsite.summary.csv") %>%
   mutate(transitive = !transitive) # Should fix that in the impl
 ``` 
 
@@ -124,18 +128,26 @@ printgraph = function(data, names, title) {
 And finally, we can produce the graph
 
 ```{r}
-total = sumOccurrences(transitive_conversions)
-pietitle = paste("Distribution of transitive conversions by use ", total)
-names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
-functions = c(knownTestingFramework, arrowAssoc, otherScalaPredefs, lowPrioImplicits, containsQuote, scalaOption, otherOptions, otherScala, akkaActor)
-distribution = Map({function(fun) sumOccurrences(filterName(transitive_conversions, fun))}, functions)
+draw_conversion_distribution = function (df, title = "Distribution of transitive conversions by use ") {
 
-withTotals = c(
-  sumOccurrences(remainder(transitive_conversions, functions)),
-  distribution
-)
+  functions = c(known_testing_framework, arrow_assoc, other_scala_predefs, low_prio_implicits, contains_quote, scala_option, other_options, other_scala, akka_actor)
+  total = sum_ocurrences(df)
+  pietitle = paste(title, total)
+  names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
 
-printgraph(withTotals, names, pietitle)
+  distribution = Map({function(fun) sum_ocurrences(filter_name(df, fun))}, functions)
+
+  with_totals = c(
+    sum_ocurrences(remainder(df, functions)),
+    distribution(df)
+  )
+
+  printgraph(with_totals, names, pietitle)
+}
+
+draw_conversion_distribution(transitive_conversions)
+draw_conversion_distribution(transitive_in_main, "Distribution of transitive conversions by use IN MAIN ")
+draw_conversion_distribution(transitive_in_test, "Distribution of transitive conversions by use IN TEST ")
 ```
 
 # Non-transitive conversions
