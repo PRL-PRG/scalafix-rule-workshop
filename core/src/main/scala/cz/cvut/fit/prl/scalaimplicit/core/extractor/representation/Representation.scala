@@ -14,7 +14,6 @@ object Representation {
   case class Location(file: String, line: Int, col: Int) {
     override def toString: String = s"$file:$line:$col"
   }
-
   case class Type(name: String, parameters: Seq[Type] = Seq()) {
     def shortName =
       name
@@ -30,17 +29,14 @@ object Representation {
                          isImplicit: Boolean,
                          signature: Option[Signature] = None,
                          parents: Seq[Parent] = Seq())
-
   case class Signature(typeParams: Seq[Type] = Seq(),
                        parameterLists: Seq[DeclaredParameterList] = Seq(),
                        returnType: Option[Type] = None)
   case class Parent(name: String,
                     declaration: Declaration,
                     typeArguments: Seq[Type])
-
   case class DeclaredParameterList(params: Seq[DeclaredParameter],
                                    isImplicit: Boolean)
-
   case class DeclaredParameter(name: String, tipe: Type)
 
   case class CallSite(name: String,
@@ -51,7 +47,7 @@ object Representation {
                       typeArguments: Seq[Type],
                       implicitArguments: Seq[ArgumentLike])
 
-  trait ArgumentLike {
+  sealed trait ArgumentLike {
     def code: String
   }
   case class Argument(code: String) extends ArgumentLike

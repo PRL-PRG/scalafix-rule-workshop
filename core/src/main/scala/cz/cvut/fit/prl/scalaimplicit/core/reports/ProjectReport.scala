@@ -9,6 +9,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s.FileInput
 import org.json4s.JsonAST.{JArray, JField, JObject, JString}
 import org.json4s.native.JsonMethods
+import io.circe.generic.auto._
 
 case class ProjectReport(
     metadata: ProjectMetadata,
@@ -40,7 +41,7 @@ object ProjectReport extends LazyLogging {
             logger.debug(s"Loading $resultsPath")
 
             ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
-                          JSONSerializer.loadJSON(resultsPath))
+              JSONSerializer.loadJSON[ExtractionResult](resultsPath))
         }.seq
     }
   }

@@ -23,6 +23,7 @@ class PropertyMatcher[A, B](val name: String, private val property: A => B, priv
   * @tparam B a marker type
   * @tparam C
   */
+// TODO: move to property getter
 case class PG[-A, B, +C](get: A => C)
 
 object PropertyMatcher {

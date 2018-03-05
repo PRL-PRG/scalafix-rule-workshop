@@ -1,7 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.matcher
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.matcher.OptionPropertyMatcher
 import cz.cvut.fit.prl.scalaimplicit.matcher.OverloadHacks._
 
 import scala.language.reflectiveCalls

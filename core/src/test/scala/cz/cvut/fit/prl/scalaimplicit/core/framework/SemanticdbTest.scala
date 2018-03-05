@@ -309,6 +309,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
    */
   protected def compareJSON(one: ExtractionResult,
                             other: ExtractionResult): String = {
+    import io.circe.generic.auto._
     def JSONLines(from: ExtractionResult): Seq[String] = {
       lines(Seq(JSONSerializer.prettyJSON(from)))
     }
