@@ -1,25 +1,24 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extraction
+package cz.cvut.fit.prl.scalaimplicit.counter
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.FailFastReflectExtract
-import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
+class CallSiteCountTest extends CallSiteCountTestSuite {
 
-class CallSiteCountTest extends SemanticdbTest {
 
-  checkReflContext(
-    "Class instantiations are counted as call sites",
+  checkDB(
+    "Class instantiations are counted",
     """
       |package csCount
       |object news {
       | case class A()
-      | val a = new A()
-      | val b = A()
+      | val a = new A() // Counted
+      | val b = A.apply() // Counted
+      | val c = A() // Counted as synthetic *.apply
       |}
-    """.trim.stripMargin, ctx => {
-      FailFastReflectExtract(ctx).totalCallSites shouldBe 2
+    """.trim.stripMargin, db => {
+      CountCallSites.processDB(db).normalized should contain only CallSiteCount("", 2, 1)
     }
   )
 
-  checkReflContext(
+  checkDB(
     "Anonymous classes are counted as call sites",
     """
       |package csCount
@@ -28,12 +27,12 @@ class CallSiteCountTest extends SemanticdbTest {
       | val a = new A {}
       | val b = new A {}
       |}
-    """.trim.stripMargin, ctx => {
-      FailFastReflectExtract(ctx).totalCallSites shouldBe 2
+    """.trim.stripMargin, db => {
+      CountCallSites.processDB(db).normalized should contain only CallSiteCount("", 2, 0)
     }
   )
 
-  checkReflContext(
+  checkDB(
     "Methods without parameters are counted as call sites",
     """
       |package csCount
@@ -42,13 +41,13 @@ class CallSiteCountTest extends SemanticdbTest {
       | val a = foo
       | val b = foo
       |}
-    """.trim.stripMargin, ctx => {
-      FailFastReflectExtract(ctx).totalCallSites shouldBe 3
+    """.trim.stripMargin, db => {
+      CountCallSites.processDB(db).normalized should contain only CallSiteCount("", 3, 0)
     }
   )
 
 
-  checkReflContext(
+  checkDB(
     "Implicit conversions are counted",
     """
       |package csCount
@@ -57,8 +56,8 @@ class CallSiteCountTest extends SemanticdbTest {
       | implicit def int2A(i: Int): A = ???
       | 3.foo
       |}
-    """.trim.stripMargin, ctx => {
-      FailFastReflectExtract(ctx).totalCallSites shouldBe 3
+    """.trim.stripMargin, db => {
+      CountCallSites.processDB(db).normalized should contain only CallSiteCount("", 2, 1)
     }
   )
 }

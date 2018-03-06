@@ -1,17 +1,11 @@
 package cz.cvut.fit.prl.scalaimplicit.counter
 
-import java.io.File
-import java.net.URLClassLoader
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.implicitSemanticDB
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, OrphanCallSites}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.runners.{SemanticDBProcessing, TreeWalker}
-import org.langmeta.semanticdb.{Database, ResolvedName}
-
-import scala.io.Source
+import org.langmeta.ResolvedName
+import org.langmeta.semanticdb.{Database, Synthetic}
 
 object Main extends LazyLogging {
 
@@ -41,15 +35,20 @@ case class CallSiteCount(file: String, syntactic: Int, synthetic: Int) {
 }
 
 object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
-
-  import implicitSemanticDB._
   private def hasJVMSignaure(name: ResolvedName): Boolean = {
     name.symbol.syntax.contains("(") && name.symbol.syntax.contains(")")
   }
 
+
+  import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.implicitSemanticDB._
+
+  def isApply(s: Synthetic) = s.text.startsWith("*.apply")
+
+  def isConversion(s: Synthetic) = s.syntax.contains("(*)")
+
   override def processDB(db: Database): Seq[CallSiteCount] = {
     val syntactic = db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
-    val synthetic = db.synthetics.count(_.syntax.contains("(*)"))
+    val synthetic = db.synthetics.count(s => isConversion(s) || isApply(s))
     Seq(CallSiteCount(db.file, syntactic, synthetic))
   }
 
