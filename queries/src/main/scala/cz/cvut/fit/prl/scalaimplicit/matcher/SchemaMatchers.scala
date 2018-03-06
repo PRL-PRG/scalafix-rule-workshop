@@ -2,164 +2,71 @@ package cz.cvut.fit.prl.scalaimplicit.matcher
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.matcher.OverloadHacks._
+import cz.cvut.fit.prl.scalaimplicit.matcher.LogicalMatchers._
 
 import scala.language.reflectiveCalls
 
-// TODO: do we want too keep helpers
 trait SchemaMatchers {
+  def arguments[A <: {def arguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
+    PropertyMatcher("arguments", _.arguments, combineAnd(x +: xs))
 
-  //  def arguments[A <: {def arguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[ArgumentLike]]("arguments", _.arguments, x, xs)
-  //
-  //  def arguments[A <: {def arguments : Seq[ArgumentLike]}] =
-  //    new PropertyMatchHelper[A, Seq[ArgumentLike]]("arguments", _.arguments) with SeqMatchHelper[A, ArgumentLike]
-  //
-  //  def code[A <: {def code : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
-  //    PropertyMatcher[A, String]("code", _.code, x, xs)
-  //
-  //  def code[A <: {def code : String}] =
-  //    new PropertyMatchHelper[A, String]("code", _.code) with StringMatchHelper[A]
-  //
-  //  def col[A <: {def col : Int}](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
-  //    PropertyMatcher[A, Int]("column", _.col, x, xs)
-  //
-  //  def col[A <: {def col : Int}] =
-  //    new PropertyMatchHelper[A, Int]("column", _.col) with OrderingMatchHelper[A, Int]
-  //
-  //  def declaration[A <: {def declaration : Declaration}](x: Matcher[Declaration], xs: Matcher[Declaration]*): Matcher[A] =
-  //    PropertyMatcher[A, Declaration]("declaration", _.declaration, x, xs)
-  //
-  //  def file[A <: {def file : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
-  //    PropertyMatcher[A, String]("file", _.file, x, xs)
-  //
-  //  def implicitArguments[A <: {def implicitArguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[ArgumentLike]]("implicitArguments", _.implicitArguments, x, xs)
-  //
-  //  def implicitArguments[A <: {def implicitArguments : Seq[ArgumentLike]}] =
-  //    new PropertyMatchHelper[A, Seq[ArgumentLike]]("implicitArguments", _.implicitArguments) with SeqMatchHelper[A, ArgumentLike]
-  //
-  //
+  def code[A <: {def code : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
+    PropertyMatcher("code", _.code, combineAnd(x +: xs))
 
-  trait PDeclaration
+  def col[A <: {def col : Int}](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
+    PropertyMatcher("column", _.col, combineAnd(x +: xs))
 
-  trait PKind
+  def declaration[A <: {def declaration : Declaration}](x: Matcher[Declaration], xs: Matcher[Declaration]*): Matcher[A] =
+    PropertyMatcher("declaration", _.declaration, combineAnd(x +: xs))
 
-  trait PIsImplicit
+  def file[A <: {def file : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
+    PropertyMatcher("file", _.file, combineAnd(x +: xs))
 
-  trait PIsSynthetic
+  def implicitArguments[A <: {def implicitArguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
+    PropertyMatcher("implicitArguments", _.implicitArguments, combineAnd(x +: xs))
 
-  trait PName
+  def isImplicit[A <: {def isImplicit : Boolean}]: Matcher[A] = BooleanPropertyMatcher("implicit", _.isImplicit)
 
-  trait PParameterLists
+  def isSynthetic[A <: {def isSynthetic : Boolean}]: Matcher[A] = BooleanPropertyMatcher("synthetic", _.isSynthetic)
 
-  trait PParameters
+  def kind[A <: {def kind : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
+    PropertyMatcher("kind", _.kind, combineAnd(x +: xs))
 
-  trait PSignature
+  def line[A <: {def line : Int}](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
+    PropertyMatcher("line", _.line, combineAnd(x +: xs))
 
-  implicit def PGDeclaration[A <: {def declaration : Declaration}]: PG[A, PDeclaration, Declaration] = PG(_.declaration)
+  def location[A <: {def location : Option[Location]}](x: Matcher[Option[Location]], xs: Matcher[Option[Location]]*): Matcher[A] =
+    PropertyMatcher("location", _.location, combineAnd(x +: xs))
 
-  implicit def PGIsImplicit[A <: {def isImplicit : Boolean}]: PG[A, PIsImplicit, Boolean] = PG(_.isImplicit)
+  def name[A <: {def name : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
+    PropertyMatcher("name", _.name, combineAnd(x +: xs))
 
-  implicit def PGIsSynthetic[A <: {def isSynthetic : Boolean}]: PG[A, PIsSynthetic, Boolean] = PG(_.isSynthetic)
+  def parameters[A <: {def params : Seq[DeclaredParameter]}](x: Matcher[Seq[DeclaredParameter]], xs: Matcher[Seq[DeclaredParameter]]*): Matcher[A] =
+    PropertyMatcher("parameters", v => v.params, combineAnd(x +: xs))
 
-  implicit def PGKind[A <: {def kind : String}]: PG[A, PKind, String] = PG(_.kind)
+  def parameterLists[A <: {def parameterLists : Seq[DeclaredParameterList]}](x: Matcher[Seq[DeclaredParameterList]], xs: Matcher[Seq[DeclaredParameterList]]*): Matcher[A] =
+    PropertyMatcher("parameterLists", _.parameterLists, combineAnd(x +: xs))
 
-  implicit def PGName[A <: {def name : String}]: PG[A, PName, String] = PG(_.name)
+  def parents[A <: {def parents : Seq[Parent]}](x: Matcher[Seq[Parent]], xs: Matcher[Seq[Parent]]*): Matcher[A] =
+    PropertyMatcher("parents", _.parents, combineAnd(x +: xs))
 
-  implicit def PGParameterLists[A <: {def parameterLists : Seq[DeclaredParameterList]}]: PG[A, PParameterLists, Seq[DeclaredParameterList]] = PG(_.parameterLists)
+  def returnType[A <: {def returnType : Option[Type]}](x: Matcher[Option[Type]], xs: Matcher[Option[Type]]*)(implicit o: OverloadHack1): Matcher[A] =
+    PropertyMatcher("returnType", _.returnType, combineAnd(x +: xs))
 
-  implicit def PGParameters[A <: {def params : Seq[DeclaredParameter]}]: PG[A, PParameters, Seq[DeclaredParameter]] = PG(_.params)
+  def returnType[A <: {def returnType : Option[Type]}](x: Matcher[Type], xs: Matcher[Type]*)(implicit o: OverloadHack2): Matcher[A] =
+    OptionPropertyMatcher("returnType", _.returnType, combineAnd(x +: xs))
 
-  implicit def PGSignature[A <: {def signature : Option[Signature]}]: PG[A, PSignature, Option[Signature]] = PG(_.signature)
+  def signature[A <: {def signature : Option[Signature]}](x: Matcher[Option[Signature]], xs: Matcher[Option[Signature]]*)(implicit o: OverloadHack1): Matcher[A] =
+    PropertyMatcher("signature", _.signature, combineAnd(x +: xs))
 
-  def declaration[A](x: Matcher[Declaration], xs: Matcher[Declaration]*)(implicit pg: PG[A, PDeclaration, Declaration]): Matcher[A] = PropertyMatcher("declaration", x, xs)
+  def signature[A <: {def signature : Option[Signature]}](x: Matcher[Signature], xs: Matcher[Signature]*)(implicit o: OverloadHack2): Matcher[A] =
+    OptionPropertyMatcher("signature", _.signature, combineAnd(x +: xs))
 
-  def isImplicit[A](implicit pg: PG[A, PIsImplicit, Boolean]): Matcher[A] = BooleanPropertyMatcher("implicit")(pg)
+  def typeArguments[A <: {def typeArguments : Seq[Type]}](x: Matcher[Seq[Type]], xs: Matcher[Seq[Type]]*): Matcher[A] =
+    PropertyMatcher("typeArguments", _.typeArguments, combineAnd(x +: xs))
 
-  def isSynthetic[A](implicit pg: PG[A, PIsSynthetic, Boolean]): Matcher[A] = BooleanPropertyMatcher("synthetic")(pg)
-
-  def kind[A](x: Matcher[String], xs: Matcher[String]*)(implicit pg: PG[A, PKind, String]): Matcher[A] = PropertyMatcher("kind", x, xs)
-
-  def name[A](x: Matcher[String], xs: Matcher[String]*)(implicit pg: PG[A, PName, String]): Matcher[A] = PropertyMatcher("name", x, xs)
-
-  def parameterLists[A](x: Matcher[Seq[DeclaredParameterList]], xs: Matcher[Seq[DeclaredParameterList]]*)(implicit pg: PG[A, PParameterLists, Seq[DeclaredParameterList]]): Matcher[A] = PropertyMatcher("parameter list", x, xs)
-
-  def parameters[A](x: Matcher[Seq[DeclaredParameter]], xs: Matcher[Seq[DeclaredParameter]]*)(implicit pg: PG[A, PParameters, Seq[DeclaredParameter]]): Matcher[A] = PropertyMatcher("parameters", x, xs)
-
-  def signature[A](x: Matcher[Option[Signature]], xs: Matcher[Option[Signature]]*)(implicit pg: PG[A, PSignature, Option[Signature]], oh: OverloadHack1): Matcher[A] = PropertyMatcher("signature", x, xs)
-
-  def signature[A](x: Matcher[Signature], xs: Matcher[Signature]*)(implicit pg: PG[A, PSignature, Option[Signature]], oh: OverloadHack2): Matcher[A] = new OptionPropertyMatcher(pg.get, x, xs)
-
-  //  def isImplicit[A <: {def isImplicit : Boolean}]: Matcher[A] = PropertyMatcher[A]("implicit", _.isImplicit)
-  //
-  //  def file[A <: {def file : String}] =
-  //    new PropertyMatchHelper[A, String]("file", _.file) with StringMatchHelper[A]
-  //
-  //  def kind[A <: {def kind : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
-  //    PropertyMatcher[A, String]("kind", _.kind, x, xs)
-  //
-  //  def kind[A <: {def kind : String}] =
-  //    new PropertyMatchHelper[A, String]("kind", _.kind) with StringMatchHelper[A]
-  //
-  //  def line[A <: {def line : Int}](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
-  //    PropertyMatcher[A, Int]("line", _.line, x, xs)
-  //
-  //  def line[A <: {def line : Int}] =
-  //    new PropertyMatchHelper[A, Int]("line", _.line) with OrderingMatchHelper[A, Int]
-  //
-  //  def location[A <: {def location : Option[Location]}](x: Matcher[Option[Location]], xs: Matcher[Option[Location]]*): Matcher[A] =
-  //    PropertyMatcher[A, Option[Location]]("location", _.location, x, xs)
-  //
-  //  def location[A <: {def location : Option[Location]}] =
-  //    new PropertyMatchHelper[A, Option[Location]]("location", _.location) with OptionMatchHelper[A, Location]
-  //
-  //  def name[A <: {def name : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
-  //    PropertyMatcher[A, String]("name", _.name, x, xs)
-  //
-  //  def name[A <: {def name : String}] =
-  //    new PropertyMatchHelper[A, String]("name", _.name) with StringMatchHelper[A]
-  //
-  //  def parameters[A <: {def parameters : Seq[DeclaredParameter]}](x: Matcher[Seq[DeclaredParameter]], xs: Matcher[Seq[DeclaredParameter]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[DeclaredParameter]]("parameters", v => v.parameters, x, xs)
-  //
-  //  def parameters[A <: {def parameters : Seq[Type]}] =
-  //    new PropertyMatchHelper[A, Seq[Type]]("parameters", _.parameters) with SeqMatchHelper[A, Type]
-  //
-  //  def parameterLists[A <: {def parameterLists : Seq[DeclaredParameterList]}](x: Matcher[Seq[DeclaredParameterList]], xs: Matcher[Seq[DeclaredParameterList]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[DeclaredParameterList]]("parameterLists", _.parameterLists, x, xs)
-  //
-  //  def parameterLists[A <: {def parameterLists : Seq[DeclaredParameterList]}] =
-  //    new PropertyMatchHelper[A, Seq[DeclaredParameterList]]("parameterLists", _.parameterLists) with SeqMatchHelper[A, DeclaredParameterList]
-  //
-  //  def parents[A <: {def parents : Seq[Parent]}](x: Matcher[Seq[Parent]], xs: Matcher[Seq[Parent]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[Parent]]("parents", _.parents, x, xs)
-  //
-  //  def parents[A <: {def parents : Seq[Parent]}] =
-  //    new PropertyMatchHelper[A, Seq[Parent]]("parents", _.parents) with SeqMatchHelper[A, Parent]
-  //
-  //  def returnType[A <: {def returnType : Option[Type]}](x: Matcher[Option[Type]], xs: Matcher[Option[Type]]*): Matcher[A] =
-  //    PropertyMatcher[A, Option[Type]]("returnType", _.returnType, x, xs)
-  //
-  //  def returnType[A <: {def returnType : Option[Type]}] =
-  //    new PropertyMatchHelper[A, Option[Type]]("returnType", _.returnType) with OptionMatchHelper[A, Type]
-  //
-  //  def signature[A <: {def signature : Option[Signature]}](x: Matcher[Option[Signature]], xs: Matcher[Option[Signature]]*): Matcher[A] =
-  //    PropertyMatcher[A, Option[Signature]]("signature", _.signature, x, xs)
-  //
-  //  def signature[A <: {def signature : Option[Signature]}] =
-  //    new PropertyMatchHelper[A, Option[Signature]]("signature", _.signature) with OptionMatchHelper[A, Signature]
-  //
-  //  def typeArguments[A <: {def typeArguments : Seq[Type]}](x: Matcher[Seq[Type]], xs: Matcher[Seq[Type]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[Type]]("typeArguments", _.typeArguments, x, xs)
-  //
-  //  def typeArguments[A <: {def typeArguments : Seq[Type]}] =
-  //    new PropertyMatchHelper[A, Seq[Type]]("typeArguments", _.typeArguments) with SeqMatchHelper[A, Type]
-  //
-  //  def typeParameters[A <: {def typeParameters : Seq[Type]}](x: Matcher[Seq[Type]], xs: Matcher[Seq[Type]]*): Matcher[A] =
-  //    PropertyMatcher[A, Seq[Type]]("typeParameters", _.typeParameters, x, xs)
-  //
-  //  def typeParameters[A <: {def typeParameters : Seq[Type]}] =
-  //    new PropertyMatchHelper[A, Seq[Type]]("typeParameters", _.typeParameters) with SeqMatchHelper[A, Type]
+  def typeParameters[A <: {def typeParameters : Seq[Type]}](x: Matcher[Seq[Type]], xs: Matcher[Seq[Type]]*): Matcher[A] =
+    PropertyMatcher("typeParameters", _.typeParameters, combineAnd(x +: xs))
 }
 
 object SchemaMatchers extends SchemaMatchers

@@ -1,5 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.matcher
 
+import cz.cvut.fit.prl.scalaimplicit.matcher.LogicalMatchers._
+
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom
 
@@ -9,11 +11,8 @@ trait ImplicitMatchers {
   // implicit def any2matcher[A](x: A): Matcher[A] = is(x)
 
   implicit class QueryCollectionSupport[A, +Repr](that: TraversableLike[A, Repr]) {
-    def query[That](matcher: Matcher[A], matchers: Matcher[A]*)(implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That = {
-      // TODO: make it a semigroup?
-      val combined = (matcher +: matchers) reduce (combineAnd(_, _))
-      that.map(combined.matches)
-    }
+    def query[That](matcher: Matcher[A], matchers: Matcher[A]*)(implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That =
+      that.map(combineAnd(matcher +: matchers).matches)
   }
 
   implicit class AnyMatcher[A](that: A) {

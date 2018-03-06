@@ -3,8 +3,6 @@ package cz.cvut.fit.prl.scalaimplicit.matcher
 import org.scalatest.{FunSuite, Matchers => ScalaTestMatchers}
 import cats.syntax.semigroup._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.matcher.PG
-import cz.cvut.fit.prl.scalaimplicit.matcher.implicits._
 
 class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchingSupport with Matchers {
 
@@ -141,30 +139,30 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
     lx matches is(List(lx))
   }
 
-  test("case") {
-    case class C(xx: Int, yy: Seq[X])
-    case class D(xx: Int, yy: Seq[Y])
-
-    trait Pxx
-    trait Pyy
-
-    implicit val Cxx: PG[C, Pxx, Int] = PG(_.xx)
-    implicit val Dxx: PG[D, Pxx, Int] = PG(_.xx)
-
-    def xx[A](m: Matcher[Int])(implicit pg: PG[A, Pxx, Int]): Matcher[A] =
-      PropertyMatcher("xx", m, Seq())
-
-    def yy(m: Matcher[Seq[X]]): Matcher[C] =
-      PropertyMatcher("yy", _.yy, m, Seq())
-
-    val c = C(1, Seq(x1, y1))
-    val d = D(2, Seq(y1))
-
-    val mc: Matcher[C] = and(xx(is(2)), yy(and(contains(is(y1)), size(1))))
-    val md: Matcher[D] = xx(is(1))
-
-    (c matches and(mc, yy(allOf(y1)))) should matched("")
-  }
+  //  test("case") {
+  //    case class C(xx: Int, yy: Seq[X])
+  //    case class D(xx: Int, yy: Seq[Y])
+  //
+  //    trait Pxx
+  //    trait Pyy
+  //
+  //    implicit val Cxx: PG[C, Pxx, Int] = PG(_.xx)
+  //    implicit val Dxx: PG[D, Pxx, Int] = PG(_.xx)
+  //
+  //    def xx[A](m: Matcher[Int])(implicit pg: PG[A, Pxx, Int]): Matcher[A] =
+  //      PropertyMatcher("xx", m, Seq())
+  //
+  //    def yy(m: Matcher[Seq[X]]): Matcher[C] =
+  //      PropertyMatcher("yy", _.yy, m, Seq())
+  //
+  //    val c = C(1, Seq(x1, y1))
+  //    val d = D(2, Seq(y1))
+  //
+  //    val mc: Matcher[C] = and(xx(is(2)), yy(and(contains(is(y1)), size(1))))
+  //    val md: Matcher[D] = xx(is(1))
+  //
+  //    (c matches and(mc, yy(allOf(y1)))) should matched("")
+  //  }
 
   //  test("allOf -  option") {
   //    (Option(1) matches allOf(1)) should matched("contains all of [1]")

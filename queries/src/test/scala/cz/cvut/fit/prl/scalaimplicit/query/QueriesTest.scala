@@ -1,6 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.query
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, FailFastReflectExtract}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import cz.cvut.fit.prl.scalaimplicit.core.reports.ProjectReport
@@ -31,6 +32,7 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
   }
 
   val filename = "/home/krikava/Research/Projects/scala-implicits/runs/./projects/Metascala/_reports/results-callsites.json"
+  val filename2 = "/home/krikava/Research/Projects/scala-implicits/runs/./projects/elasticmq/_reports/results-callsites.json"
   //val manifest = ProjectReport.loadReportsFromManifest("../runs/manifest.json.1")
   //val Metascala = manifest(0)
 
@@ -57,7 +59,43 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
 
     val r = JsonQuery.query(filename, m)
     println(r.size)
+
+    val r2 = JsonQuery.queryAll(Seq(filename, filename2), m)
+    println(r2.size)
   }
+
+  test("second test") {
+    import io.circe.generic.auto._
+
+    val m: Matcher[CallSite] =
+      and(
+        isSynthetic,
+        declaration(
+          isImplicit,
+          kind(in("def", "class")),
+          signature(
+            parameterLists(
+              or(
+                inOrderOnly(
+                  and(!isImplicit, parameters(size(1)))
+                ),
+                inOrderOnly(
+                  parameters(size(1)),
+                  isImplicit
+                )
+              )
+            )
+          )
+        )
+      )
+
+    val r = JsonQuery.query(filename, m)
+    println(r.size)
+
+    val r2 = JsonQuery.queryAll(Seq(filename, filename2), m)
+    println(r2.size)
+  }
+
   //      val cs = Metascala.result.callSites
   //
   //      val q =

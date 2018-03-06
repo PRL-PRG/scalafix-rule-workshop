@@ -12,15 +12,14 @@ trait ScalaTestMatchingSupport {
 
         ScalaTestMatchResult(
           matches = reasonCheck.matches,
-          s"$left ${if (matches) "" else "mis"}matched but with a different reason: ${reasonCheck.failureMessage}",
-          s"$left ${if (matches) "" else "mis"}matched ${left.reason}"
+          s"${left.instance} ${if (matches) "" else "mis"}matched but with a different reason: ${reasonCheck.failureMessage}",
+          s"${left.instance} ${if (matches) "mis" else ""}matched: ${left.reason} (matcher: ${left.matcher})"
         )
       } else {
-        // TODO: on of this is wrong - should be mismatched
         ScalaTestMatchResult(
           matches = false,
-          s"$left ${if (matches) "" else "mis"}matched ${left.reason}",
-          s"$left ${if (!matches) "" else "mis"}matched ${left.reason}"
+          s"${left.instance} ${if (matches) "mis" else ""}matched: ${left.reason} (matcher: ${left.matcher})",
+          s"${left.instance} ${if (matches) "" else "mis"}matched: ${left.reason} (matcher: ${left.matcher})"
         )
       }
     }

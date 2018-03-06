@@ -5,6 +5,7 @@ trait Matchers extends EqMatchers
   with IterableMatchers
   with OrderingMatchers
   with StringMatchers
+  with LogicalMatchers
   with ImplicitMatchers
 
 
