@@ -35,6 +35,7 @@ BASE_CONFIG = {
     "tools_dir": "tools",
     "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/master/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
+    "callsite_counter_name": "callsite-counter.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
     "sbt_plugins": ["scalameta-config"],
@@ -46,7 +47,8 @@ BASE_CONFIG = {
     "compilation_report": "COMPILATION_REPORT.TXT",
     "semanticdb_report": "SEMANTICDB_REPORT.TXT",
     "analyzer_report": "ANALYZER_REPORT.TXT",
-    "classpath_report": "CLEANUP_REPORT.TXT"
+    "classpath_report": "CLEANUP_REPORT.TXT",
+    "callsite_count_report": "CALLSITES_REPORT.TXT"
 }
 
 def log(msg, color='magenta'):
@@ -103,9 +105,9 @@ class Pipeline():
         with open(report_path, 'w') as report:
             return report.write(content)
 
-    def exclude_non_successful(self, projects):
+    def exclude_non_successful(self, projects, report_kind):
         return filter(
-            lambda proj: self.get_report(proj, "analyzer_report") == "SUCCESS",
+            lambda proj: self.get_report(proj, report_kind) == "SUCCESS",
             projects
         )
 
@@ -474,6 +476,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
         os.mkdir(tools_dir)
     # Stick to default tool names
     download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
+    download_tool("CallSite Counter", BASE_CONFIG["callsite_counter_name"])
     P.info("[Setup] Done")
 
 @task
@@ -554,7 +557,8 @@ def condense_reports(
             "compilation_report": (0, 0),
             "semanticdb_report": (0, 0),
             "analyzer_report": (0, 0),
-            "classpath_report": (0, 0)
+            "classpath_report": (0, 0),
+            "callsite_count_report": (0, 0)
         }
         total_projects = 0
         for project_path in get_project_list(projects_path, int(float(project_depth))):
@@ -594,7 +598,7 @@ def merge_metadata(
     depth = int(float(project_depth))
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
     with open("project-metadata.csv", 'w') as metadata:
@@ -655,12 +659,50 @@ def merge_paths(
     reports_folder = BASE_CONFIG["reports_folder"]
     projects = get_project_list(projects_path, project_depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
     merged = merge_all(paths_files)
     
     with open("paths.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
+
+@task
+def count_callsites(project_path):
+    def run_count_command(project_name, project_path, tool_path, jvm_options):
+        P = Pipeline()
+        P.info("[Analysis][%s] Counting Call Sites..." % project_name)
+        title = "Count Call Sites"
+        command = "java -jar %s %s . ./%s" % (jvm_options, tool_path, BASE_CONFIG["reports_folder"])
+        return analysis_command(project_path, project_name, title, command, "callsite_count_report")
+
+    P = Pipeline()
+    cwd = os.getcwd()
+    counter_tool_path = os.path.join(cwd, BASE_CONFIG["tools_dir"], BASE_CONFIG["callsite_counter_name"])
+    project_name = os.path.split(project_path)[1]
+
+    analysis_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
+    if not analysis_failed:
+        run_count_command(project_name, project_path, counter_tool_path, "")
+
+@task
+def merge_callsite_counts(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, project_depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "callsite_count_report")
+    files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(1, len(files)))
+    merged = merge_all(with_project)
+
+    with open("callsite-counts.all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+
 
 ####################
 # CSVManip
