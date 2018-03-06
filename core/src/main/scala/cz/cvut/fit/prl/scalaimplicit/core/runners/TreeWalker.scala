@@ -23,15 +23,20 @@ import org.langmeta.internal.io.PathIO
 
 import scala.meta.AbsolutePath
 
+trait ReflectiveContextProcessing[A] {
+  def processCtx(ctx: ReflectiveCtx): A
+  def createEmpty: A
+  def merge(one: A, other: A): A
+}
+
 class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
   val root = AbsolutePath(rootPath)
   logger.debug(s"Analyzing ${rootPath}")
-  def apply(
-      f: ReflectiveCtx => ImplicitAnalysisResult): ImplicitAnalysisResult = {
+  def apply[A](extractable: ReflectiveContextProcessing[A]): A = {
     import scala.collection.JavaConverters.asScalaIteratorConverter
     //TODO MAKE A PROPER CLASS HIERARCHY
     //deleteOldFiles(root)
-    val results = Files
+    Files
       .walk(root.toNIO)
       .iterator()
       .asScala
@@ -42,48 +47,8 @@ class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
       .toSeq
       .par
       .map(file => new ReflectiveCtx(loader, DBOps.loadDB(file)))
-      .map(ctx => ReflectExtract(ctx))
-      .fold(ImplicitAnalysisResult.Empty)(ImplicitAnalysisResult.merge)
-    DefnFiller(results)
+      .map(extractable.processCtx)
+      .fold(extractable.createEmpty)(extractable.merge)
   }
 }
 
-object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
-  def findDeclOrReport(target: {
-    def declaration: Declaration; def name: String
-  }, definitions: Set[Declaration]): Declaration =
-    definitions
-      .find(_.name == target.name)
-      .getOrElse({
-        OrphanCallSites().report("Orphan CallSite",
-                                 s"Declaration not found for {$target.name}")
-        target.declaration
-      })
-
-  def processArgList(args: Seq[ArgumentLike],
-                     definitions: Set[Declaration]): Seq[ArgumentLike] = {
-    args.map {
-      case arg: Argument => arg
-      case iarg: ImplicitArgument =>
-        iarg.copy(
-          declaration = findDeclOrReport(iarg, definitions),
-          arguments = processArgList(iarg.arguments, definitions)
-        )
-    }
-  }
-
-  def apply(result: ImplicitAnalysisResult): ImplicitAnalysisResult = {
-    val defns = result.declarations
-    val nres = result.copy(
-      declarations = defns,
-      callSites = result.callSites.map(
-        cs =>
-          cs.copy(
-            declaration = cs.declaration.copy(
-              location = findDeclOrReport(cs, defns).location),
-            implicitArguments = processArgList(cs.implicitArguments, defns)
-        ))
-    )
-    nres
-  }
-}
