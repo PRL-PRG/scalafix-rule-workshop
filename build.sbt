@@ -59,6 +59,7 @@ lazy val queries = (project in file("queries"))
     ))
   .dependsOn(coreutils % "test->test", macros)
 
+
 lazy val classpathExtractor =
   (project in file("sbt-classpath-extractor"))
     .settings(

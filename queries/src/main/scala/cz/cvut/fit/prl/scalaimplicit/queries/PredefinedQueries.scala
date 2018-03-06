@@ -5,9 +5,6 @@ import java.nio.file.{Files, Paths}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{TCFamily, TCItem}
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{DefinitionSummary, ProjectMetadata, ProjectReport, SlimReport}
-import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{
   TCFamily,
   TCItem
@@ -22,6 +19,8 @@ import cz.cvut.fit.prl.scalaimplicit.queries.FilterQuery.{
   CSFilterQuery,
   PathFilterQuery
 }
+
+import scala.collection.immutable
 
 object PredefinedQueries {
 

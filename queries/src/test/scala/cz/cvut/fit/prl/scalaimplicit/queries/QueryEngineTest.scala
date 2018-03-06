@@ -1,9 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, ReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Declaration
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
-import io.circe.generic.auto._
+import cz.cvut.fit.prl.scalaimplicit.macros.QueryEngineMacros._
 
 class QueryEngineTest extends SemanticdbTest {
   /*
@@ -65,6 +66,8 @@ class QueryEngineTest extends SemanticdbTest {
       |}
     """.trim.stripMargin, { ctx =>
       val res = ReflectExtract(ctx)
+
+      import io.circe.generic.auto._
 
       JSONSerializer.saveJSON(res, "./res.dat")
       val loaded = JSONSerializer.loadJSON[ExtractionResult]("./res.dat")

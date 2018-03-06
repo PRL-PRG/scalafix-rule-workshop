@@ -104,9 +104,9 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
       val res: ExtractionResult = FailFastReflectExtract(ctx).normalized
 
       import Util._
-      println(res.callSites(0).valueTreeString)
+      println(res.callSites(0).toPrettyString)
       println("")
-      println(res.declarations.valueTreeString)
+      println(res.declarations.toPrettyString)
       //
       println("")
       //      val m = res.callSites.query(
