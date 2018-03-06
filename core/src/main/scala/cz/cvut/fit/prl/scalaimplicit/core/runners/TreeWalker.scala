@@ -5,8 +5,9 @@ import java.nio.file.Files
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ErrorCollection,
-  ExtractionResult,
-  OrphanCallSites
+  ImplicitAnalysisResult,
+  OrphanCallSites,
+  ReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
   Argument,
@@ -25,7 +26,8 @@ import scala.meta.AbsolutePath
 class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
   val root = AbsolutePath(rootPath)
   logger.debug(s"Analyzing ${rootPath}")
-  def apply(f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
+  def apply(
+      f: ReflectiveCtx => ImplicitAnalysisResult): ImplicitAnalysisResult = {
     import scala.collection.JavaConverters.asScalaIteratorConverter
     //TODO MAKE A PROPER CLASS HIERARCHY
     //deleteOldFiles(root)
@@ -39,20 +41,14 @@ class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
       }
       .toSeq
       .par
-      .map { file =>
-        ReflectiveVisitor(file, loader, f)
-      }
-      .fold(ExtractionResult.Empty)(
-        (acc, res) =>
-          ExtractionResult(
-            callSites = acc.callSites ++ res.callSites,
-            declarations = acc.declarations ++ res.declarations
-        ))
+      .map(file => new ReflectiveCtx(loader, DBOps.loadDB(file)))
+      .map(ctx => ReflectExtract(ctx))
+      .fold(ImplicitAnalysisResult.Empty)(ImplicitAnalysisResult.merge)
     DefnFiller(results)
   }
 }
 
-object DefnFiller extends (ExtractionResult => ExtractionResult) {
+object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
   def findDeclOrReport(target: {
     def declaration: Declaration; def name: String
   }, definitions: Set[Declaration]): Declaration =
@@ -76,7 +72,7 @@ object DefnFiller extends (ExtractionResult => ExtractionResult) {
     }
   }
 
-  def apply(result: ExtractionResult): ExtractionResult = {
+  def apply(result: ImplicitAnalysisResult): ImplicitAnalysisResult = {
     val defns = result.declarations
     val nres = result.copy(
       declarations = defns,

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   OrphanCallSites,
-  ExtractionResult
+  ImplicitAnalysisResult
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
@@ -28,25 +28,5 @@ object DBOps {
 
   def loadDB(filePath: Path): d.Database = {
     toMetaDB(s.Database.parseFrom(Files.readAllBytes(filePath)))
-  }
-}
-
-object ReflectiveVisitor
-    extends ((Path, ClassLoader, (ReflectiveCtx => ExtractionResult)) => ExtractionResult)
-    with LazyLogging {
-  def apply(filePath: Path,
-            loader: ClassLoader,
-            f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
-    try {
-      val mdb = DBOps.loadDB(filePath)
-      val ctx = new ReflectiveCtx(loader, mdb)
-      logger.debug(s"Processing $filePath")
-      val res = f(ctx)
-      res
-    } catch {
-      case NonFatal(e) =>
-        e.printStackTrace()
-        ExtractionResult.Empty
-    }
   }
 }

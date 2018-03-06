@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.reports
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s
@@ -11,9 +11,9 @@ import org.json4s.JsonAST.{JArray, JField, JObject, JString}
 import org.json4s.native.JsonMethods.parse
 
 case class ProjectReport(
-    metadata: ProjectMetadata,
-    result: ExtractionResult,
-    stats: Statistics = Statistics.Default
+                          metadata: ProjectMetadata,
+                          result: ImplicitAnalysisResult,
+                          stats: Statistics = Statistics.Default
 )
 
 // TODO This could probably go into queries

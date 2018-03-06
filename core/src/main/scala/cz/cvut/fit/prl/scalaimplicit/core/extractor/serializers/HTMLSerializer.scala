@@ -1,5 +1,5 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
@@ -60,8 +60,8 @@ object HTMLSerializer {
       )
     }
   }
-  implicit object HExtractionResult extends HTMLPrintable[ExtractionResult] {
-    override def print(what: ExtractionResult)(
+  implicit object HExtractionResult extends HTMLPrintable[ImplicitAnalysisResult] {
+    override def print(what: ImplicitAnalysisResult)(
         implicit metadata: ProjectMetadata) = {
       div(`class` := "row")(
         div(`class` := "col s12")(

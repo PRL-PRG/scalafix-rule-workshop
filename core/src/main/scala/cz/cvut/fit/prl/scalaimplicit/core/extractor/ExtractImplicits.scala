@@ -153,16 +153,21 @@ object DefnExtractionUtils {
   }
 }
 
-case class ExtractionResult(callSites: Seq[CallSite],
-                            declarations: Set[Declaration])
-object ExtractionResult {
-  val Empty = ExtractionResult(Seq(), Set())
+case class ImplicitAnalysisResult(callSites: Seq[CallSite],
+                                  declarations: Set[Declaration])
+object ImplicitAnalysisResult {
+  def merge(one: ImplicitAnalysisResult, other: ImplicitAnalysisResult): ImplicitAnalysisResult = ImplicitAnalysisResult (
+    one.callSites ++ other.callSites,
+    one.declarations ++ other.declarations
+  )
+
+  val Empty = ImplicitAnalysisResult(Seq(), Set())
 }
 
 /**
   * Extract the call sites from a context, starting with the synthetics.
   */
-object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
+object ReflectExtract extends (ReflectiveCtx => ImplicitAnalysisResult) {
 
   def extractCallSites(ctx: ReflectiveCtx): Seq[CallSite] =
     ctx.syntheticsWithImplicits
@@ -210,15 +215,15 @@ object ReflectExtract extends (ReflectiveCtx => ExtractionResult) {
         }
   }
 
-  def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    ExtractionResult(extractCallSites(ctx), extractDeclarations(ctx))
+  def apply(ctx: ReflectiveCtx): ImplicitAnalysisResult = {
+    ImplicitAnalysisResult(extractCallSites(ctx), extractDeclarations(ctx))
   }
 }
 
 /**
   * Version of extraction that stops once it finds an exception
   */
-object FailFastReflectExtract extends (ReflectiveCtx => ExtractionResult) {
+object FailFastReflectExtract extends (ReflectiveCtx => ImplicitAnalysisResult) {
   // Replaced with instance-by-instance processing to be able to log exceptions easily
   def failFastExtractCallSites(ctx: ReflectiveCtx) =
     ctx.syntheticsWithImplicits
@@ -234,8 +239,8 @@ object FailFastReflectExtract extends (ReflectiveCtx => ExtractionResult) {
       .map(Factories.createDeclaration(ctx, _))
       .toSet
 
-  def apply(ctx: ReflectiveCtx): ExtractionResult = {
-    ExtractionResult(failFastExtractCallSites(ctx),
+  def apply(ctx: ReflectiveCtx): ImplicitAnalysisResult = {
+    ImplicitAnalysisResult(failFastExtractCallSites(ctx),
                      failFastExtractDeclarations(ctx))
   }
 }
