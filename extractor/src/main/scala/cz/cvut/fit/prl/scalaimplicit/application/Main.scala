@@ -30,7 +30,8 @@ object Main extends LazyLogging {
       case Some(conf) => {
         logger.debug(s"Root: ${conf.root}")
         val loader: ClassLoader = loadClasspath(conf.classpath)
-        val res = TreeWalker(loader, conf.root, ExtractImplicitsFromCtx)
+        val extractFunction = new ExtractImplicitsFromCtx(loader)
+        val res = TreeWalker(conf.root, extractFunction)
         val matchedDefs = DefnFiller(res)
         JSONSerializer.saveJSON(matchedDefs, conf.outdir + "/results.json")
         ErrorCollection().toFile(conf.outdir + "/errors.log")

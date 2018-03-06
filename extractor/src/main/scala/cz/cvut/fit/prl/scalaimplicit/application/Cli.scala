@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.core.cli
+package cz.cvut.fit.prl.scalaimplicit.application
 
 import java.nio.file.{Paths, Files}
 

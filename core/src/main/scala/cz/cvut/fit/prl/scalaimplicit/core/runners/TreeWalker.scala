@@ -3,36 +3,23 @@ package cz.cvut.fit.prl.scalaimplicit.core.runners
 import java.nio.file.Files
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ErrorCollection,
-  ImplicitAnalysisResult,
-  OrphanCallSites,
-  ReflectExtract
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ArgumentLike,
-  Declaration,
-  ImplicitArgument
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  ReflectiveCtx,
-  SemanticCtx
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, ImplicitAnalysisResult, OrphanCallSites, ReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{Argument, ArgumentLike, Declaration, ImplicitArgument}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{ReflectiveCtx, SemanticCtx}
 import org.langmeta.internal.io.PathIO
+import org.langmeta.semanticdb.Database
 
 import scala.meta.AbsolutePath
 
-trait ReflectiveContextProcessing[A] {
-  def processCtx(ctx: ReflectiveCtx): A
+trait SemanticDBProcessing[A] {
+  def processDB(db: Database): A
   def createEmpty: A
   def merge(one: A, other: A): A
 }
 
 object TreeWalker extends LazyLogging {
-  def apply[A](loader: ClassLoader,
-               rootPath: String,
-               processing: ReflectiveContextProcessing[A]): A = {
+  def apply[A](rootPath: String,
+               processing: SemanticDBProcessing[A]): A = {
 
     val root = AbsolutePath(rootPath)
     logger.debug(s"Analyzing ${rootPath}")
@@ -49,8 +36,7 @@ object TreeWalker extends LazyLogging {
       }
       .toSeq
       .par
-      .map(file => new ReflectiveCtx(loader, DBOps.loadDB(file)))
-      .map(processing.processCtx)
+      .map(file => processing.processDB(DBOps.loadDB(file)))
       .fold(processing.createEmpty)(processing.merge)
   }
 }
