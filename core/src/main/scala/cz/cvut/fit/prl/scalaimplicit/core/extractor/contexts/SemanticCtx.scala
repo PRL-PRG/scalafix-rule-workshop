@@ -1,17 +1,25 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
 import com.typesafe.scalalogging.LazyLogging
+import org.langmeta.semanticdb.Database
 
 import scala.collection.{immutable, mutable}
 import scala.meta._
 
-case class SemanticCtx(database: Database) extends LazyLogging {
-  def input = database.documents.head.input
-  val file: String = input match {
-    case Input.VirtualFile(path, _) => path
-    case Input.File(path, _) => path.toString
-    case _ => ""
+object implicitSemanticDB {
+  implicit class SingleFileSemanticDB(what: Database) {
+    def file: String = what.documents.head.input match {
+      case Input.VirtualFile(path, _) => path
+      case Input.File(path, _) => path.toString
+      case _ => ""
+    }
   }
+}
+
+case class SemanticCtx(database: Database) extends LazyLogging {
+  import implicitSemanticDB._
+
+  val file: String = database.file
 
   private lazy val _denots: Map[Symbol, Denotation] = {
     val builder = Map.newBuilder[Symbol, Denotation]
@@ -55,7 +63,7 @@ case class SemanticCtx(database: Database) extends LazyLogging {
     symbol(tree).flatMap(denotation)
   def names: Seq[ResolvedName] = _names.values.toSeq
 
-  def tree: Source = input.parse[Source].get
+  def tree: Source = database.documents.head.input.parse[Source].get
   implicit val index = database.documents.head
 
   /**

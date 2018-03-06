@@ -71,3 +71,10 @@ lazy val implicitExtractor = (project in file("extractor"))
     assemblyJarName in assembly := "implicit-collector.jar"
   )
   .dependsOn(coreutils)
+
+lazy val callSiteCounter = (project in file("cs-counter"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "callsite-counter.jar"
+  )
+  .dependsOn(coreutils)
