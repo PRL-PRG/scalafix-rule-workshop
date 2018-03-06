@@ -3,7 +3,10 @@ package cz.cvut.fit.prl.scalaimplicit.counter
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.runners.{SemanticDBProcessing, TreeWalker}
+import cz.cvut.fit.prl.scalaimplicit.core.runners.{
+  SemanticDBProcessing,
+  TreeWalker
+}
 import org.langmeta.ResolvedName
 import org.langmeta.semanticdb.{Database, Synthetic}
 
@@ -21,7 +24,8 @@ object Main extends LazyLogging {
       case Some(conf) => {
         logger.debug(s"Root: ${conf.root}")
         val res = TreeWalker(conf.root, CountCallSites)
-        Files.write(Paths.get(conf.outdir + "/callsite-counts.csv"), toCSV(res).getBytes)
+        Files.write(Paths.get(conf.outdir + "/callsite-counts.csv"),
+                    toCSV(res).getBytes)
       }
       case None => {
         println("No arguments found. Closing")
@@ -39,7 +43,6 @@ object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
     name.symbol.syntax.contains("(") && name.symbol.syntax.contains(")")
   }
 
-
   import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.implicitSemanticDB._
 
   def isApply(s: Synthetic) = s.text.startsWith("*.apply")
@@ -47,14 +50,15 @@ object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
   def isConversion(s: Synthetic) = s.syntax.contains("(*)")
 
   override def processDB(db: Database): Seq[CallSiteCount] = {
-    val syntactic = db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
+    val syntactic =
+      db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
     val synthetic = db.synthetics.count(s => isConversion(s) || isApply(s))
     Seq(CallSiteCount(db.file, syntactic, synthetic))
   }
 
   override def createEmpty: Seq[CallSiteCount] = Seq()
 
-  override def merge(one: Seq[CallSiteCount], other: Seq[CallSiteCount]): Seq[CallSiteCount] = one ++ other
+  override def merge(one: Seq[CallSiteCount],
+                     other: Seq[CallSiteCount]): Seq[CallSiteCount] =
+    one ++ other
 }
-
-

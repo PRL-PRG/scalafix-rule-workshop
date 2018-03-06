@@ -2,8 +2,7 @@ package cz.cvut.fit.prl.scalaimplicit.counter
 
 import java.nio.file.{Paths, Files}
 
-case class CliConfig(root: String = "Nodir",
-                     outdir: String = "Nodir")
+case class CliConfig(root: String = "Nodir", outdir: String = "Nodir")
 object Cli {
   def apply(args: Array[String]): Option[CliConfig] = {
     val optParser = new scopt.OptionParser[CliConfig]("collector") {

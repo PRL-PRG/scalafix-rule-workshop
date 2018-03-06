@@ -11,9 +11,9 @@ import org.json4s.JsonAST.{JArray, JField, JObject, JString}
 import org.json4s.native.JsonMethods.parse
 
 case class ProjectReport(
-                          metadata: ProjectMetadata,
-                          result: ImplicitAnalysisResult,
-                          stats: Statistics = Statistics.Default
+    metadata: ProjectMetadata,
+    result: ImplicitAnalysisResult,
+    stats: Statistics = Statistics.Default
 )
 
 // TODO This could probably go into queries

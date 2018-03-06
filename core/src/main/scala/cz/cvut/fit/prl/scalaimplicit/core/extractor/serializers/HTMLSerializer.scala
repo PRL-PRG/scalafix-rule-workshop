@@ -60,7 +60,8 @@ object HTMLSerializer {
       )
     }
   }
-  implicit object HExtractionResult extends HTMLPrintable[ImplicitAnalysisResult] {
+  implicit object HExtractionResult
+      extends HTMLPrintable[ImplicitAnalysisResult] {
     override def print(what: ImplicitAnalysisResult)(
         implicit metadata: ProjectMetadata) = {
       div(`class` := "row")(

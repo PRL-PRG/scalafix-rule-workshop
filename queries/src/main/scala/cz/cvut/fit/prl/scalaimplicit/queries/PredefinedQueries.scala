@@ -180,7 +180,8 @@ object PredefinedQueries {
         proj.result.callSites
           .flatMap(cs =>
             cs.implicitArguments.collect {
-              case arg: ImplicitArgument if arg.declaration.isImplicit && arg.typeArguments.isEmpty =>
+              case arg: ImplicitArgument
+                  if arg.declaration.isImplicit && arg.typeArguments.isEmpty =>
                 (SlimDefinition(arg.declaration), 1)
           })
           .groupBy(_._1.kindedName)
@@ -227,8 +228,7 @@ object PredefinedQueries {
       val sign = cs.declaration.signature.get
 
       sign.parameterLists.exists(list =>
-        !list.isImplicit && list.params.exists(p => isPrimitive(p.tipe.name))
-      )
+        !list.isImplicit && list.params.exists(p => isPrimitive(p.tipe.name)))
     }
 
     def hasPrimitiveRetType(cs: CallSite): Boolean = {
@@ -239,17 +239,21 @@ object PredefinedQueries {
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-param", hasPrimitiveParam))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-param", hasPrimitiveParam))
     )
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-return", hasPrimitiveRetType))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-return", hasPrimitiveRetType))
     )
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-both", x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-both",
+                        x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
     )
   }
 

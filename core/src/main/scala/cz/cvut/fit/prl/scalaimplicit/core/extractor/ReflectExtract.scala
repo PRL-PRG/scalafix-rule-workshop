@@ -156,10 +156,12 @@ object DefnExtractionUtils {
 case class ImplicitAnalysisResult(callSites: Seq[CallSite],
                                   declarations: Set[Declaration])
 object ImplicitAnalysisResult {
-  def merge(one: ImplicitAnalysisResult, other: ImplicitAnalysisResult): ImplicitAnalysisResult = ImplicitAnalysisResult (
-    one.callSites ++ other.callSites,
-    one.declarations ++ other.declarations
-  )
+  def merge(one: ImplicitAnalysisResult,
+            other: ImplicitAnalysisResult): ImplicitAnalysisResult =
+    ImplicitAnalysisResult(
+      one.callSites ++ other.callSites,
+      one.declarations ++ other.declarations
+    )
 
   val Empty = ImplicitAnalysisResult(Seq(), Set())
 }
@@ -223,7 +225,8 @@ object ReflectExtract extends (ReflectiveCtx => ImplicitAnalysisResult) {
 /**
   * Version of extraction that stops once it finds an exception
   */
-object FailFastReflectExtract extends (ReflectiveCtx => ImplicitAnalysisResult) {
+object FailFastReflectExtract
+    extends (ReflectiveCtx => ImplicitAnalysisResult) {
   // Replaced with instance-by-instance processing to be able to log exceptions easily
   def failFastExtractCallSites(ctx: ReflectiveCtx) =
     ctx.syntheticsWithImplicits
@@ -241,6 +244,6 @@ object FailFastReflectExtract extends (ReflectiveCtx => ImplicitAnalysisResult) 
 
   def apply(ctx: ReflectiveCtx): ImplicitAnalysisResult = {
     ImplicitAnalysisResult(failFastExtractCallSites(ctx),
-                     failFastExtractDeclarations(ctx))
+                           failFastExtractDeclarations(ctx))
   }
 }

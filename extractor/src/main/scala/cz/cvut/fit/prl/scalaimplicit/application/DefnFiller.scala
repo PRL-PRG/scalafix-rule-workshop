@@ -1,8 +1,15 @@
 package cz.cvut.fit.prl.scalaimplicit.application
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ImplicitAnalysisResult, OrphanCallSites}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{Argument, ArgumentLike, Declaration, ImplicitArgument}
-
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ImplicitAnalysisResult,
+  OrphanCallSites
+}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
+  Argument,
+  ArgumentLike,
+  Declaration,
+  ImplicitArgument
+}
 
 object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
   def findDeclOrReport(target: {
@@ -12,7 +19,7 @@ object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
       .find(_.name == target.name)
       .getOrElse({
         OrphanCallSites().report("Orphan CallSite",
-          s"Declaration not found for {$target.name}")
+                                 s"Declaration not found for {$target.name}")
         target.declaration
       })
 
@@ -38,7 +45,7 @@ object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
             declaration = cs.declaration.copy(
               location = findDeclOrReport(cs, defns).location),
             implicitArguments = processArgList(cs.implicitArguments, defns)
-          ))
+        ))
     )
     nres
   }

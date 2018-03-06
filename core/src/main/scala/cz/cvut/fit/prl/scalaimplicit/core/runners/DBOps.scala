@@ -3,7 +3,10 @@ package cz.cvut.fit.prl.scalaimplicit.core.runners
 import java.nio.file.{Files, Path}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ImplicitAnalysisResult, OrphanCallSites}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
+  ImplicitAnalysisResult,
+  OrphanCallSites
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.SemanticCtx
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
