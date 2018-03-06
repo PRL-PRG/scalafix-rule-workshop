@@ -32,7 +32,7 @@ trait ReflectiveContextProcessing[A] {
 object TreeWalker extends LazyLogging {
   def apply[A](loader: ClassLoader,
                rootPath: String,
-               extractable: ReflectiveContextProcessing[A]): A = {
+               processing: ReflectiveContextProcessing[A]): A = {
 
     val root = AbsolutePath(rootPath)
     logger.debug(s"Analyzing ${rootPath}")
@@ -50,7 +50,7 @@ object TreeWalker extends LazyLogging {
       .toSeq
       .par
       .map(file => new ReflectiveCtx(loader, DBOps.loadDB(file)))
-      .map(extractable.processCtx)
-      .fold(extractable.createEmpty)(extractable.merge)
+      .map(processing.processCtx)
+      .fold(processing.createEmpty)(processing.merge)
   }
 }
