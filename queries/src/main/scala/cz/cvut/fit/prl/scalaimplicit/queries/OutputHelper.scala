@@ -2,10 +2,11 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{Argument, ImplicitArgument}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.TCFamily
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{ReportSummary, SlimReport}
-import org.json4s.NoTypeHints
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{DefinitionSummary, ReportSummary, SlimReport}
+import org.json4s.{NoTypeHints, ShortTypeHints}
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.write
 
@@ -73,6 +74,26 @@ object OutputHelper {
             .map(row =>
               s"""${pV(report.reponame)}, ${row.name}, ${row.occurrences}, ${bV(
                 row.isTransitive)}""")
+      )
+      .mkString("\n")
+    s"$header\n$values"
+  }
+
+  def definitionCSVSummary(projectSummaries: Seq[DefinitionSummary]): String = {
+    def pV(x: String): String = {
+      // FIXME: properly escape " in x
+      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
+    }
+
+    def bV(x: Boolean): String = if (x) "T" else "F"
+
+    val header = "project, sloc, name, occurrences, call_density"
+    val values = projectSummaries
+      .flatMap(
+        report =>
+          report.definitions
+            .map(row =>
+              s"""${pV(report.metadata.reponame)}, ${report.metadata.scalaLOC}, ${row._1}, ${row._2}, ${row._2.toDouble / report.metadata.scalaLOC.toDouble}""")
       )
       .mkString("\n")
     s"$header\n$values"

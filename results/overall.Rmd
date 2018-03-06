@@ -1,0 +1,136 @@
+---
+title: "Overall project information"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width=12, 
+  fig.height=8, 
+  fig.path='Figs/',
+  echo=FALSE,
+  warning=FALSE,
+  message=FALSE
+  )
+```
+
+```{r setup}
+library(readr)
+library(dplyr)
+library(igraph)
+library(stringr)
+basedir = "~/work/scala/workshop/results/rawdata/small/"
+from_basedir = function(folder) {
+  read_csv(paste(basedir, folder, sep=""))
+}
+project_data = from_basedir("project-metadata.csv")
+sorted_by_sloc = project_data[order(project_data$scala_loc), ]
+```
+
+# Overall information about projects.
+
+Some basic information about the LOC distribution in projects:
+
+```{r}
+barplot(
+  sorted_by_sloc$scala_loc / 1000, 
+  las = 2, cex.names = 0.2,
+  names.arg = sorted_by_sloc$reponame, 
+  horiz = TRUE,
+  main = "Thousands of Scala LOC per project"
+  )
+```
+```{r}
+slocs = from_basedir("slocs.csv")
+slocs = slocs %>%
+  filter(grepl("Scala|Java|Javascript", language)) %>%
+  select(c("code", "project", "language"))
+
+uprojs = unique(slocs$project)
+
+scala = slocs %>% filter(language == "Scala") %>% select(project, code)
+java = slocs %>% filter(language == "Java") %>% select(project, code)
+js = slocs %>% filter(language == "Javascript") %>% select(project, code)
+
+unwrapped = scala %>% 
+  left_join(java, by="project") %>% 
+  left_join(js, by="project") %>%
+  mutate(scala_loc = code.x, java_loc = code.y, js_loc = code) %>%
+  select(c("project", "scala_loc", "java_loc", "js_loc"))
+unwrapped[is.na(unwrapped)] = 0
+
+normalized = unwrapped %>%
+  mutate(total = scala_loc + java_loc + js_loc) %>%
+  mutate(scala_loc = scala_loc / total) %>%
+  mutate(java_loc = java_loc / total) %>%
+  mutate(js_loc = js_loc / total)
+
+counts = t(as.matrix(normalized, replace=TRUE))
+barplot(
+  counts[2:4, ],
+  horiz = TRUE,
+  col = c("pink", "cyan", "purple"),
+  legend = c("Scala", "Java", "JS"),
+  main="Distribution of relevant languages in projects",
+  las = 2, cex.names = 0.5,
+  names.arg = counts[1,]
+  )
+```
+
+Note that projects whose star count we couldn't get were omitted.
+
+```{r}
+# Sloc / gh stars
+data = sorted_by_sloc[which(sorted_by_sloc$gh_stars != -1), ]
+plot(
+  x = data$gh_stars,
+  y = data$scala_loc / 1000,
+  log = "xy",
+  main = "Thousands of Scala LOC per GH stars (log scale)",
+  xlab = "GH stars of a project",
+  ylab = "1000s of Scala LOC",
+  sub = paste("cor: ", cor(data$gh_stars, data$scala_loc))
+)
+```
+
+# Reverse dependency graph (under construction)
+
+```{r}
+library(jsonlite)
+scaladex_data = fromJSON("~/work/scala/scaladex/scaladex.processed.json")
+vertices = read_csv("~/work/scala/scaladex/scaladex.processed.vertices.csv")
+edges = read_csv("~/work/scala/scaladex/scaladex.processed.edges.csv")
+
+# The weight of a vertex is the number of reverse dependencies it has
+# vertex_weights = scaladex_data %>%
+#   select(revDependencies) %>%
+#   mutate(artifact = scaladex_data[, 1]$artifact) %>%
+#   mutate(weight = 
+#            Map({function(r){ if (length(r) == 0) { 0 } else {length(r$organization)} }},
+#                scaladex_data$revDependencies))
+# vertex_weights = unique(vertex_weights)
+# 
+# true_weights = vertices %>%
+#     select(artifact) %>%
+#   left_join(vertex_weights, by=c("artifact"="artifact"))
+# true_weights = setNames(true_weights$artifact, true_weights$weight)
+
+# g = graph_from_data_frame(
+#   edges,
+#   directed = TRUE,
+#   vertices = vertices$artifact
+# )
+# plot(
+#   g,
+#   main = "Rerverse dependency graph, Unfinished"
+#   )
+```
+
+# Pattern appearance per project
+
+The main idea is to see at a glance which projects include which patterns in what form.
+
+

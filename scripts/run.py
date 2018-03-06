@@ -105,6 +105,12 @@ class Pipeline():
         with open(report_path, 'w') as report:
             return report.write(content)
 
+    def exclude_non_successful(self, projects):
+        return filter(
+            lambda proj: self.get_report(proj, "analyzer_report") == "SUCCESS",
+            projects
+        )
+
     def info(self, msg):
         if BASE_CONFIG["debug_info"]:
             log(msg)
@@ -501,6 +507,15 @@ def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
                             data.append(subdir)
                             writer.writerow(data)
 
+def get_project_list(projects_path, depth):
+    if depth == 0:
+        return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
+    else:
+        paths = []
+        for p in os.listdir(projects_path):
+            paths = paths + get_project_list(os.path.join(projects_path, p), depth - 1)
+        return paths
+
 @task
 def condense_reports(
         report_name=BASE_CONFIG["condensed_report"],
@@ -520,15 +535,6 @@ def condense_reports(
         status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
         return status
-
-    def get_project_list(projects_path, depth):
-        if depth == 0:
-            return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
-        else:
-            paths = []
-            for p in os.listdir(projects_path):
-                paths = paths + get_project_list(os.path.join(projects_path, p), depth - 1)
-            return paths
 
     def write_manifest(manifest):
        with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
@@ -581,3 +587,156 @@ def cleanup_reports(project_path):
     else:
         P.info("[Cleanup][%s] Report folder not found" % project_path)
         sys.exit(1)
+
+@task
+def merge_metadata(    
+    project_depth=BASE_CONFIG["default_location_depth"],
+    projects_path=BASE_CONFIG["projects_dest"],
+    exclude_unfinished=True
+):
+    #import csvmanip
+    P = Pipeline()
+    depth = int(float(project_depth))
+    projects = get_project_list(projects_path, depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects)
+    metadata_files = map(lambda proj: proj + "/project.csv", projects)
+    projects_info = merge_all(load_many(metadata_files))
+    with open("project-metadata.csv", 'w') as metadata:
+        metadata.write(print_csv(projects_info))
+    sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
+    sloc_csvs = load_many(sloc_files)
+    headers_clean = map(lambda i: drop_header(sloc_csvs[i], 5), range(1, len(sloc_csvs))) # Drop the annoying cloc timestamp
+    with_project = map(lambda i: extend_csv(headers_clean[i], "project", os.path.split(projects[i])[1]), range(1, len(headers_clean)))
+    all_in_one = merge_all(with_project)
+    with open("slocs.csv", 'w') as slocs_file:
+        slocs_file.write(print_csv(all_in_one))
+
+# Run sbt to extract test and compile source paths
+# Store them in _reports/paths.csv
+@task
+def extract_paths(
+    project_path,
+):
+    P = Pipeline()
+    project_name = os.path.split(project_path)[1]
+    P.info("[Paths][%s] Extracting paths" % project_name)
+    def gen_paths_command(project, scope):
+        # Generates an AWK script that matches all lines that look like paths,
+        # And outputs them in nice CSV format.
+        def gen_processor_script(project, scope):
+            return ("$2 ~ /^\// { path = $2; print \"%s, \" path \", %s\";}" %
+                    (project, scope))
+        return ("sbt -batch -Dsbt.log.noformat=true %s:scalaSource | awk '%s' >> %s/paths.csv" %
+                (scope, gen_processor_script(project_name, scope), BASE_CONFIG["reports_folder"]))
+
+
+    P.info("[Paths][%s] Cleaning up previous paths" % project_name)
+    P.local(
+        "echo 'project, path, kind' > %s/paths.csv" % BASE_CONFIG["reports_folder"],
+        project_path
+    )
+
+    P.info("[Paths][%s] Extracting Compile path" % project_name)
+    P.local_canfail(
+        "Get Source Paths",
+        gen_paths_command(project_name, "compile"),
+        project_path
+    )
+    P.info("[Paths][%s] Extracting Test path" % project_name)
+    P.local_canfail(
+        "Get Test Paths",
+        gen_paths_command(project_name, "test"),
+        project_path
+    )
+
+@task
+def merge_paths(
+    project_depth=BASE_CONFIG["default_location_depth"],
+    projects_path=BASE_CONFIG["projects_dest"],
+    exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, project_depth)
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects)
+    paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
+    merged = merge_all(paths_files)
+    
+    with open("paths.all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+####################
+# CSVManip
+####################
+
+import csv
+
+# CSVFile: {
+#   header: List[Str],
+#   data: List[List[Str]]
+#}
+
+def load_csv(path):
+    data = []
+    headers = []
+    with open(path, 'rb') as csvFile:
+        reader = csv.reader(csvFile)
+        headers = reader.next()
+        for line in reader:
+            data.append(line)
+
+    return {
+        "headers": headers,
+        "data": data
+    }
+
+def load_many(paths):
+    return map(load_csv, paths)
+
+def print_csv(csvf):
+    headers = ",".join(csvf["headers"]) + '\n'
+    data = '\n'.join(map(lambda line: ", ".join(line), csvf["data"]))
+    return "%s%s" % (headers, data)
+
+def merge_csvs(one, other):
+    assert(one["headers"] != None)
+    assert(other["headers"] != None)
+    assert(one["headers"] == other["headers"])
+    #assert(((len(one["data"]) == 0) or (len(other["data"]) == 0)) or
+    #        (len(one["data"][1]) == len(other["data"][1])))
+    return {
+        "headers": one["headers"],
+        "data": one["data"] + other["data"]
+    }
+
+def merge_all(csvs):
+    return reduce(lambda f1, f2: merge_csvs(f1, f2), csvs)
+
+def extend_csv(csvf, colname, coldata):
+    if (isinstance(coldata, list)):
+        assert(len(coldata) == len(csvf["data"]))
+        return {
+            "headers": csvf["headers"] + [colname],
+            "data": map(lambda i: csvf["data"][i] + [coldata[i]], range(1, len(csvf["data"])))
+        }
+    else:
+        return {
+            "headers": csvf["headers"] + [colname],
+            "data": map(lambda i: csvf["data"][i] + [coldata], range(1, len(csvf["data"])))
+        }
+
+def drop_header(csvf, index):
+    assert(len(csvf["headers"]) > len(csvf["data"][0]))
+    headers = csvf["headers"]
+    return {
+        "headers": headers[:index] + headers[index + 1:],
+        "data": csvf["data"]
+    }
+
+
+
+        
+
+
