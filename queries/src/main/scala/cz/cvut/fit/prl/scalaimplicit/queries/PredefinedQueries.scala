@@ -8,17 +8,49 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{TCFamily, TCItem}
 import cz.cvut.fit.prl.scalaimplicit.core.reports.{DefinitionSummary, ProjectMetadata, ProjectReport, SlimReport}
 import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{
+  TCFamily,
+  TCItem
+}
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{
+  DefinitionSummary,
+  ProjectMetadata,
+  ProjectReport,
+  SlimReport
+}
+import cz.cvut.fit.prl.scalaimplicit.queries.FilterQuery.{
+  CSFilterQuery,
+  PathFilterQuery
+}
 
 object PredefinedQueries {
-
-  implicit class oneOf(what: String) {
-    def isOneOF(args: String*): Boolean = args.contains(what)
-  }
 
   val DATASET =
     ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
 
   val OUTFOLDER = "../tmp/results"
+
+  implicit class oneOf(what: String) {
+    def isOneOF(args: String*): Boolean = args.contains(what)
+    def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
+  }
+
+  def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
+    case (cs: CallSite, metadata: ProjectMetadata) => {
+      cs.location.get.file.isPrefixOfOneOf(metadata.mainPaths: _*)
+    }
+  }
+
+  def inTest(param: (CallSite, ProjectMetadata)): Boolean = param match {
+    case (cs: CallSite, metadata: ProjectMetadata) => {
+      cs.location.get.file.isPrefixOfOneOf(metadata.testPaths: _*)
+    }
+  }
+
+  def mainTest() = {
+    query(OUTFOLDER, Seq(PathFilterQuery("in-main", inMain)))
+    query(OUTFOLDER, Seq(PathFilterQuery("in-test", inMain)))
+  }
 
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
@@ -95,7 +127,7 @@ object PredefinedQueries {
           true,
           Some(
             Signature(_,
-            Seq(DeclaredParameterList(Seq(parameter), false)),
+                      Seq(DeclaredParameterList(Seq(parameter), false)),
                       _)),
           _),
         _,
@@ -108,6 +140,26 @@ object PredefinedQueries {
     query(
       OUTFOLDER,
       Seq(CSFilterQuery("conversion", conversionFunction))
+    )
+  }
+
+  def conversionInMain(): Unit = {
+    query(
+      OUTFOLDER,
+      Seq(
+        CSFilterQuery("conversion", conversionFunction),
+        PathFilterQuery("in-main", inMain)
+      )
+    )
+  }
+
+  def conversionInTest(): Unit = {
+    query(
+      OUTFOLDER,
+      Seq(
+        CSFilterQuery("conversion", conversionFunction),
+        PathFilterQuery("in-test", inTest)
+      )
     )
   }
 
@@ -141,7 +193,7 @@ object PredefinedQueries {
                           k => k.contains("def") || k.contains("object"))
                         && QueryEngine.matches[Option[Type]](
                           arg.declaration.signature.get.returnType,
-                        rt => rt.isDefined && rt.get.parameters.isEmpty)
+                          rt => rt.isDefined && rt.get.parameters.isEmpty)
                         && QueryEngine.contains[Parent](
                           arg.declaration.parents,
                           parent =>
@@ -170,7 +222,8 @@ object PredefinedQueries {
         proj.result.callSites
           .flatMap(cs =>
             cs.implicitArguments.collect {
-              case arg: ImplicitArgument if arg.declaration.isImplicit && arg.typeArguments.isEmpty =>
+              case arg: ImplicitArgument
+                  if arg.declaration.isImplicit && arg.typeArguments.isEmpty =>
                 (SlimDefinition(arg.declaration), 1)
           })
           .groupBy(_._1.kindedName)
@@ -217,8 +270,7 @@ object PredefinedQueries {
       val sign = cs.declaration.signature.get
 
       sign.parameterLists.exists(list =>
-        !list.isImplicit && list.params.exists(p => isPrimitive(p.tipe.name))
-      )
+        !list.isImplicit && list.params.exists(p => isPrimitive(p.tipe.name)))
     }
 
     def hasPrimitiveRetType(cs: CallSite): Boolean = {
@@ -229,29 +281,36 @@ object PredefinedQueries {
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-param", hasPrimitiveParam))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-param", hasPrimitiveParam))
     )
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-return", hasPrimitiveRetType))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-return", hasPrimitiveRetType))
     )
 
     query(
       OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction), CSFilterQuery("primitive-both", x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
+      Seq(CSFilterQuery("conversion", conversionFunction),
+          CSFilterQuery("primitive-both",
+                        x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
     )
   }
 
-  def query(outfolder: String,
-            queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
-    def makeQuery(reports: Seq[ProjectReport],
-                  path: String,
-                  queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
+  def query(outfolder: String, queries: Seq[FilterQuery[_]]): Unit = {
+    def makeQuery[A](reports: Seq[ProjectReport],
+                     path: String,
+                     queries: Seq[FilterQuery[_]]): Unit = {
       if (queries.nonEmpty) {
-        val query = queries.head
+        val query: FilterQuery[_] = queries.head
         val newPath = s"$path/${query.name}"
-        val qres = QueryEngine(query, reports)
+        // TODO Use proper polymorphism instead
+        val qres = query match {
+          case q: FilterQuery.CSFilterQuery => QueryEngine(q, reports)
+          case q: FilterQuery.PathFilterQuery => QueryEngine(q, reports)
+        }
         printSlimCallSiteReports(
           newPath,
           (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))

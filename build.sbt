@@ -1,5 +1,3 @@
-scalaVersion in ThisBuild := "2.12.4"
-
 lazy val fs2Version = "0.10.1"
 lazy val circeVersion = "0.9.0"
 
@@ -39,6 +37,7 @@ lazy val coreutils = (project in file("core"))
       "io.suzaku" %% "boopickle" % "1.2.6",
       "org.json4s" %% "json4s-native" % "3.6.0-M2",
       "com.lihaoyi" %% "scalatags" % "0.6.7",
+      "com.github.tototoshi" %% "scala-csv" % "1.3.5",
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion
     )
@@ -64,7 +63,6 @@ lazy val classpathExtractor =
   (project in file("sbt-classpath-extractor"))
     .settings(
       sbtVersion in Global := "0.13.16",
-      scalaVersion := "2.12.4",
       crossSbtVersions := Vector("0.13.16", "1.0.4"),
       sbtPlugin := true,
       scalaCompilerBridgeSource := {
