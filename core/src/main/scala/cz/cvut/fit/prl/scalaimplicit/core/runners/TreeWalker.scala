@@ -29,10 +29,13 @@ trait ReflectiveContextProcessing[A] {
   def merge(one: A, other: A): A
 }
 
-class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
-  val root = AbsolutePath(rootPath)
-  logger.debug(s"Analyzing ${rootPath}")
-  def apply[A](extractable: ReflectiveContextProcessing[A]): A = {
+object TreeWalker extends LazyLogging {
+  def apply[A](loader: ClassLoader,
+               rootPath: String,
+               extractable: ReflectiveContextProcessing[A]): A = {
+
+    val root = AbsolutePath(rootPath)
+    logger.debug(s"Analyzing ${rootPath}")
     import scala.collection.JavaConverters.asScalaIteratorConverter
     //TODO MAKE A PROPER CLASS HIERARCHY
     //deleteOldFiles(root)
@@ -51,4 +54,3 @@ class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
       .fold(extractable.createEmpty)(extractable.merge)
   }
 }
-
