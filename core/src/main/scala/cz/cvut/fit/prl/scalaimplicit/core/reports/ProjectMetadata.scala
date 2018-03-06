@@ -1,4 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.reports
+import java.io.File
+
+import com.github.tototoshi.csv._
+
+import scala.collection.immutable
 
 case class ProjectMetadata(
     reponame: String,
@@ -9,23 +14,47 @@ case class ProjectMetadata(
     version: String,
     ghStars: Int,
     totalLOC: Int,
-    scalaLOC: Int
+    scalaLOC: Int,
+    mainPaths: Seq[String],
+    testPaths: Seq[String]
 )
 
 object ProjectMetadata {
-  def loadFromCSV(path: String): ProjectMetadata = {
-    val lines: Seq[String] = io.Source.fromFile(path).getLines().toSeq
-    val info = (lines(0).split(",") zip lines(1).split(",")).groupBy(_._1)
+  def loadCSV(path: String): Seq[Map[String, String]] = {
+    CSVReader
+      .open(new File(path))
+      .allWithHeaders()
+      .map(_.map(x => x._1.trim -> x._2.trim))
+  }
+
+  def processPaths(
+      rawdata: Seq[Map[String, String]]): Map[String, Seq[String]] = {
+    def convertToRelativePaths(entry: Map[String, String]) = Map(
+      "kind" -> entry("kind"),
+      "path" -> entry("path").split(s"/${entry("project")}/")(1)
+    )
+
+    rawdata
+      .map(convertToRelativePaths)
+      .groupBy(_("kind"))
+      .map(p => p._1 -> p._2.map(_("path")))
+  }
+
+  def loadFromCSV(metadataFile: String, pathsFile: String): ProjectMetadata = {
+    val metadata = loadCSV(metadataFile).head
+    val paths = processPaths(loadCSV(pathsFile))
     ProjectMetadata(
-      reponame = info("reponame").head._2,
-      name = info("name").head._2,
-      url = info("url").head._2,
-      lastCommit = info("last_commit").head._2,
-      buildSystem = info("build_system").head._2,
-      version = info("version").head._2,
-      ghStars = info("gh_stars").head._2.toInt,
-      totalLOC = info("total_loc").head._2.toInt,
-      scalaLOC = info("scala_loc").head._2.toInt
+      reponame = metadata("reponame"),
+      name = metadata("name"),
+      url = metadata("url"),
+      lastCommit = metadata("last_commit"),
+      buildSystem = metadata("build_system"),
+      version = metadata("version"),
+      ghStars = metadata("gh_stars").toInt,
+      totalLOC = metadata("total_loc").toInt,
+      scalaLOC = metadata("scala_loc").toInt,
+      mainPaths = paths("compile"),
+      testPaths = paths("test")
     )
   }
 }

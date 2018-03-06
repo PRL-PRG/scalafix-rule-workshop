@@ -536,10 +536,10 @@ def condense_reports(
             manifest_file.write("{\"projects\":[\n")
             for proj in manifest[:-1]:
                 if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
-                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" % (proj[0], proj[1]))
+                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"},\n" % (proj[0], proj[1], proj[2]))
             last = manifest[-1]
             if os.path.exists(last[0]) and os.path.exists(last[1]): 
-                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
+                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"}\n" % (last[0], last[1], last[2]))
             manifest_file.write("]}")
 
     cwd = os.getcwd()
@@ -567,7 +567,11 @@ def condense_reports(
                 res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
                 reports[report] = tuple(map(sum, zip(reports[report], res)))
             full_path = os.path.join(cwd, project_path)
-            manifest.append(("%s/project.csv" % full_path, "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"])))
+            manifest.append((
+                "%s/project.csv" % full_path,
+                "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"]),
+                "%s/%s/paths.csv" % (full_path, BASE_CONFIG["reports_folder"])
+            ))
         write_summary(reports, total_projects, report_file)
     write_manifest(manifest)
 

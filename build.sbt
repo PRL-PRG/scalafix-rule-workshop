@@ -32,7 +32,8 @@ lazy val coreutils = (project in file("core"))
       "com.github.nikita-volkov" % "sext" % "0.2.4",
       "io.suzaku" %% "boopickle" % "1.2.6",
       "org.json4s" %% "json4s-native" % "3.6.0-M2",
-      "com.lihaoyi" %% "scalatags" % "0.6.7"
+      "com.lihaoyi" %% "scalatags" % "0.6.7",
+      "com.github.tototoshi" %% "scala-csv" % "1.3.5"
     )
   )
 lazy val macros = (project in file("macros"))

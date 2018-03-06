@@ -35,9 +35,10 @@ object ProjectReport extends LazyLogging {
         children.toParArray.map {
           case JObject(
               List(JField("metadata", JString(metadataPath)),
-                   JField("results", JString(resultsPath)))) =>
+                   JField("results", JString(resultsPath)),
+                   JField("paths", JString(pathsPath)))) =>
             logger.debug(s"Loading ${resultsPath}")
-            ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
+            ProjectReport(ProjectMetadata.loadFromCSV(metadataPath, pathsPath),
                           JSONSerializer.loadJSON(resultsPath))
         }.arrayseq
     }
