@@ -18,6 +18,11 @@ sealed trait MatchResult[A] {
   def toEither: Either[String, A] = if (matches) Right(instance) else Left(reason)
 }
 
+object MatchResult {
+  def apply[A](matches: Boolean, instance: A, matcher: Matcher[A]): MatchResult[A] =
+    if (matches) Match(instance, matcher) else Mismatch(instance, matcher)
+}
+
 case class Match[A](instance: A, matcher: Matcher[A]) extends MatchResult[A] {
   override def matches: Boolean = true
 
@@ -39,15 +44,11 @@ trait Matcher[-A] {
 
   def negativeDescription: String
 
-  def describeMatch(v: A): Option[String]
+  def describeMatch(v: A): Option[String] = if (test(v)) Some(description) else None
 
-  def describeMismatch(v: A): Option[String]
+  def describeMismatch(v: A): Option[String] = if (!test(v)) Some(s"(${fmt(v)}) $negativeDescription") else None
 
-  def matches[A1 <: A](v: A1): MatchResult[A1] = if (test(v)) {
-    Match(v, this)
-  } else {
-    Mismatch(v, this)
-  }
+  def matches[A1 <: A](v: A1): MatchResult[A1] = MatchResult(test(v), v, this)
 
   // TODO: will it be possible to define &&
   // TODO: will it be possible to define ||

@@ -57,6 +57,8 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
         )
       )
 
+    println(m.description)
+
     val r = JsonQuery.query(filename, m)
     println(r.size)
 
@@ -72,7 +74,7 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
         isSynthetic,
         declaration(
           isImplicit,
-          kind(in("def", "class")),
+          kind(in("def".r, "class".r)),
           signature(
             parameterLists(
               or(
@@ -88,6 +90,8 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
           )
         )
       )
+
+    println(m.description)
 
     val r = JsonQuery.query(filename, m)
     println(r.size)

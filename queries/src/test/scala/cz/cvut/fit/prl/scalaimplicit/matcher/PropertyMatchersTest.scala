@@ -21,11 +21,11 @@ class PropertyMatchersTest extends FunSuite with ScalaTestMatchers with ScalaTes
     p1p2.negativeDescription shouldBe "(p1 that is <= 1) || (p2 that is >= 1)"
 
     (X(2, 1) matches p1) should matched("p1 is > 1")
-    (X(1, 1) matches p1) should mismatched("p1(1) is <= 1")
+    (X(1, 1) matches p1) should mismatched("p1 (1) is <= 1")
 
-    (X(1, 0) matches p1p2) should mismatched("p1(1) is <= 1")
-    (X(2, 1) matches p1p2) should mismatched("p2(1) is >= 1")
-    (X(1, 1) matches p1p2) should mismatched("(p1(1) is <= 1) && (p2(1) is >= 1)")
+    (X(1, 0) matches p1p2) should mismatched("p1 (1) is <= 1")
+    (X(2, 1) matches p1p2) should mismatched("p2 (1) is >= 1")
+    (X(1, 1) matches p1p2) should mismatched("(p1 (1) is <= 1) && (p2 (1) is >= 1)")
   }
 
   test("boolean matcher") {
@@ -49,7 +49,22 @@ class PropertyMatchersTest extends FunSuite with ScalaTestMatchers with ScalaTes
     p1.negativeDescription shouldBe "p1 value that is <= 1"
 
     (X(Some(2)) matches p1) should matched("p1 value is > 1")
-    (X(Some(1)) matches p1) should mismatched("p1 value(1) is <= 1")
+    (X(Some(1)) matches p1) should mismatched("p1 value (1) is <= 1")
     (X(None) matches p1) should mismatched("p1 is None")
+  }
+
+  test("nested properties") {
+    case class Y(p2: Int)
+    case class X(p1: Y)
+
+    val p2 = PropertyMatcher[Y, Int]("p2", _.p2, lt(1))
+    val p1 = PropertyMatcher[X, Y]("p1", _.p1, p2)
+
+    p1.description shouldBe "p1 that p2 that is < 1"
+    p1.negativeDescription shouldBe "p1 that p2 that is >= 1"
+
+    (X(Y(0)) matches p1) should matched("p1 p2 is < 1")
+    (X(Y(1)) matches p1) should mismatched("p1 p2 (1) is >= 1")
+
   }
 }

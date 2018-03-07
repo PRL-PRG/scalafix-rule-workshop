@@ -16,7 +16,11 @@ trait ImplicitMatchers {
   }
 
   implicit class AnyMatcher[A](that: A) {
-    def matches(matcher: Matcher[A]): MatchResult[A] = matcher.matches(that)
+    def matches(matcher: Matcher[A]): MatchResult[A] =
+      matcher.matches(that)
+
+    def matches(matcher1: Matcher[A], matcher2: Matcher[A], matchers: Matcher[A]*): MatchResult[A] =
+      matches(combineAnd(matcher1 +: matcher2 +: matchers))
   }
 
 }

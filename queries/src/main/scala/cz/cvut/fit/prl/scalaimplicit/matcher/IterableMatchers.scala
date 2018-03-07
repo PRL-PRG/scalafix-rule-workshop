@@ -7,56 +7,59 @@ import scala.language.reflectiveCalls
 
 trait IterableMatchers {
 
-  def contains[A](x: Matcher[A], xs: Matcher[A]*): Matcher[Iterable[A]] = {
-    val all = x +: xs
-    val items = all map (_.description)
+  case class contains[-A](x: Matcher[A], xs: Matcher[A]*) extends Matcher[Iterable[A]] {
+    private val all = x +: xs
+    private val items = all map (_.description)
 
-    new AbstractMatcher[Iterable[A]](s"contains ${fmtAsList(items)}", s"does not contain ${fmtAsList(items)}") {
-      def missing(v: Iterable[A]): Seq[Matcher[A]] = all.filterNot(y => v.exists(y.test))
+    override val description: String = s"contains ${fmtAsList(items)}"
+    override val negativeDescription: String = s"does not contain ${fmtAsList(items)}"
 
-      override def test(v: Iterable[A]): Boolean = missing(v).isEmpty
+    private def doTest(v: Iterable[A]) = all.filterNot(y => v.exists(y.test))
 
-      override def describeMismatch(v: Iterable[A]): Option[String] = {
-        // TODO: avoid calling it twice
-        val missingDescription = fmtAsList(missing(v) map (_.description))
-        if (!test(v)) Some(s"${fmt(v)} is missing $missingDescription") else None
-      }
+    override def test(v: Iterable[A]): Boolean = doTest(v).isEmpty
+
+    override def describeMismatch(v: Iterable[A]): Option[String] = doTest(v) match {
+      case Seq() => None
+      case Seq(missing@_*) => Some(s"${fmt(v)} is missing ${fmtAsList(missing map (_.description))}")
     }
   }
 
-  def inOrderOnly[A](x: Matcher[A], xs: Matcher[A]*): Matcher[Iterable[A]] = {
-    val all = x +: xs
-    val items = all map (_.description)
 
-    new AbstractMatcher[Iterable[A]](s"contains in order only ${fmtAsList(items)}", s"does not contain in order ${fmtAsList(items)}") {
+  case class inOrderOnly[A](x: Matcher[A], xs: Matcher[A]*) extends Matcher[Iterable[A]] {
+    private val all = x +: xs
+    private val items = all map (_.description)
 
-      def problems(v: Iterable[A]): Seq[(Int, String)] = {
-        val sdMatchersElems = Math.max(all.size - v.size, 0)
-        val extendedElements = v.map(Option.apply) ++ ((0 until sdMatchersElems) map (_ => None))
+    private def doTest(v: Iterable[A]): Seq[(Int, String)] = {
+      val sdMatchersElems = Math.max(all.size - v.size, 0)
+      val extendedElements = v.map(Option.apply) ++ ((0 until sdMatchersElems) map (_ => None))
 
-        val sdElemsMatchers = Math.max(v.size - all.size, 0)
-        val extendedMatchers =
-          (all ++ (0 until sdElemsMatchers).map(_ => mismatch("should be empty"))).map(some[A])
+      val sdElemsMatchers = Math.max(v.size - all.size, 0)
+      val extendedMatchers =
+        (all ++ (0 until sdElemsMatchers).map(_ => mismatch("should be empty"))).map(some[A])
 
-        (extendedMatchers zip extendedElements)
-          .map {
-            case (m, elem) => m.matches(elem)
-          }
-          .zipWithIndex
-          .collect {
-            case (r@Mismatch(_, _), idx) => idx -> r.reason
-          }
-      }
-
-      override def test(v: Iterable[A]): Boolean = problems(v).isEmpty
-
-      override def describeMismatch(v: Iterable[A]): Option[String] = {
-        // TODO: avoid calling it twice
-        val problemsDescription = fmtAsMap(problems(v) map { case (idx, r) => s"$idx: $r" })
-        if (!test(v)) Some(s"${fmt(v)} is missing in order $problemsDescription") else None
-      }
+      (extendedMatchers zip extendedElements)
+        .map {
+          case (m, elem) => m.matches(elem)
+        }
+        .zipWithIndex
+        .collect {
+          case (r@Mismatch(_, _), idx) => idx -> r.reason
+        }
     }
 
+    override val description = s"contains in order only ${fmtAsList(items)}"
+
+    override val negativeDescription = s"does not contain in order ${fmtAsList(items)}"
+
+    override def test(v: Iterable[A]): Boolean = doTest(v).isEmpty
+
+    override def describeMismatch(v: Iterable[A]): Option[String] = doTest(v) match {
+      case Seq() => None
+      case Seq(nonMatching@_*) => {
+        val problems = fmtAsMap(nonMatching map { case (idx, r) => s"$idx: $r" })
+        Some(s"${fmt(v)} not matching on indices $problems")
+      }
+    }
   }
 
   def allOf[A1 >: A, A](x: A1, xs: A1*): Matcher[Iterable[A]] = {
@@ -66,7 +69,7 @@ trait IterableMatchers {
     contains[A1](is2(x), xs.map(is2): _*)
   }
 
-  // TODO: anyOf(1,2,3)
+  // TODO: anyOf(1,2,3) which is basically like in - anyOf(x, xs) => contains(in(x, xs))?
 
   def isEmpty[A <: {def isEmpty : Boolean}]: Matcher[A] =
     BooleanPropertyMatcher("empty", _.isEmpty)

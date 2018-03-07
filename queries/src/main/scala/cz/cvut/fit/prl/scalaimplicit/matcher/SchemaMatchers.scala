@@ -35,8 +35,11 @@ trait SchemaMatchers {
   def line[A <: {def line : Int}](x: Matcher[Int], xs: Matcher[Int]*): Matcher[A] =
     PropertyMatcher("line", _.line, combineAnd(x +: xs))
 
-  def location[A <: {def location : Option[Location]}](x: Matcher[Option[Location]], xs: Matcher[Option[Location]]*): Matcher[A] =
+  def location[A <: {def location : Option[Location]}](x: Matcher[Option[Location]], xs: Matcher[Option[Location]]*)(implicit o: OverloadHack1): Matcher[A] =
     PropertyMatcher("location", _.location, combineAnd(x +: xs))
+
+  def location[A <: {def location : Option[Location]}](x: Matcher[Location], xs: Matcher[Location]*)(implicit o: OverloadHack2): Matcher[A] =
+    OptionPropertyMatcher("location", _.location, combineAnd(x +: xs))
 
   def name[A <: {def name : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
     PropertyMatcher("name", _.name, combineAnd(x +: xs))

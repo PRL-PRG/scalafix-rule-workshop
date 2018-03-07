@@ -6,24 +6,19 @@ trait EqMatchers {
 
   def not[A](x: Matcher[A]): Matcher[A] = !x
 
-  def in[A](x: A, xs: A*): Matcher[A] = {
-    // TODO: there is a duplication with IterableMatches.allOf
-    def is2(x: A) = FunMatcher[A](v => v == x, fmt(x), fmt(x))
+  case class in[A](x: A, xs: A*) extends Matcher[A] {
+    private val all = x +: xs
+    private val itemsDescription = fmtAsList(all.map(fmt))
 
-    combineIn((x +: xs) map is2)
-  }
+    private def findMatching(v: A): Option[A] = all.find(_ == v)
 
-  def combineIn[A](xs: Seq[Matcher[A]]): Matcher[A] = {
-    val itemsDescription = fmtAsList(xs.map(fmt))
+    override val description = s"is in $itemsDescription"
 
-    new AbstractMatcher[A](s"is in $itemsDescription", s"is not in $itemsDescription") {
-      def findMatching(v: A): Option[Matcher[A]] = xs.find(_.matches(v).matches)
+    override val negativeDescription = s"is not in $itemsDescription"
 
-      override def test(v: A): Boolean = findMatching(v).isDefined
+    override def test(v: A): Boolean = findMatching(v).isDefined
 
-      override def describeMatch(v: A): Option[String] =
-        findMatching(v).flatMap(_.describeMatch(v))
-    }
+    override def describeMatch(v: A): Option[String] = findMatching(v).map("is " + fmt(_))
   }
 
   def isNone[A]: Matcher[Option[A]] = FunMatcher(_.isEmpty, "is None", "is Some")
@@ -53,7 +48,6 @@ trait EqMatchers {
 
     override def describeMatch(v: A): Option[String] = None
   }
-
 }
 
 object EqMatchers extends EqMatchers
