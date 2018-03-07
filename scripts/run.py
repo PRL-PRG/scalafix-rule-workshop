@@ -35,6 +35,7 @@ BASE_CONFIG = {
     "tools_dir": "tools",
     "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/master/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
+    "callsite_counter_name": "callsite-counter.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
     "sbt_plugins": ["scalameta-config"],
@@ -85,7 +86,10 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_report(self, project_path, kind, reports_folder_name=BASE_CONFIG["reports_folder"]):
+    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        return os.path.join(project_path, reports_folder_name, BASE_CONFIG["phase_reports_folder"])
+
+    def read_phase_report(self, project_path, kind):
         def get_report_in(path, kind):
             for f in os.listdir(path):
                 if f == BASE_CONFIG["phase_reports"][kind]:
@@ -93,14 +97,14 @@ class Pipeline():
                         return report.read()
             return None
 
-        reports_folder = os.path.join(project_path, reports_folder_name)
+        reports_folder = self.get_phase_reports_folder(project_path)
         res = get_report_in(reports_folder, kind)
         # For projects that were processed before we had the _reports folder
         if res is None: res = get_report_in(project_path, kind)
         return res if res is None else res.strip()
 
-    def write_report(self, content, project_path, kind):
-        report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
+    def write_phase_report(self, content, project_path, kind):
+        report_folder = self.get_phase_reports_folder(project_path)
         if not os.path.exists(report_folder):
             os.mkdir(report_folder)
         report_path = os.path.join(report_folder, BASE_CONFIG["phase_reports"][kind])
@@ -109,7 +113,7 @@ class Pipeline():
 
     def exclude_non_successful(self, projects, report_kind):
         return filter(
-            lambda proj: self.get_report(proj, report_kind) == "SUCCESS",
+            lambda proj: self.read_phase_report(proj, report_kind) == "SUCCESS",
             projects
         )
 
@@ -141,14 +145,51 @@ class Pipeline():
         project_build_systems = self.get_build_systems(src_path)
         return any(system in BASE_CONFIG["supported_build_systems"] for system in project_build_systems)
 
+class Phase:
+    def __init__(self, project_path):
+        self.project_path = project_path
+        self.P = Pipeline()
+
+    def dependOn(self, phase):
+        report = self.P.read_phase_report(phase)
+        if report is None:
+            self.P.error("[Phase] Dependency %s is None for project %s" % (phase, self.project_path))
+            sys.exit(1)
+        elif report.startswith("SUCCESS"):
+            self.P.info("[Phase] Dependency %s met for project %s" % (phase, self.project_path))
+        else:
+            self.P.error("[Phase] Dependency %s unmen for project %s" % (phase, self.project_path))
+            sys.exit(1)
+
+
+    def runAndResume(self, command, title = "runAndResume ERROR"):
+        failed = self.P.local_canfail(title, command, self.project_path)
+        if failed:
+            self.P.error("[Phase] Failed command %s on project %s" % (command, self.project_path))
+            sys.exit(1)
+
+    def stopIfAlreadyReported(self, phase):
+        report = self.P.read_phase_report(self.project_path, phase)
+        self.P.info("[Phase] Compilation report found (%s). Skipping" % (report))
+        if report is not None:
+            sys.exit(0 if report.startswith("SUCCESS") else 1)
+
+    def succeed(self, phase, payload = ''):
+        self.P.write_phase_report("SUCCESS %s" % payload, self.project_path, phase)
+
+    def fail(self, phase, payload = ''):
+        self.P.write_phase_report("ERROR %s" % payload, self.project_path, phase)
+
+
+
 @task
 def test_analyze(
         project_path,
         expected_path
 ):
     def test_report(report_kind):
-        expected_res = P.get_report(expected_path, report_kind)
-        actual_res = P.get_report(project_path, report_kind)
+        expected_res = P.read_phase_report(expected_path, report_kind)
+        actual_res = P.read_phase_report(project_path, report_kind)
         if not (expected_res == actual_res):
             P.error("[TEST][FAILED] In report %s, expected %s, got %s for project %s" %
                     (report_kind, expected_res, actual_res, project_path))
@@ -276,20 +317,20 @@ def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
     def handle_success(project_path, project_name, tag):
         P.info("[CCompile][%s] Compilation successful on master" % (project_name))
         report = "SUCCESS\n%s" % tag
-        P.write_report(report, project_path, "compilation_report")
+        P.write_phase_report(report, project_path, "compilation_report")
         sys.exit(0)
 
     def handle_failure(project_path, project_name, tags):
         P.error("[CCompile][%s] Could not find a tag that could compile in \n%s" % (project_name, tags))
         report = "FAILURE\n%s" % tag
-        P.write_report(report, project_path, "compilation_report")
+        P.write_phase_report(report, project_path, "compilation_report")
         sys.exit(1)
 
     project_name = os.path.split(project_path)[1]
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[CCompile][%s] Attempting compilation of %s" % (project_name, project_name))
-    report = P.get_report(project_path, "compilation_report")
+    report = P.read_phase_report(project_path, "compilation_report")
     if report:
         P.info("[CCompile][%s] Compilation report found. Skipping" % project_name)
         sys.exit(0 if report.startswith("SUCCESS") else 1)
@@ -328,24 +369,24 @@ def gen_sdb(
 
     def handle_success(project_path, project_name):
         P.info("[GenSDB][%s] Compilation completed succesfuly" % project_name)
-        P.write_report("SUCCESS", project_path, "semanticdb_report")
+        P.write_phase_report("SUCCESS", project_path, "semanticdb_report")
         sys.exit(0)
 
     def handle_partial(project_path, project_name):
         if sdb_files_exist(project_path):
             P.info("[GenSDB][%s] Compilation completed with errors. Some SDB files found" % project_name)
-            P.write_report("PARTIAL", project_path, "semanticdb_report")
+            P.write_phase_report("PARTIAL", project_path, "semanticdb_report")
             sys.exit(0)
         else:
             handle_error(project_path, project_name)
 
     def handle_error(project_path, project_name):
         P.error("[GenSDB][%s] Skipping project" % project_name)
-        P.write_report("ERROR", project_path, "semanticdb_report")
+        P.write_phase_report("ERROR", project_path, "semanticdb_report")
         sys.exit(1)
 
     def clean_compile_succeeded(project_path, project_name):
-        report = P.get_report(project_path, "compilation_report")
+        report = P.read_phase_report(project_path, "compilation_report")
         if report is None:
             P.info("[GenSDB][%s] Clean compilation report not found" % project_name)
             return False
@@ -362,7 +403,7 @@ def gen_sdb(
         sys.exit(1)
 
     P.info("[GenSDB][%s] Looking for report from previous compilation..." % project_name)
-    report = P.get_report(project_path, "semanticdb_report")
+    report = P.read_phase_report(project_path, "semanticdb_report")
     if needs_recompile(report):
         P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
         failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True)
@@ -382,14 +423,14 @@ def gen_sdb(
 def analysis_command(project_path, project_name, title, command, report_kind):
     P = Pipeline()
     success = True
-    report = P.get_report(project_path, report_kind)
+    report = P.read_phase_report(project_path, report_kind)
     if report is None or report == 'ERROR':
         failed = P.local_canfail(title, command, project_path)
         if not failed:
-            P.write_report('SUCCESS', project_path, report_kind)
+            P.write_phase_report('SUCCESS', project_path, report_kind)
             P.info("[Analysis][%s] Done" % project_name)
         else:
-            P.write_report('ERROR', project_path, report_kind)
+            P.write_phase_report('ERROR', project_path, report_kind)
             P.error("[Analysis][%s] Skipping project" % project_name)
             success = False
     else:
@@ -444,12 +485,12 @@ def classpath(project_path):
     cwd = os.getcwd()
     P = Pipeline()
     project_name = os.path.split(project_path)[1]
-    compilation_report = P.get_report(project_path, "compilation_report")
+    compilation_report = P.read_phase_report(project_path, "compilation_report")
     if compilation_report is None or compilation_report == 'ERROR':
         P.error("[Classpath][%s] Clean compilation reported unsuccessful. Aborting" % project_name)
         sys.exit(1)
 
-    classpath_report = P.get_report(project_path, "classpath_report")
+    classpath_report = P.read_phase_report(project_path, "classpath_report")
     if classpath_report is None:
         P.info("[Classpath][%s] Previous report not found. Running task" % project_name)
         success = run_classpath_tool(project_name, project_path)
@@ -506,6 +547,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
         os.mkdir(tools_dir)
     # Stick to default tool names
     download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
+    download_tool("CallSite Counter", BASE_CONFIG["callsite_counter_name"])
     P.info("[Setup] Done")
 
 @task
@@ -559,19 +601,19 @@ def condense_reports(
         report_file.write("----------------------------")
 
     def append_report(project_path, report_file, report_kind):
-        status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
+        status = str(P.read_phase_report(project_path, report_kind)).replace('\n', ' \\ ')
         report_file.write("  - %s: %s\n" % (report_kind, status))
         return status
 
     def write_manifest(manifest):
-       with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
+        with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
             manifest_file.write("{\"projects\":[\n")
             for proj in manifest[:-1]:
-                if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
-                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"},\n" % (proj[0], proj[1], proj[2]))
+                if os.path.exists(proj[0]) and os.path.exists(proj[1]):
+                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" % (proj[0], proj[1]))
             last = manifest[-1]
-            if os.path.exists(last[0]) and os.path.exists(last[1]): 
-                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"}\n" % (last[0], last[1], last[2]))
+            if os.path.exists(last[0]) and os.path.exists(last[1]):
+                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
             manifest_file.write("]}")
 
     cwd = os.getcwd()
@@ -579,14 +621,15 @@ def condense_reports(
     P.info("[Reports] Generating analysis report")
 
     manifest = []
- 
+
     with open(os.path.join(cwd, report_name), 'w') as report_file:
         write_header(report_file)
         reports = {
             "compilation_report": (0, 0),
             "semanticdb_report": (0, 0),
             "analyzer_report": (0, 0),
-            "classpath_report": (0, 0)
+            "classpath_report": (0, 0),
+            "callsite_count_report": (0, 0)
         }
         total_projects = 0
         for project_path in get_project_list(projects_path, int(float(project_depth))):
@@ -599,11 +642,7 @@ def condense_reports(
                 res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
                 reports[report] = tuple(map(sum, zip(reports[report], res)))
             full_path = os.path.join(cwd, project_path)
-            manifest.append((
-                "%s/project.csv" % full_path,
-                "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"]),
-                "%s/%s/paths.csv" % (full_path, BASE_CONFIG["reports_folder"])
-            ))
+            manifest.append(("%s/project.csv" % full_path, "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"])))
         write_summary(reports, total_projects, report_file)
     write_manifest(manifest)
 
@@ -694,9 +733,47 @@ def merge_paths(
         projects = P.exclude_non_successful(projects, "analyzer_report")
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
     merged = merge_all(paths_files)
-    
+
     with open("paths.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
+
+@task
+def count_callsites(project_path):
+    def run_count_command(project_name, project_path, tool_path, jvm_options):
+        P = Pipeline()
+        P.info("[Analysis][%s] Counting Call Sites..." % project_name)
+        title = "Count Call Sites"
+        command = "java -jar %s %s . ./%s" % (jvm_options, tool_path, BASE_CONFIG["reports_folder"])
+        return analysis_command(project_path, project_name, title, command, "callsite_count_report")
+
+    P = Pipeline()
+    cwd = os.getcwd()
+    counter_tool_path = os.path.join(cwd, BASE_CONFIG["tools_dir"], BASE_CONFIG["callsite_counter_name"])
+    project_name = os.path.split(project_path)[1]
+
+    analysis_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
+    if not analysis_failed:
+        run_count_command(project_name, project_path, counter_tool_path, "")
+
+@task
+def merge_callsite_counts(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "callsite_count_report")
+    files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(1, len(files)))
+    merged = merge_all(with_project)
+
+    with open("callsite-counts.all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+
 
 ####################
 # CSVManip
