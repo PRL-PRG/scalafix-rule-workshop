@@ -11,7 +11,7 @@ class CallSiteCountTestSuite extends SemanticdbTest {
     }
   }
 
-  implicit class NormalizedCallSiteCount(what: Seq[CallSiteCount]) {
+  implicit class NormalizedCallSiteCount(what: Seq[FileCount]) {
     def normalized = what.map(_.copy(file = ""))
   }
 }

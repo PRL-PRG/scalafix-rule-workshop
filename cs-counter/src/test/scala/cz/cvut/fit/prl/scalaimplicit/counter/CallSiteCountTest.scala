@@ -16,7 +16,7 @@ class CallSiteCountTest extends CallSiteCountTestSuite {
     db => {
       CountCallSites
         .processDB(db)
-        .normalized should contain only CallSiteCount("", 2, 1)
+        .normalized should contain only FileCount("", 2, 1)
     }
   )
 
@@ -33,7 +33,7 @@ class CallSiteCountTest extends CallSiteCountTestSuite {
     db => {
       CountCallSites
         .processDB(db)
-        .normalized should contain only CallSiteCount("", 2, 0)
+        .normalized should contain only FileCount("", 2, 0)
     }
   )
 
@@ -50,7 +50,7 @@ class CallSiteCountTest extends CallSiteCountTestSuite {
     db => {
       CountCallSites
         .processDB(db)
-        .normalized should contain only CallSiteCount("", 3, 0)
+        .normalized should contain only FileCount("", 3, 0)
     }
   )
 
@@ -67,7 +67,7 @@ class CallSiteCountTest extends CallSiteCountTestSuite {
     db => {
       CountCallSites
         .processDB(db)
-        .normalized should contain only CallSiteCount("", 2, 1)
+        .normalized should contain only FileCount("", 2, 1)
     }
   )
 }

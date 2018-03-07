@@ -12,7 +12,7 @@ import org.langmeta.semanticdb.{Database, Synthetic}
 
 object Main extends LazyLogging {
 
-  def toCSV(res: Seq[CallSiteCount]): String = {
+  def toCSV(res: Seq[FileCount]): String = {
     val header = "file,insource,synthetic"
     val values = res.map(_.toCSV).mkString("\n")
     s"${header}\n${values}"
@@ -34,31 +34,31 @@ object Main extends LazyLogging {
   }
 }
 
-case class CallSiteCount(file: String, syntactic: Int, synthetic: Int) {
+case class FileCount(file: String, syntactic: Int, synthetic: Int) {
   val toCSV = s"${file},${syntactic},${synthetic}"
 }
 
-object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
+object CountCallSites extends SemanticDBProcessing[Seq[FileCount]] {
   private def hasJVMSignaure(name: ResolvedName): Boolean = {
     name.symbol.syntax.contains("(") && name.symbol.syntax.contains(")")
   }
 
   import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.implicitSemanticDB._
 
-  def isApply(s: Synthetic) = s.text.startsWith("*.apply")
+  def isApply(s: Synthetic): Boolean = s.text.startsWith("*.apply")
 
-  def isConversion(s: Synthetic) = s.syntax.contains("(*)")
+  def isConversion(s: Synthetic): Boolean = s.text.contains("(*)")
 
-  override def processDB(db: Database): Seq[CallSiteCount] = {
+  override def processDB(db: Database): Seq[FileCount] = {
     val syntactic =
       db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
     val synthetic = db.synthetics.count(s => isConversion(s) || isApply(s))
-    Seq(CallSiteCount(db.file, syntactic, synthetic))
+    Seq(FileCount(db.file, syntactic, synthetic))
   }
 
-  override def createEmpty: Seq[CallSiteCount] = Seq()
+  override def createEmpty: Seq[FileCount] = Seq()
 
-  override def merge(one: Seq[CallSiteCount],
-                     other: Seq[CallSiteCount]): Seq[CallSiteCount] =
+  override def merge(one: Seq[FileCount],
+                     other: Seq[FileCount]): Seq[FileCount] =
     one ++ other
 }

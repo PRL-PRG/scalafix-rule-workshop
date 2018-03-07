@@ -48,7 +48,10 @@ object TreeWalker extends LazyLogging {
       }
       .toSeq
       .par
-      .map(file => processing.processDB(DBOps.loadDB(file)))
+      .map(file => {
+        logger.debug(s"Processing ${file}")
+        processing.processDB(DBOps.loadDB(file))
+      })
       .fold(processing.createEmpty)(processing.merge)
   }
 }
