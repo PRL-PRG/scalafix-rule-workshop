@@ -692,7 +692,7 @@ def merge_callsite_counts(
 ):
     P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
-    projects = get_project_list(projects_path, project_depth)
+    projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "callsite_count_report")
     files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
