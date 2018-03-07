@@ -43,10 +43,14 @@ BASE_CONFIG = {
     "condensed_report": "condensed-report.txt",
 
     "reports_folder": "_reports",
-    "compilation_report": "COMPILATION_REPORT.TXT",
-    "semanticdb_report": "SEMANTICDB_REPORT.TXT",
-    "analyzer_report": "ANALYZER_REPORT.TXT",
-    "classpath_report": "CLEANUP_REPORT.TXT"
+    "phase_reports": {
+        "compilation_report": "COMPILATION_REPORT.TXT",
+        "semanticdb_report": "SEMANTICDB_REPORT.TXT",
+        "analyzer_report": "ANALYZER_REPORT.TXT",
+        "classpath_report": "CLEANUP_REPORT.TXT",
+        "callsite_count_report": "CALLSITES_REPORT.TXT",
+        "path_extraction_report": "PATHS_REPORT.TXT"
+    }
 }
 
 def log(msg, color='magenta'):
@@ -84,7 +88,7 @@ class Pipeline():
     def get_report(self, project_path, kind, reports_folder_name=BASE_CONFIG["reports_folder"]):
         def get_report_in(path, kind):
             for f in os.listdir(path):
-                if f == BASE_CONFIG[kind]:
+                if f == BASE_CONFIG["phase_reports"][kind]:
                     with open(os.path.join(path, f)) as report:
                         return report.read()
             return None
@@ -93,19 +97,19 @@ class Pipeline():
         res = get_report_in(reports_folder, kind)
         # For projects that were processed before we had the _reports folder
         if res is None: res = get_report_in(project_path, kind)
-        return res
+        return res if res is None else res.strip()
 
     def write_report(self, content, project_path, kind):
         report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
         if not os.path.exists(report_folder):
             os.mkdir(report_folder)
-        report_path = os.path.join(report_folder, BASE_CONFIG[kind])
+        report_path = os.path.join(report_folder, BASE_CONFIG["phase_reports"][kind])
         with open(report_path, 'w') as report:
             return report.write(content)
 
-    def exclude_non_successful(self, projects):
+    def exclude_non_successful(self, projects, report_kind):
         return filter(
-            lambda proj: self.get_report(proj, "analyzer_report") == "SUCCESS",
+            lambda proj: self.get_report(proj, report_kind) == "SUCCESS",
             projects
         )
 
@@ -138,11 +142,39 @@ class Pipeline():
         return any(system in BASE_CONFIG["supported_build_systems"] for system in project_build_systems)
 
 @task
+def test_analyze(
+        project_path,
+        expected_path
+):
+    def test_report(report_kind):
+        expected_res = P.get_report(expected_path, report_kind)
+        actual_res = P.get_report(project_path, report_kind)
+        if not (expected_res == actual_res):
+            P.error("[TEST][FAILED] In report %s, expected %s, got %s for project %s" %
+                    (report_kind, expected_res, actual_res, project_path))
+        else:
+            P.info("[TEST][SUCCESS] In report %s for project %s" %(report_kind, project_path))
+
+    P = Pipeline()
+    P.info("[TEST][Setup] Cleaning up project %s" % project_path)
+    reports_folder = os.path.join(os.getcwd(), project_path, BASE_CONFIG["reports_folder"])
+    P.local_canfail("Cleanup tests", "rm -rf %s && mkdir %s" % (reports_folder, reports_folder), project_path)
+    P.info("[TEST][Setup] Running analysis on %s..." % project_path)
+    P.local("fab analyze:project_path=%s" % project_path, ".")
+    #P.info("[TEST] Counting callsites on %s..." % project_path)
+    #P.local("fab count_callsites:project_path=%s" % project_path, ".")
+    P.info("[TEST][Setup] Extracting paths on %s..." % project_path)
+    P.local("fab extract_paths:project_path=%s" % project_path, ".")
+    P.info("[TEST][Setup] Comparing results...")
+    for report in BASE_CONFIG["phase_reports"]:
+        test_report(report)
+
+@task
 def create_project_info(
-    project_path,
-    url=None,
-    last_commit=None,
-    ):
+        project_path,
+        url=None,
+        last_commit=None,
+):
     P = Pipeline()
     def count_locs(project_path):
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
@@ -280,10 +312,10 @@ def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
 
 @task
 def gen_sdb(
-    project_path,
-    force_recompile=BASE_CONFIG["force_recompile_on_fail"],
-    allow_partial_semanticdbs=BASE_CONFIG["allow_partial_semanticdb_files"]
-    ):
+        project_path,
+        force_recompile=BASE_CONFIG["force_recompile_on_fail"],
+        allow_partial_semanticdbs=BASE_CONFIG["allow_partial_semanticdb_files"]
+):
     cwd = os.getcwd()
     P = Pipeline()
     project_name = os.path.split(project_path)[1]
@@ -381,10 +413,10 @@ def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
 
 @task
 def analyze(
-    project_path,
-    tools_dir=BASE_CONFIG["tools_dir"],
-    always_abort=True
-    ):
+        project_path,
+        tools_dir=BASE_CONFIG["tools_dir"],
+        always_abort=True
+):
 
     P = Pipeline()
     setup(tools_dir)
@@ -442,7 +474,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
                 "download sbt plugin %s for v%s" % (plugin_name, version),
                 "wget -O %s %s" % (plugin_name, plugin_url),
                 plugins_folder
-                )
+            )
             if failed:
                 P.error("[Setup] Plugin download failed")
                 sys.exit(1)
@@ -588,17 +620,17 @@ def cleanup_reports(project_path):
         sys.exit(1)
 
 @task
-def merge_metadata(    
-    project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"],
-    exclude_unfinished=True
+def merge_metadata(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
 ):
     #import csvmanip
     P = Pipeline()
     depth = int(float(project_depth))
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
     with open("project-metadata.csv", 'w') as metadata:
@@ -615,7 +647,7 @@ def merge_metadata(
 # Store them in _reports/paths.csv
 @task
 def extract_paths(
-    project_path,
+        project_path,
 ):
     P = Pipeline()
     project_name = os.path.split(project_path)[1]
@@ -651,15 +683,15 @@ def extract_paths(
 
 @task
 def merge_paths(
-    project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"],
-    exclude_unfinished=True
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
 ):
     P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
     projects = get_project_list(projects_path, project_depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
     merged = merge_all(paths_files)
     
