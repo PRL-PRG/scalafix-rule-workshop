@@ -9,6 +9,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s
 import org.json4s.JsonAST.{JArray, JField, JObject, JString}
 import org.json4s.native.JsonMethods.parse
+import io.circe.generic.auto._
 
 case class ProjectReport(
     metadata: ProjectMetadata,
@@ -35,10 +36,11 @@ object ProjectReport extends LazyLogging {
         children.toParArray.map {
           case JObject(
               List(JField("metadata", JString(metadataPath)),
-                   JField("results", JString(resultsPath)))) =>
+                   JField("results", JString(resultsPath)),
+                   JField("paths", JString(pathsPath)))) =>
             logger.debug(s"Loading ${resultsPath}")
-            ProjectReport(ProjectMetadata.loadFromCSV(metadataPath),
-                          JSONSerializer.loadJSON(resultsPath))
+            ProjectReport(ProjectMetadata.loadFromCSV(metadataPath, pathsPath),
+              JSONSerializer.loadJSON[ImplicitAnalysisResult](resultsPath))
         }.arrayseq
     }
   }

@@ -15,20 +15,41 @@ import cz.cvut.fit.prl.scalaimplicit.core.reports.{
   ProjectReport,
   SlimReport
 }
-import cz.cvut.fit.prl.scalaimplicit.queries.QueryEngine.CSFilterQuery
+import cz.cvut.fit.prl.scalaimplicit.queries.FilterQuery.{
+  CSFilterQuery,
+  PathFilterQuery
+}
 
 import scala.collection.immutable
 
 object PredefinedQueries {
 
-  implicit class oneOf(what: String) {
-    def isOneOF(args: String*): Boolean = args.contains(what)
-  }
-
   val DATASET =
     ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
 
   val OUTFOLDER = "../tmp/results"
+
+  implicit class oneOf(what: String) {
+    def isOneOF(args: String*): Boolean = args.contains(what)
+    def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
+  }
+
+  def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
+    case (cs: CallSite, metadata: ProjectMetadata) => {
+      cs.location.get.file.isPrefixOfOneOf(metadata.mainPaths: _*)
+    }
+  }
+
+  def inTest(param: (CallSite, ProjectMetadata)): Boolean = param match {
+    case (cs: CallSite, metadata: ProjectMetadata) => {
+      cs.location.get.file.isPrefixOfOneOf(metadata.testPaths: _*)
+    }
+  }
+
+  def mainTest() = {
+    query(OUTFOLDER, Seq(PathFilterQuery("in-main", inMain)))
+    query(OUTFOLDER, Seq(PathFilterQuery("in-test", inMain)))
+  }
 
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
@@ -39,7 +60,7 @@ object PredefinedQueries {
       s.isImplicit &&
       (s.kind.contains("object") || s.kind.contains("def") || s.kind.contains(
         "class")) &&
-      s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
+        s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
     }
     def isTCInstanceOf(parent: Declaration, inst: Declaration): Boolean = {
       inst.parents.exists(_.name == parent.name)
@@ -118,6 +139,26 @@ object PredefinedQueries {
     query(
       OUTFOLDER,
       Seq(CSFilterQuery("conversion", conversionFunction))
+    )
+  }
+
+  def conversionInMain(): Unit = {
+    query(
+      OUTFOLDER,
+      Seq(
+        CSFilterQuery("conversion", conversionFunction),
+        PathFilterQuery("in-main", inMain)
+      )
+    )
+  }
+
+  def conversionInTest(): Unit = {
+    query(
+      OUTFOLDER,
+      Seq(
+        CSFilterQuery("conversion", conversionFunction),
+        PathFilterQuery("in-test", inTest)
+      )
     )
   }
 
@@ -257,15 +298,18 @@ object PredefinedQueries {
     )
   }
 
-  def query(outfolder: String,
-            queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
-    def makeQuery(reports: Seq[ProjectReport],
-                  path: String,
-                  queries: Seq[QueryEngine.FilterQuery[CallSite]]): Unit = {
+  def query(outfolder: String, queries: Seq[FilterQuery[_]]): Unit = {
+    def makeQuery[A](reports: Seq[ProjectReport],
+                     path: String,
+                     queries: Seq[FilterQuery[_]]): Unit = {
       if (queries.nonEmpty) {
-        val query = queries.head
+        val query: FilterQuery[_] = queries.head
         val newPath = s"$path/${query.name}"
-        val qres = QueryEngine(query, reports)
+        // TODO Use proper polymorphism instead
+        val qres = query match {
+          case q: FilterQuery.CSFilterQuery => QueryEngine(q, reports)
+          case q: FilterQuery.PathFilterQuery => QueryEngine(q, reports)
+        }
         printSlimCallSiteReports(
           newPath,
           (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))

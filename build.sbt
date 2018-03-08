@@ -1,4 +1,8 @@
+lazy val fs2Version = "0.10.1"
+lazy val circeVersion = "0.9.0"
+
 lazy val commonSettings = Seq(
+  test in assembly := {},
   scalaVersion := "2.12.4",
   crossScalaVersions := Vector("2.12.4", "2.11.11"),
   sbtVersion in Global := "1.0.4",
@@ -32,7 +36,10 @@ lazy val coreutils = (project in file("core"))
       "com.github.nikita-volkov" % "sext" % "0.2.4",
       "io.suzaku" %% "boopickle" % "1.2.6",
       "org.json4s" %% "json4s-native" % "3.6.0-M2",
-      "com.lihaoyi" %% "scalatags" % "0.6.7"
+      "com.lihaoyi" %% "scalatags" % "0.6.7",
+      "com.github.tototoshi" %% "scala-csv" % "1.3.5",
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
     )
   )
 lazy val macros = (project in file("macros"))
@@ -46,9 +53,12 @@ lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "scalatags" % "0.6.7"
+      "com.lihaoyi" %% "scalatags" % "0.6.7",
+      "co.fs2" %% "fs2-io" % fs2Version,
+      "io.circe" %% "circe-fs2" % circeVersion
     ))
   .dependsOn(coreutils % "test->test", macros)
+
 
 lazy val classpathExtractor =
   (project in file("sbt-classpath-extractor"))

@@ -158,16 +158,16 @@ class NewSchemaTest extends SemanticdbTest {
                         DeclaredParameter(
                           name = "b",
                           tipe = Type(name = "scala.Function1",
-                                      parameters =
-                                        Seq(Type("scala.Function1.T1"),
-                                            Type("scala.Function1.R")))
+                            parameters =
+                              Seq(Type("scala.Function1.T1"),
+                                Type("scala.Function1.R")))
                         ),
                         DeclaredParameter(
                           name = "c",
                           tipe = Type(name = "scala.Function1",
-                                      parameters =
-                                        Seq(Type("scala.Function1.T1"),
-                                            Type("scala.Function1.R")))
+                            parameters =
+                              Seq(Type("scala.Function1.T1"),
+                                Type("scala.Function1.R")))
                         )
                       )
                     )

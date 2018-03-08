@@ -1,34 +1,28 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
+import io.circe.parser._
+import io.circe.syntax._
+import io.circe.{Decoder, Encoder}
 
 object JSONSerializer {
-  import Representation._
-  import org.json4s._
-  import org.json4s.native.JsonMethods._
-  import org.json4s.native.Serialization
-  import org.json4s.native.Serialization.{read, write}
-
-  def saveJSON(res: ImplicitAnalysisResult, file: String) = {
-    implicit val formats = Serialization.formats(
-      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
-    val ser = write(res)
-    Files.write(Paths.get(file), ser.getBytes)
+  def saveJSON[T: Encoder](res: T, file: String): Path = {
+    val ser = res.asJson
+    Files.write(Paths.get(file), ser.noSpaces.getBytes)
   }
 
-  def loadJSON(file: String): ImplicitAnalysisResult = {
-    implicit val formats = Serialization.formats(
-      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
-    val source = io.Source.fromFile(file).mkString
-    read[ImplicitAnalysisResult](source)
+  def loadJSON[T: Decoder](file: String): T = {
+    val res = for {
+      json <- parse(scala.io.Source.fromFile(file).mkString)
+      obj <- json.as[T]
+    } yield obj
+
+    res match {
+      case Left(err) => sys.error("Unable to parse file: " + file + ": " + err)
+      case Right(r) => r
+    }
   }
 
-  def prettyJSON(res: ImplicitAnalysisResult): String = {
-    implicit val formats = Serialization.formats(
-      ShortTypeHints(List(classOf[Argument], classOf[ImplicitArgument])))
-    pretty(render(parse(write(res))))
-  }
+  def prettyJSON[T: Encoder](res: T): String = res.asJson.spaces2
 }
