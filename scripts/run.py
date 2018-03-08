@@ -171,6 +171,7 @@ class Phase:
 
 
     def run_and_resume(self, command, error_title ="runAndResume ERROR"):
+        self.info("Running %s" % command)
         failed = self.P.local_canfail(error_title, command, os.getcwd())
         if failed:
             self.error("Failed command %s on project %s" % (command, self.project_path))
@@ -456,7 +457,7 @@ def get_project_list(projects_path, depth):
         return paths
 
 @task
-def condense_reports(
+def merge_reports(
         projects_path=BASE_CONFIG["projects_dest"],
         project_depth=BASE_CONFIG["default_location_depth"]
 ):
@@ -475,21 +476,20 @@ def condense_reports(
         P.info("[Reports] Reading reports for %s" % project)
         return map(lambda kind: str(P.read_phase_report(project, kind)).split('\n')[0], report_kinds)
 
-
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
 
-    manifest = []
-
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
     projects = get_project_list(projects_path, int(float(project_depth)))
+    project_names = map(lambda p: os.path.split(p)[1], projects)
 
     reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
 
     long_csv = long
     for report in reports: long_csv = add_row(long_csv, report)
+    long_csv = extend_csv(long_csv, "project", project_names)
 
     with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
