@@ -60,7 +60,7 @@ object PredefinedQueries {
       s.isImplicit &&
       (s.kind.contains("object") || s.kind.contains("def") || s.kind.contains(
         "class")) &&
-      s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
+        s.signature.get.returnType.isDefined && s.signature.get.returnType.get.parameters.isEmpty
     }
     def isTCInstanceOf(parent: Declaration, inst: Declaration): Boolean = {
       inst.parents.exists(_.name == parent.name)

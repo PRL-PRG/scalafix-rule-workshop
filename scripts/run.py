@@ -306,12 +306,17 @@ def create_project_info(
     phase.succeed("project_info_report")
 
 @task
-def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
+def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"], pull=True):
+    project_name = os.path.split(project_path)[1]
+    cwd = os.getcwd()
     P = Pipeline()
     phase = Phase(project_path, "CCompile")
     project_name = os.path.split(project_path)[1]
 
     phase.stop_if_already_reported("compilation_report")
+
+#    if pull:
+#        P.local("git reset --hard HEAD && git checkout master && git pull", project_path)
 
     current_commit = P.local("git describe --always --abbrev=0", project_path)
     # Fetch the latest commits so they show up in `git describe`

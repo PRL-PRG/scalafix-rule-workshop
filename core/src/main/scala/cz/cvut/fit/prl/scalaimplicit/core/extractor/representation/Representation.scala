@@ -46,7 +46,8 @@ object Representation {
                       declaration: Declaration,
                       typeArguments: Seq[Type],
                       implicitArguments: Seq[ArgumentLike])
-  trait ArgumentLike {
+
+  sealed trait ArgumentLike {
     def code: String
   }
   case class Argument(code: String) extends ArgumentLike
@@ -55,7 +56,7 @@ object Representation {
                               declaration: Declaration,
                               typeArguments: Seq[Type],
                               arguments: Seq[ArgumentLike])
-      extends ArgumentLike
+    extends ArgumentLike
 }
 
 object Factories {
