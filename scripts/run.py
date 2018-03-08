@@ -24,10 +24,6 @@ BASE_CONFIG = {
     "allow_partial_semanticdb_files": False,
     "max_backwards_steps": 5,
 
-    "report_files": [
-        "project.csv"
-    ],
-
     "supported_build_systems": [
         "sbt"
     ],
@@ -35,18 +31,25 @@ BASE_CONFIG = {
     "tools_dir": "tools",
     "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/master/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
+    "callsite_counter_name": "callsite-counter.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
     "sbt_plugins": ["scalameta-config"],
     "sbt_versions": ["0.13", "1.0"],
 
-    "condensed_report": "condensed-report.txt",
+    "condensed_report_long": "condensed-report.long.csv",
 
     "reports_folder": "_reports",
-    "compilation_report": "COMPILATION_REPORT.TXT",
-    "semanticdb_report": "SEMANTICDB_REPORT.TXT",
-    "analyzer_report": "ANALYZER_REPORT.TXT",
-    "classpath_report": "CLEANUP_REPORT.TXT"
+    "phase_reports_folder": "_phases",
+    "phase_reports": {
+        "compilation_report": "COMPILATION_REPORT.TXT",
+        "semanticdb_report": "SEMANTICDB_REPORT.TXT",
+        "analyzer_report": "ANALYZER_REPORT.TXT",
+        "classpath_report": "CLEANUP_REPORT.TXT",
+        "callsite_count_report": "CALLSITES_REPORT.TXT",
+        "paths_extraction_report": "PATHS_REPORT.TXT",
+        "project_info_report": "PROJECTINFO_REPORT.TXT"
+    }
 }
 
 def log(msg, color='magenta'):
@@ -81,33 +84,36 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_report(self, project_path, kind, reports_folder_name=BASE_CONFIG["reports_folder"]):
+    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        report_folder = os.path.join(os.getcwd(), project_path, reports_folder_name, BASE_CONFIG["phase_reports_folder"])
+        if not os.path.exists(report_folder):
+            os.mkdir(report_folder)
+        return report_folder
+
+    def read_phase_report(self, project_path, kind):
         def get_report_in(path, kind):
             for f in os.listdir(path):
-                if f == BASE_CONFIG[kind]:
+                if f == BASE_CONFIG["phase_reports"][kind]:
                     with open(os.path.join(path, f)) as report:
                         return report.read()
             return None
 
-        reports_folder = os.path.join(project_path, reports_folder_name)
-        if not os.path.exists(reports_folder):
-            return None
+        reports_folder = self.get_phase_reports_folder(project_path)
         res = get_report_in(reports_folder, kind)
         # For projects that were processed before we had the _reports folder
+        if res is None: res = get_report_in(os.path.join(project_path, BASE_CONFIG["reports_folder"]), kind)
         if res is None: res = get_report_in(project_path, kind)
-        return res
+        return res if res is None else res.strip()
 
-    def write_report(self, content, project_path, kind):
-        report_folder = os.path.join(project_path, BASE_CONFIG["reports_folder"])
-        if not os.path.exists(report_folder):
-            os.mkdir(report_folder)
-        report_path = os.path.join(report_folder, BASE_CONFIG[kind])
+    def write_phase_report(self, content, project_path, kind):
+        report_folder = self.get_phase_reports_folder(project_path)
+        report_path = os.path.join(report_folder, BASE_CONFIG["phase_reports"][kind])
         with open(report_path, 'w') as report:
             return report.write(content)
 
-    def exclude_non_successful(self, projects):
+    def exclude_non_successful(self, projects, report_kind):
         return filter(
-            lambda proj: self.get_report(proj, "analyzer_report") == "SUCCESS",
+            lambda proj: self.read_phase_report(proj, report_kind) == "SUCCESS",
             projects
         )
 
@@ -139,13 +145,89 @@ class Pipeline():
         project_build_systems = self.get_build_systems(src_path)
         return any(system in BASE_CONFIG["supported_build_systems"] for system in project_build_systems)
 
+class Phase:
+    def __init__(self, project_path, phase_name):
+        self.project_path = project_path
+        self.project_name = os.path.split(project_path)[1]
+        self.phase_name = phase_name
+        self.P = Pipeline()
+
+    def info(self, message):
+        self.P.info("[%s][%s] %s" % (self.phase_name, self.project_name, message))
+
+    def error(self, message):
+        self.P.error("[%s][%s] %s" % (self.phase_name, self.project_name, message))
+
+    def depend_on(self, phase):
+        report = self.P.read_phase_report(self.project_path, phase)
+        if report is None:
+            self.error("Dependency %s is None for project %s" % (phase, self.project_path))
+            sys.exit(1)
+        elif report.startswith("SUCCESS"):
+            self.info("Dependency %s met for project %s" % (phase, self.project_path))
+        else:
+            self.error("Dependency %s unmet for project %s" % (phase, self.project_path))
+            sys.exit(1)
+
+
+    def run_and_resume(self, command, error_title ="runAndResume ERROR"):
+        failed = self.P.local_canfail(error_title, command, os.getcwd())
+        if failed:
+            self.error("Failed command %s on project %s" % (command, self.project_path))
+            sys.exit(1)
+
+    def stop_if_already_reported(self, phase):
+        report = self.P.read_phase_report(self.project_path, phase)
+        if report is not None:
+            self.info("Phase report found (%s). Skipping" % (report))
+            sys.exit(0 if report.startswith("SUCCESS") else 1)
+
+    def succeed(self, phase, payload = ''):
+        self.info("SUCCESS")
+        self.P.write_phase_report("SUCCESS %s" % payload, self.project_path, phase)
+        sys.exit(0)
+
+    def fail(self, phase, payload = ''):
+        self.error("ERROR")
+        self.P.write_phase_report("ERROR %s" % payload, self.project_path, phase)
+        sys.exit(1)
+
+
+
+@task
+def test_analyze(
+        project_path,
+        expected_path
+):
+    def test_report(report_kind):
+        expected_res = P.read_phase_report(expected_path, report_kind)
+        actual_res = P.read_phase_report(project_path, report_kind)
+        if not (expected_res == actual_res):
+            P.error("[TEST][FAILED] In report %s, expected %s, got %s for project %s" %
+                    (report_kind, expected_res, actual_res, project_path))
+        else:
+            P.info("[TEST][SUCCESS] In report %s for project %s" %(report_kind, project_path))
+
+    P = Pipeline()
+    P.info("[TEST][Setup] Cleaning up project %s" % project_path)
+    reports_folder = os.path.join(os.getcwd(), project_path, BASE_CONFIG["reports_folder"])
+    P.local_canfail("Cleanup tests", "rm -rf %s && mkdir %s" % (reports_folder, reports_folder), project_path)
+    P.info("[TEST][Setup] Running analysis on %s..." % project_path)
+    P.local("fab analyze:project_path=%s" % project_path, ".")
+    #P.info("[TEST] Counting callsites on %s..." % project_path)
+    #P.local("fab count_callsites:project_path=%s" % project_path, ".")
+    P.info("[TEST][Setup] Extracting paths on %s..." % project_path)
+    P.local("fab extract_paths:project_path=%s" % project_path, ".")
+    P.info("[TEST][Setup] Comparing results...")
+    for report in BASE_CONFIG["phase_reports"]:
+        test_report(report)
+
 @task
 def create_project_info(
-    project_path,
-    url=None,
-    last_commit=None,
-    ):
-    P = Pipeline()
+        project_path,
+        url=None,
+        last_commit=None,
+):
     def count_locs(project_path):
         if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
             P.local("cloc --out=cloc_report.csv --csv .", project_path)
@@ -193,7 +275,11 @@ def create_project_info(
             return original.replace(".git", "")
         return original
 
+    P = Pipeline()
+    phase = Phase(project_path, "Metadata")
     project_name = os.path.split(project_path)[1]
+
+    phase.stop_if_already_reported("project_info_report")
     P.info("[Metadata][%s] Creating project info..." % project_name)
 
     project_info = {}
@@ -217,52 +303,17 @@ def create_project_info(
         writer = csv.writer(csv_file, delimiter=',')
         writer.writerow(project_info.keys())
         writer.writerow(project_info.values())
-    sys.exit(0)
-
-@task
-def import_single(src_path, dest_dir=BASE_CONFIG["projects_dest"]):
-
-    def do_import(subdir, srcpath, destpath):
-        cwd = os.getcwd()
-        shutil.copytree(srcpath, destpath)
-        P.info("[Import] Done!")
-        return False
-
-    P = Pipeline()
-    subdir = os.path.basename(src_path)
-    dest_path = os.path.join(dest_dir, subdir)
-    import_failed = False
-    if os.path.isdir(src_path) and P.is_build_system_supported(src_path):
-        P.info("[Import] %s" % str(src_path))
-        if not os.path.exists(dest_path):
-            import_failed = do_import(subdir, src_path, dest_path)
-        else:
-            P.info("[Import] Already imported")
-        sys.exit(1 if import_failed else 0)
-
+    phase.succeed("project_info_report")
 
 @task
 def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"], pull=True):
-    def handle_success(project_path, project_name, tag):
-        P.info("[CCompile][%s] Compilation successful on master" % (project_name))
-        report = "SUCCESS\n%s" % tag
-        P.write_report(report, project_path, "compilation_report")
-        sys.exit(0)
-
-    def handle_failure(project_path, project_name, tags):
-        P.error("[CCompile][%s] Could not find a tag that could compile in \n%s" % (project_name, tags))
-        report = "FAILURE\n%s" % tag
-        P.write_report(report, project_path, "compilation_report")
-        sys.exit(1)
-
     project_name = os.path.split(project_path)[1]
     cwd = os.getcwd()
     P = Pipeline()
-    P.info("[CCompile][%s] Attempting compilation of %s" % (project_name, project_name))
-    report = P.get_report(project_path, "compilation_report")
-    if report:
-        P.info("[CCompile][%s] Compilation report found. Skipping" % project_name)
-        sys.exit(0 if report.startswith("SUCCESS") else 1)
+    phase = Phase(project_path, "CCompile")
+    project_name = os.path.split(project_path)[1]
+
+    phase.stop_if_already_reported("compilation_report")
 
 #    if pull:
 #        P.local("git reset --hard HEAD && git checkout master && git pull", project_path)
@@ -277,159 +328,72 @@ def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"], pu
         if not checkout_failed:
             failed = P.local_canfail("Compile tag %s" % tag, "sbt -batch compile", project_path, verbose=True)
             if not failed:
-                handle_success(project_path, project_name, tag)
+                phase.succeed("compilation_report", payload = tag)
         else:
             P.error("[CCompile][%s] Checkout for tag %s failed. Skipping" % (project_name, tag))
 
-    handle_failure(project_path, project_name, tags)
+    phase.fail("compilation_report", payload = tags)
 
 @task
 def gen_sdb(
-    project_path,
-    force_recompile=BASE_CONFIG["force_recompile_on_fail"],
-    allow_partial_semanticdbs=BASE_CONFIG["allow_partial_semanticdb_files"]
-    ):
-    cwd = os.getcwd()
+        project_path
+):
     P = Pipeline()
-    project_name = os.path.split(project_path)[1]
+    phase = Phase(project_path, "Semanticdb")
+    phase.depend_on("compilation_report")
+    phase.stop_if_already_reported("semanticdb_report")
 
-    def sdb_files_exist(path):
-        for wd, subdirs, files in os.walk(path):
-            for file in files:
-                if file.endswith("semanticdb"):
-                    return True
-
-    def handle_success(project_path, project_name):
-        P.info("[GenSDB][%s] Compilation completed succesfuly" % project_name)
-        P.write_report("SUCCESS", project_path, "semanticdb_report")
-        sys.exit(0)
-
-    def handle_partial(project_path, project_name):
-        if sdb_files_exist(project_path):
-            P.info("[GenSDB][%s] Compilation completed with errors. Some SDB files found" % project_name)
-            P.write_report("PARTIAL", project_path, "semanticdb_report")
-            sys.exit(0)
-        else:
-            handle_error(project_path, project_name)
-
-    def handle_error(project_path, project_name):
-        P.error("[GenSDB][%s] Skipping project" % project_name)
-        P.write_report("ERROR", project_path, "semanticdb_report")
-        sys.exit(1)
-
-    def clean_compile_succeeded(project_path, project_name):
-        report = P.get_report(project_path, "compilation_report")
-        if report is None:
-            P.info("[GenSDB][%s] Clean compilation report not found" % project_name)
-            return False
-        elif not report.startswith("SUCCESS"):
-            P.info("[GenSDB][%s] Clean compilation report was not successful (%s)" % (project_name, report[:15]))
-            return False
-        else:
-            return True
-
-    def needs_recompile(report):
-        return report is None or (report.startswith("ERROR") and force_recompile)
-
-    if not clean_compile_succeeded(project_path, project_name):
-        sys.exit(1)
-
-    P.info("[GenSDB][%s] Looking for report from previous compilation..." % project_name)
-    report = P.get_report(project_path, "semanticdb_report")
-    if needs_recompile(report):
-        P.info("[GenSDB][%s] Not found. Recompiling..." % project_name)
-        failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True)
-        if not failed:
-            handle_success(project_path, project_name)
-        if failed and allow_partial_semanticdbs:
-            handle_partial(project_path, project_name)
-        else:
-            handle_error(project_path, project_name)
+    failed = P.local_canfail("Generate semanticdb", "sbt -batch semanticdb compile", project_path, verbose=True)
+    if failed:
+        phase.fail("semanticdb_report")
     else:
-        if report.startswith("ERROR"):
-            handle_error(project_path, project_name)
-        else:
-            P.info("[GenSDB][%s] Compilation report found (%s). Skipping" % (project_name, report))
-            sys.exit(0)
-
-def analysis_command(project_path, project_name, title, command, report_kind):
-    P = Pipeline()
-    success = True
-    report = P.get_report(project_path, report_kind)
-    if report is None or report == 'ERROR':
-        failed = P.local_canfail(title, command, project_path)
-        if not failed:
-            P.write_report('SUCCESS', project_path, report_kind)
-            P.info("[Analysis][%s] Done" % project_name)
-        else:
-            P.write_report('ERROR', project_path, report_kind)
-            P.error("[Analysis][%s] Skipping project" % project_name)
-            success = False
-    else:
-        P.info("[Analysis][%s] %s report found (%s). Skipping" % (project_name, title, report))
-    return success
-
-
-def run_classpath_tool(project_name, project_path):
-    P = Pipeline()
-    P.info("[Analysis][%s] Generating classpath..." % project_name)
-    title = "Classpath generation"
-    command = """sbt -batch "show test:fullClasspath" | sed -n -E 's/Attributed\(([^)]*)\)[,]?/\\n\\1\\n/gp' | grep "^/" > classpath.dat"""
-    return analysis_command(project_path, project_name, title, command, "classpath_report")
-
-def run_analysis_tool(project_name, project_path, tool_path, jvm_options):
-    P = Pipeline()
-    P.info("[Analysis][%s] Analyzing semanticdb files..." % project_name)
-    title = "Semanticdb file analysis"
-    command = "java -jar %s %s . ./classpath.dat ./%s" % (jvm_options, tool_path, BASE_CONFIG["reports_folder"])
-    return analysis_command(project_path, project_name, title, command, "analyzer_report")
+        phase.succeed("semanticdb_report")
 
 @task
 def analyze(
-    project_path,
-    tools_dir=BASE_CONFIG["tools_dir"],
-    always_abort=True
-    ):
-
-    P = Pipeline()
-    setup(tools_dir)
+        project_path,
+        tools_dir=BASE_CONFIG["tools_dir"]
+):
+    def run_analysis_tool(tool_path, jvm_options):
+        return Pipeline().local_canfail("Extract Implicits", "java -jar %s %s . ./classpath.dat ./%s" % (jvm_options, tool_path, BASE_CONFIG["reports_folder"]), project_path)
 
     cwd = os.getcwd()
+    phase = Phase(project_path, "ExtractImplicits")
     jvm_options = BASE_CONFIG["analyzer_jvm_options"]
     analysis_tool_path = os.path.join(cwd, tools_dir, BASE_CONFIG["analyzer_name"])
 
-    project_name = os.path.split(project_path)[1]
+    phase.stop_if_already_reported("analyzer_report")
 
-    analysis_failed = P.local_canfail("Clean compilation", "fab compile:project_path=%s" % (project_path), cwd, verbose=True)
-    if not analysis_failed:
-        analysis_failed = P.local_canfail("Project info", "fab create_project_info:project_path=%s" % (project_path), cwd, verbose=True)
-    if not analysis_failed:
-        analysis_failed = P.local_canfail("SDB File generation", "fab gen_sdb:project_path=%s" % (project_path), cwd, verbose=True)
-    if not analysis_failed:
-        analysis_failed = P.local_canfail("Classpath generation", "fab classpath:project_path=%s" % project_path, cwd, verbose=True)
-    if not analysis_failed:
-        analysis_failed = not run_analysis_tool(project_name, project_path, analysis_tool_path, jvm_options)
-    P.info("[Analysis][%s] Analysis concluded" % project_name)
-    sys.exit(1 if analysis_failed else 0)
+    phase.run_and_resume("fab setup:tools_dest=%s" % tools_dir, "Setup")
+    phase.run_and_resume("fab compile:project_path=%s" % project_path, "Clean compilation")
+    phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "Project info")
+    phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "SDB File generation")
+    phase.run_and_resume("fab classpath:project_path=%s" % project_path, "Classpath generation")
+
+    failed = run_analysis_tool(analysis_tool_path, jvm_options)
+    if failed:
+        phase.fail("analyzer_report")
+    else:
+        phase.succeed("analyzer_report")
 
 @task
 def classpath(project_path):
-    cwd = os.getcwd()
-    P = Pipeline()
-    project_name = os.path.split(project_path)[1]
-    compilation_report = P.get_report(project_path, "compilation_report")
-    if compilation_report is None or compilation_report == 'ERROR':
-        P.error("[Classpath][%s] Clean compilation reported unsuccessful. Aborting" % project_name)
-        sys.exit(1)
 
-    classpath_report = P.get_report(project_path, "classpath_report")
-    if classpath_report is None:
-        P.info("[Classpath][%s] Previous report not found. Running task" % project_name)
-        success = run_classpath_tool(project_name, project_path)
-        sys.exit(0 if success else 1)
+    def run_classpath_tool(project_path):
+        return Pipeline().local_canfail("Classpath generation", """sbt -batch "show test:fullClasspath" | sed -n -E 's/Attributed\(([^)]*)\)[,]?/\\n\\1\\n/gp' | grep "^/" > classpath.dat""", project_path)
+
+    phase = Phase(project_path, "Classpath")
+
+    phase.stop_if_already_reported("classpath_report")
+
+    phase.depend_on("compilation_report")
+
+    failed = run_classpath_tool(project_path)
+    if failed:
+        phase.fail("classpath_report")
     else:
-        P.info("[Classpath][%s] Project report found (%s). Skipping." % (project_name, classpath_report))
-        sys.exit(0 if classpath_report.startswith("SUCCESS") else 1)
+        phase.succeed("classpath_report")
+
 
 @task
 def setup(tools_dest=BASE_CONFIG["tools_dir"]):
@@ -447,7 +411,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
                 "download sbt plugin %s for v%s" % (plugin_name, version),
                 "wget -O %s %s" % (plugin_name, plugin_url),
                 plugins_folder
-                )
+            )
             if failed:
                 P.error("[Setup] Plugin download failed")
                 sys.exit(1)
@@ -479,33 +443,8 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
         os.mkdir(tools_dir)
     # Stick to default tool names
     download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
+    download_tool("CallSite Counter", BASE_CONFIG["callsite_counter_name"])
     P.info("[Setup] Done")
-
-@task
-def merge_csv(projects_path=BASE_CONFIG["projects_dest"]):
-    cwd = os.getcwd()
-    P = Pipeline()
-    P.info("[Reports] Gathering reports")
-    # I don't think it's worth it to parametrize the report filenames
-    for report in BASE_CONFIG["report_files"]:
-        P.info("[Reports] %s..." % report)
-        headers = False
-        with open("report_"+report, 'w') as report_file:
-            writer = csv.writer(report_file)
-            for subdir in os.listdir(projects_path):
-                P.info("[Reports] Extracting from %s" % subdir)
-                project_report_path = os.path.join(projects_path, subdir, report)
-                if os.path.exists(project_report_path):
-                    with open(project_report_path) as project_report_file:
-                        project_report = csv.DictReader(project_report_file)
-                        if not headers: # We are processing project.csv files
-                            header = list(["build", "gh_stars", "scala_loc", "project", "url", "version", "reponame", "last_commit", "total_loc", "name"])
-                            writer.writerow(header)
-                            headers = True
-                        for line in project_report:
-                            data = list(line.values())
-                            data.append(subdir)
-                            writer.writerow(data)
 
 def get_project_list(projects_path, depth):
     if depth == 0:
@@ -518,66 +457,44 @@ def get_project_list(projects_path, depth):
 
 @task
 def condense_reports(
-        report_name=BASE_CONFIG["condensed_report"],
         projects_path=BASE_CONFIG["projects_dest"],
         project_depth=BASE_CONFIG["default_location_depth"]
 ):
-    def write_header(report_file):
-        report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
-
-    def write_summary(reports, total, report_file):
-        report_file.write("Summary --------------------------\n Total projects: %d\n" % total)
-        for report in reports:
-            report_file.write(" - %s: Success: %d, Failure: %d\n" % (report, reports[report][0], reports[report][1]))
-        report_file.write("----------------------------")
-
-    def append_report(project_path, report_file, report_kind):
-        status = str(P.get_report(project_path, report_kind)).replace('\n', ' \\ ')
-        report_file.write("  - %s: %s\n" % (report_kind, status))
-        return status
-
     def write_manifest(manifest):
-       with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
+        with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
             manifest_file.write("{\"projects\":[\n")
             for proj in manifest[:-1]:
-                if os.path.exists(proj[0]) and os.path.exists(proj[1]): 
-                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"},\n" % (proj[0], proj[1], proj[2]))
+                if os.path.exists(proj[0]) and os.path.exists(proj[1]):
+                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" % (proj[0], proj[1]))
             last = manifest[-1]
-            if os.path.exists(last[0]) and os.path.exists(last[1]): 
-                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\":\"%s\"}\n" % (last[0], last[1], last[2]))
+            if os.path.exists(last[0]) and os.path.exists(last[1]):
+                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
             manifest_file.write("]}")
+
+    def read_reports(report_kinds, project):
+        P.info("[Reports] Reading reports for %s" % project)
+        return map(lambda kind: str(P.read_phase_report(project, kind)).split('\n')[0], report_kinds)
+
 
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
 
     manifest = []
- 
-    with open(os.path.join(cwd, report_name), 'w') as report_file:
-        write_header(report_file)
-        reports = {
-            "compilation_report": (0, 0),
-            "semanticdb_report": (0, 0),
-            "analyzer_report": (0, 0),
-            "classpath_report": (0, 0)
-        }
-        total_projects = 0
-        for project_path in get_project_list(projects_path, int(float(project_depth))):
-            P.info("[Reports] Extracting from %s" % project_path)
-            project_name = project_path
-            total_projects += 1
-            report_file.write("%s:\n" % project_name)
-            for report in reports:
-                status = append_report(project_path, report_file, report)
-                res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
-                reports[report] = tuple(map(sum, zip(reports[report], res)))
-            full_path = os.path.join(cwd, project_path)
-            manifest.append((
-                "%s/project.csv" % full_path,
-                "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"]),
-                "%s/%s/paths.csv" % (full_path, BASE_CONFIG["reports_folder"])
-            ))
-        write_summary(reports, total_projects, report_file)
+
+    reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
+    long = create_csv(reports_summaries.keys())
+    projects = get_project_list(projects_path, int(float(project_depth)))
+
+    reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
+
+    long_csv = long
+    for report in reports: long_csv = add_row(long_csv, report)
+
+    with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
+        long_summary.write(print_csv(long_csv))
+
+    manifest = map(lambda proj: ("%s/project.csv" % os.path.join(cwd, proj), "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])), projects)
     write_manifest(manifest)
 
 @task
@@ -593,17 +510,17 @@ def cleanup_reports(project_path):
         sys.exit(1)
 
 @task
-def merge_metadata(    
-    project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"],
-    exclude_unfinished=True
+def merge_metadata(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
 ):
     #import csvmanip
     P = Pipeline()
     depth = int(float(project_depth))
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
     with open("project-metadata.csv", 'w') as metadata:
@@ -620,11 +537,14 @@ def merge_metadata(
 # Store them in _reports/paths.csv
 @task
 def extract_paths(
-    project_path,
+        project_path,
 ):
     P = Pipeline()
+    phase = Phase(project_path, "Paths")
     project_name = os.path.split(project_path)[1]
-    P.info("[Paths][%s] Extracting paths" % project_name)
+
+    phase.stop_if_already_reported("paths_extraction_report")
+
     def gen_paths_command(project, scope):
         # Generates an AWK script that matches all lines that look like paths,
         # And outputs them in nice CSV format.
@@ -642,34 +562,79 @@ def extract_paths(
     )
 
     P.info("[Paths][%s] Extracting Compile path" % project_name)
-    P.local_canfail(
+    failed = P.local_canfail(
         "Get Source Paths",
         gen_paths_command(project_name, "compile"),
         project_path
     )
+    if failed:
+        phase.fail("paths_extraction_report")
+
     P.info("[Paths][%s] Extracting Test path" % project_name)
-    P.local_canfail(
+    failed = P.local_canfail(
         "Get Test Paths",
         gen_paths_command(project_name, "test"),
         project_path
     )
+    if failed:
+        phase.fail("paths_extraction_report")
+
+    phase.succeed("paths_extraction_report")
 
 @task
 def merge_paths(
-    project_depth=BASE_CONFIG["default_location_depth"],
-    projects_path=BASE_CONFIG["projects_dest"],
-    exclude_unfinished=True
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
 ):
     P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
     projects = get_project_list(projects_path, project_depth)
     if exclude_unfinished:
-        projects = P.exclude_non_successful(projects)
+        projects = P.exclude_non_successful(projects, "analyzer_report")
     paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
     merged = merge_all(paths_files)
-    
+
     with open("paths.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
+
+@task
+def count_callsites(project_path):
+    def run_count_command(project_path, tool_path):
+        return Pipeline().local_canfail("Count Call Sites", "java -jar %s . ./%s" % (tool_path, BASE_CONFIG["reports_folder"]), project_path)
+
+    phase = Phase(project_path, "CallSites")
+    cwd = os.getcwd()
+    counter_tool_path = os.path.join(cwd, BASE_CONFIG["tools_dir"], BASE_CONFIG["callsite_counter_name"])
+
+    phase.stop_if_already_reported("callsite_count_report")
+    phase.depend_on("semanticdb_report")
+
+    failed = run_count_command(project_path, counter_tool_path)
+    if failed:
+        phase.fail("callsite_counter_name")
+    else:
+        phase.succeed("callsite_couner_name")
+
+@task
+def merge_callsite_counts(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "callsite_count_report")
+    files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(1, len(files)))
+    merged = merge_all(with_project)
+
+    with open("callsite-counts.all.csv", 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+
 
 ####################
 # CSVManip
@@ -739,7 +704,17 @@ def drop_header(csvf, index):
         "data": csvf["data"]
     }
 
+def create_csv(headers):
+    return {
+        "headers": headers,
+        "data": []
+    }
 
+def add_row(csvf, row):
+    return {
+        "headers": csvf["headers"],
+        "data": csvf["data"] + [row]
+    }
 
         
 

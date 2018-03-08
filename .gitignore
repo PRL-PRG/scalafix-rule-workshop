@@ -10,3 +10,5 @@ temp
 *.pyc
 test_repos
 .rstudio
+/results/rawdata
+.Rproj.user
