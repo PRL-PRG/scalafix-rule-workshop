@@ -5,7 +5,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     PredefinedQueries.conversion()
     PredefinedQueries.dumpAll()
-    //PredefinedQueries.nonTransitiveConversion()
+    PredefinedQueries.conversionTransitivity()
     //PredefinedQueries.mainTest()
     //PredefinedQueries.conversionInMain()
     //PredefinedQueries.conversionInTest()

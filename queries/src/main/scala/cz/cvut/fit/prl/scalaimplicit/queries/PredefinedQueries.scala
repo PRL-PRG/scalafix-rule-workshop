@@ -27,7 +27,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       .seq
   }
 
-  private def printCallSites(results: Seq[QueryResult[CallSite]], destination: String): Unit = {
+  private def printCallSites(results: Seq[QueryResult[CallSite]],
+                             destination: String): Unit = {
     printCallSiteReports(
       s"$OUTFOLDER/$destination",
       results.map(
@@ -42,8 +43,11 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
     def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
   }
 
-  def conversion(): Unit = {
-    val m: Matcher[CallSite] =
+  object PredefinedMatchers {
+    val all: Matcher[CallSite] =
+      BooleanPropertyMatcher[CallSite]("all", x => true)
+
+    val conversion: Matcher[CallSite] =
       and(
         isSynthetic,
         declaration(
@@ -61,12 +65,27 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
         )
       )
 
-    printCallSites(queryCallSites(m), "conversion")
+    val transitive: Matcher[CallSite] = declaration(location(isEmpty))
   }
 
+  def conversion(): Unit = {
+    printCallSites(queryCallSites(PredefinedMatchers.conversion), "conversion")
+  }
 
   def dumpAll() = {
-    printCallSites(queryCallSites(BooleanPropertyMatcher[CallSite]("all", x => true)), "all")
+    printCallSites(queryCallSites(PredefinedMatchers.all), "all")
+  }
+
+  def conversionTransitivity() = {
+    printCallSites(
+      queryCallSites(
+        and(PredefinedMatchers.conversion, PredefinedMatchers.transitive)),
+      "conversion/transitive")
+
+    printCallSites(
+      queryCallSites(
+        and(PredefinedMatchers.conversion, !PredefinedMatchers.transitive)),
+      "conversion/non-transitive")
   }
 
   /*
@@ -169,14 +188,6 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
     case CallSite(_, _, _, _, Declaration(_, _, Some(_), _, _, _), _, _) =>
       true
     case _ => false
-  }
-
-  def nonTransitiveConversion() = {
-    query(
-      OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction),
-          CSFilterQuery("nontransitive", nonTransitiveFunction))
-    )
   }
 
   def typeClass() = {
