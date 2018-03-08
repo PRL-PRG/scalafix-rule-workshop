@@ -367,7 +367,7 @@ def analyze(
     phase.run_and_resume("fab setup:tools_dest=%s" % tools_dir, "Setup")
     phase.run_and_resume("fab compile:project_path=%s" % project_path, "Clean compilation")
     phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "Project info")
-    phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "SDB File generation")
+    phase.run_and_resume("fab gen_sdb:project_path=%s" % project_path, "SDB File generation")
     phase.run_and_resume("fab classpath:project_path=%s" % project_path, "Classpath generation")
 
     failed = run_analysis_tool(analysis_tool_path, jvm_options)
@@ -494,7 +494,11 @@ def condense_reports(
     with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
 
-    manifestables = P.exclude_non_successful(P.exclude_non_successful(projects, "analyzer_report"), "paths_extraction_report")
+    manifestables = P.exclude_non_successful(
+        P.exclude_non_successful(
+            projects,
+            "analyzer_report"),
+        "paths_extraction_report")
 
     manifest = map(lambda proj: (
         "%s/project.csv" % os.path.join(cwd, proj),
