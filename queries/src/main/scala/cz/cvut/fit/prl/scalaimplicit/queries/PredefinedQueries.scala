@@ -27,7 +27,7 @@ object PredefinedQueries {
   val DATASET =
     ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
 
-  val OUTFOLDER = "../tmp/results"
+  val OUTFOLDER = "../results/rawdata/small"
 
   implicit class oneOf(what: String) {
     def isOneOF(args: String*): Boolean = args.contains(what)

@@ -20,9 +20,10 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(readr)
 library(dplyr)
-library(igraph)
+library(tidyr)
 library(stringr)
-basedir = "~/work/scala/workshop/results/rawdata/small/"
+library(ggplot2)
+basedir = "./rawdata/small/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
 }
@@ -46,8 +47,7 @@ barplot(
 ```{r}
 slocs = from_basedir("slocs.csv")
 slocs = slocs %>%
-  filter(grepl("Scala|Java|Javascript", language)) %>%
-  select(c("code", "project", "language"))
+  filter(grepl("Scala|Java|Javascript", language))
 
 uprojs = unique(slocs$project)
 
@@ -96,40 +96,55 @@ plot(
 )
 ```
 
-# Reverse dependency graph (under construction)
+# Call distribution
 
 ```{r}
-library(jsonlite)
-scaladex_data = fromJSON("~/work/scala/scaladex/scaladex.processed.json")
-vertices = read_csv("~/work/scala/scaladex/scaladex.processed.vertices.csv")
-edges = read_csv("~/work/scala/scaladex/scaladex.processed.edges.csv")
+call_site_counts = from_basedir("callsite-counts.all.csv")  %>%
+  mutate(both = insource + synthetic) %>%
+  left_join(project_data, by=c("project"="name"))
 
-# The weight of a vertex is the number of reverse dependencies it has
-# vertex_weights = scaladex_data %>%
-#   select(revDependencies) %>%
-#   mutate(artifact = scaladex_data[, 1]$artifact) %>%
-#   mutate(weight = 
-#            Map({function(r){ if (length(r) == 0) { 0 } else {length(r$organization)} }},
-#                scaladex_data$revDependencies))
-# vertex_weights = unique(vertex_weights)
-# 
-# true_weights = vertices %>%
-#     select(artifact) %>%
-#   left_join(vertex_weights, by=c("artifact"="artifact"))
-# true_weights = setNames(true_weights$artifact, true_weights$weight)
+by_project = call_site_counts %>%
+  group_by(reponame) %>%
+  summarise(insource = sum(insource), synthetic = sum(synthetic), both = sum(both)) %>%
+  mutate(insource_percent = insource / both, 
+         synthetic_percent = synthetic / both)
 
-# g = graph_from_data_frame(
-#   edges,
-#   directed = TRUE,
-#   vertices = vertices$artifact
-# )
-# plot(
-#   g,
-#   main = "Rerverse dependency graph, Unfinished"
-#   )
+by_project_long = gather(by_project, where, percentage, insource_percent:synthetic_percent, factor_key=TRUE)
+
+ggplot(by_project_long, aes(x = reponame, y = percentage, fill = where)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme(legend.position="bottom", legend.direction="horizontal",
+                   legend.title = element_blank()) +
+  labs(y = "Percentage of call sites", x = "Project") +
+  ggtitle("Distribution of call sites between synthetic and in-source")
 ```
 
+
 # Pattern appearance per project
+
+- How many call sites with implicit parameters it has
+- How many implicit conversions it has
+
+```{r}
+with_implicits = from_basedir("all/results.project.summary.csv")
+conversions = from_basedir("conversion/results.project.summary.csv")
+collection = by_project %>%
+  left_join(with_implicits, by=c("reponame"="project")) %>%
+  mutate(implicit_callsites = call_sites_after_filter) %>%
+  dplyr::select(-call_sites_after_filter, -call_sites_before_filter) %>%
+  left_join(conversions, by=c("reponame"="project")) %>%
+  mutate(conversions = call_sites_after_filter) %>%
+  dplyr::select(-call_sites_after_filter, -call_sites_before_filter) %>%
+  mutate(without_conversion = implicit_callsites - conversions)
+
+collection_long = gather(collection, what, callsites, c(insource, synthetic, implicit_callsites, conversions), factor_key=TRUE)
+
+ggplot(collection_long, aes(reponame, callsites)) +
+  geom_bar(aes(fill = what), position = "dodge", stat="identity") +
+  coord_flip()
+```
+
 
 The main idea is to see at a glance which projects include which patterns in what form.
 

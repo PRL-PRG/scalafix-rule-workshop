@@ -19,58 +19,97 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(readr)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
 library(calibrate)
-results_summary <- read_csv("~/work/scala/workshop/results/rawdata/small/conversion/results.callsite.summary.csv") %>% 
+basedir = "./rawdata/small/"
+from_basedir = function(folder) {
+  read_csv(paste(basedir, folder, sep=""))
+}
+results_summary <- from_basedir("conversion/results.callsite.summary.csv") %>%
+  mutate(transitive = !transitive) # Should fix that in the impl
+in_main = from_basedir("conversion/in-main/results.callsite.summary.csv") %>%
+  mutate(transitive = !transitive) # Should fix that in the impl
+in_test = from_basedir("conversion/in-test/results.callsite.summary.csv") %>%
   mutate(transitive = !transitive) # Should fix that in the impl
 ``` 
 
 # Exploration of conversions
+
+## Overall graph
+
+The overall distribution of conversions, by location and by transitivity
+
+```{r}
+transform = function(df, where) {
+  df %>%
+    group_by(project, transitive) %>%
+    summarise(count = sum(occurrences))
+}
+
+counts = rbind(transform(in_main, "main"), transform(in_test, "test"))
+
+draw_transitivity_distribution = function(df, where) {
+  ggplot(transform(df), aes(x = project, y = count, fill = transitive)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    coord_flip() +
+    theme(legend.position="bottom", legend.direction="horizontal",
+                     legend.title = element_blank()) +
+    labs(y = "# Conversions", x = "Project") +
+    ggtitle(paste("Conversion transitivity distribuion in", where)) +
+    scale_fill_discrete(breaks=c("TRUE", "FALSE"),
+                        labels=c("Transitive", "Non-transitive"))
+}
+
+draw_transitivity_distribution(in_main, "Main")
+draw_transitivity_distribution(in_test, "Test")
+```
+
 
 ## Helper functions
 
 We define the filters that we found for call sites:
 
 ```{r}
-
-knownTestingFramework = function(name) {
+known_testing_framework = function(name) {
   grepl("^utest", name) |
   grepl("^org.scalatest", name) |
   grepl("^org.specs2", name)
 }
 
-arrowAssoc = function(name) {
+arrow_assoc = function(name) {
   name == "scala.Predef.ArrowAssoc"
 }
 
-otherScalaPredefs = function(name) {
-  (grepl("^scala.Predef", name) & !arrowAssoc(name))
+other_scala_predefs = function(name) {
+  (grepl("^scala.Predef", name) & !arrow_assoc(name))
 }
 
-lowPrioImplicits = function(name) {
+low_prio_implicits = function(name) {
   grepl("scala.LowPriorityImplicits", name)
 }
 
-containsQuote = function(name) {
+contains_quote = function(name) {
   grepl("[qQ]uote", name)
 }
 
-scalaOption = function(name) {
+scala_option = function(name) {
   grepl("^scala.Option", name)
 }
 
-otherOptions = function(name) {
-  !scalaOption(name) &
+other_options = function(name) {
+  !scala_option(name) &
   grepl("Option", name)
 }
 
-otherScala = function(name) {
-  !arrowAssoc(name) &
-  !otherScalaPredefs(name) &
-  !scalaOption(name) &
+other_scala = function(name) {
+  !arrow_assoc(name) &
+  !other_scala_predefs(name) &
+  !scala_option(name) &
   grepl("^scala.", name)
 }
 
-akkaActor = function(name) {
+akka_actor = function(name) {
   grepl("^akka.actor.actorRef2Scala", name) |
   grepl("^akka.actor.scala2ActorRef", name)
 }
@@ -79,20 +118,21 @@ akkaActor = function(name) {
 And some helper traversal functions:
 
 ```{r}
-filterName = function(df, f) {
+
+filter_name = function(df, f) {
   df[f(df$name),]
 }
 
-filterOccurrences = function(df, f) {
+filter_occurrences = function(df, f) {
   df[f(df$occurrences),]
 }
 
-sumOccurrences = function(df) {
+sum_ocurrences = function(df) {
   sum(df$occurrences)
 }
 
 remainder = function(data, filters) {
-   data[Reduce("&", Map({function(fun) !fun(data$name)}, functions)), ]
+   data[Reduce("&", Map({function(fun) !fun(data$name)}, filters)), ]
 }
 
 printgraph = function(data, names, title) {
@@ -121,18 +161,23 @@ all_conversions = results_summary %>%
 Output the graph
 
 ```{r}
-total = sumOccurrences(all_conversions)
-pietitle = paste("Distribution of all conversions by use ", total)
-names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
-functions = c(knownTestingFramework, arrowAssoc, otherScalaPredefs, lowPrioImplicits, containsQuote, scalaOption, otherOptions, otherScala, akkaActor)
-distribution = Map({function(fun) sumOccurrences(filterName(all_conversions, fun))}, functions)
+draw_conversion_distribution = function (df, title = "Distribution of transitive conversions by use ") {
+  filters = c(known_testing_framework, arrow_assoc, other_scala_predefs, low_prio_implicits, contains_quote, scala_option, other_options, other_scala, akka_actor)
+  total = sum_ocurrences(df)
+  pietitle = paste(title, total)
+  names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
 
-withTotals = c(
-  sumOccurrences(remainder(all_conversions, functions)),
-  distribution
-)
+  distribution = Map({function(fun) sum_ocurrences(filter_name(df, fun))}, filters)
 
-printgraph(withTotals, names, pietitle)
+  with_totals = c(
+    sum_ocurrences(remainder(df, filters)),
+    distribution
+  )
+
+  printgraph(with_totals, names, pietitle)
+}
+
+draw_conversion_distribution(all_conversions, "Distribution of all conversions by use ")
 ```
 
 
@@ -141,28 +186,24 @@ printgraph(withTotals, names, pietitle)
 First we filter the dataset
 
 ```{r}
-transitive_conversions = results_summary[results_summary$transitive,] %>%
-  group_by(name) %>%
-  summarise(occurrences = sum(occurrences)) %>%
-  arrange(-occurrences)
+count_transitive_occurrences = function(df) {
+  df[df$transitive,] %>%
+    group_by(name) %>%
+    summarise(occurrences = sum(occurrences)) %>%
+    arrange(-occurrences)
+}
+transitive_conversions = count_transitive_occurrences(results_summary)
+transitive_in_main = count_transitive_occurrences(in_main)
+transitive_in_test = count_transitive_occurrences(in_test)
 ```
 
 
 And finally, we can produce the graph
 
 ```{r}
-total = sumOccurrences(transitive_conversions)
-pietitle = paste("Distribution of transitive conversions by use ", total)
-names = c("Unknown", "Testing libraries", "ArrowAssoc", "scala.Predef", "scala.LowPriorityImplicits", "Quotes", "Scala Options", "Other Options", "Other scala", "Akka actor <-> scala")
-functions = c(knownTestingFramework, arrowAssoc, otherScalaPredefs, lowPrioImplicits, containsQuote, scalaOption, otherOptions, otherScala, akkaActor)
-distribution = Map({function(fun) sumOccurrences(filterName(transitive_conversions, fun))}, functions)
-
-withTotals = c(
-  sumOccurrences(remainder(transitive_conversions, functions)),
-  distribution
-)
-
-printgraph(withTotals, names, pietitle)
+draw_conversion_distribution(transitive_conversions)
+draw_conversion_distribution(transitive_in_main, "Distribution of transitive conversions by use IN MAIN ")
+draw_conversion_distribution(transitive_in_test, "Distribution of transitive conversions by use IN TEST ")
 ```
 
 # Non-transitive conversions
@@ -210,7 +251,8 @@ barplot(
  horiz = TRUE,
  las = 2,
  main = "Occurrence intervals of non-transitive implicit conversions",
- xlab = "Number of conversions"
+ xlab = "Number of distinct conversion functions",
+ ylab = "Number of occurrences"
 )
 ```
 
@@ -218,7 +260,7 @@ barplot(
 Now, if we _don't_ mush the projects together, maybe we can gather some metadata. First, load the project stats.
 
 ```{r}
-project_metadata <- read_csv("~/work/scala/workshop/results/rawdata/small/project-metadata.csv")
+project_metadata <- from_basedir("project-metadata.csv")
 ```
 
 Then, add LOC information to the nontransitive conversions:

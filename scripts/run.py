@@ -465,10 +465,10 @@ def condense_reports(
             manifest_file.write("{\"projects\":[\n")
             for proj in manifest[:-1]:
                 if os.path.exists(proj[0]) and os.path.exists(proj[1]):
-                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"},\n" % (proj[0], proj[1]))
+                    manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\", \"paths\": \"%s\"},\n" % (proj[0], proj[1], proj[2]))
             last = manifest[-1]
             if os.path.exists(last[0]) and os.path.exists(last[1]):
-                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
+                manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\",\"paths\": \"%s\"}\n" % (last[0], last[1], last[2]))
             manifest_file.write("]}")
 
     def read_reports(report_kinds, project):
@@ -494,7 +494,11 @@ def condense_reports(
     with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
 
-    manifest = map(lambda proj: ("%s/project.csv" % os.path.join(cwd, proj), "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])), projects)
+    manifest = map(lambda proj: (
+        "%s/project.csv" % os.path.join(cwd, proj),
+        "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
+        "%s/%s/paths.csv" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])
+        ), projects)
     write_manifest(manifest)
 
 @task
