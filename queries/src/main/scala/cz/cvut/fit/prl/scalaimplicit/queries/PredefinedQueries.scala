@@ -28,15 +28,15 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   private def queryCallSitesWithMetadata(
-                              matcher: (ProjectMetadata) => Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
+      matcher: (ProjectMetadata) => Matcher[CallSite])
+    : Seq[QueryResult[CallSite]] = {
     DATASET.projects.par
-      .map(
-        project => {
-          val metadata = ProjectMetadata.loadFromCSV(project.metadata, project.paths)
-          QueryResult(
-            JsonQuery.query(project.callSitesFile, matcher(metadata)),
-            metadata)
-        })
+      .map(project => {
+        val metadata =
+          ProjectMetadata.loadFromCSV(project.metadata, project.paths)
+        QueryResult(JsonQuery.query(project.callSitesFile, matcher(metadata)),
+                    metadata)
+      })
       .seq
   }
 
@@ -76,11 +76,14 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
 
     val transitive: Matcher[CallSite] = declaration(location(isEmpty))
 
-
     // TODO Probably this can be done with the contains() matcher
-    def isPrefixIn(strings: Seq[String]): Matcher[String] = BooleanPropertyMatcher[String]("isPrefixIn", str => strings.exists(str.startsWith))
-    def inMain(metadata: ProjectMetadata): Matcher[CallSite] = location(file(isPrefixIn(metadata.mainPaths)))
-    def inTest(metadata: ProjectMetadata): Matcher[CallSite] = location(file(isPrefixIn(metadata.testPaths)))
+    def isPrefixIn(strings: Seq[String]): Matcher[String] =
+      BooleanPropertyMatcher[String]("isPrefixIn",
+                                     str => strings.exists(str.startsWith))
+    def inMain(metadata: ProjectMetadata): Matcher[CallSite] =
+      location(file(isPrefixIn(metadata.mainPaths)))
+    def inTest(metadata: ProjectMetadata): Matcher[CallSite] =
+      location(file(isPrefixIn(metadata.testPaths)))
   }
 
   def conversion(): Unit = {
@@ -104,24 +107,28 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   def mainTest() = {
-    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inMain), "in-main")
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inMain),
+                   "in-main")
 
-    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inTest), "in-test")
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inTest),
+                   "in-test")
+  }
+
+  def conversionInMain(): Unit = {
+    printCallSites(
+      queryCallSitesWithMetadata(data =>
+        and(PredefinedMatchers.inMain(data), PredefinedMatchers.conversion)),
+      "conversion/in-main")
+  }
+
+  def conversionInTest(): Unit = {
+    printCallSites(
+      queryCallSitesWithMetadata(data =>
+        and(PredefinedMatchers.inTest(data), PredefinedMatchers.conversion)),
+      "conversion/in-test")
   }
 
   /*
-  def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
-    case (cs: CallSite, metadata: ProjectMetadata) => {
-      cs.location.get.file.isPrefixOfOneOf(metadata.mainPaths: _*)
-    }
-  }
-
-  def inTest(param: (CallSite, ProjectMetadata)): Boolean = param match {
-    case (cs: CallSite, metadata: ProjectMetadata) => {
-      cs.location.get.file.isPrefixOfOneOf(metadata.testPaths: _*)
-    }
-  }
-
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
       s.signature.get.typeParams.nonEmpty &&
@@ -180,25 +187,6 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
 
   import OutputHelper._
 
-  def conversionInMain(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(
-        CSFilterQuery("conversion", conversionFunction),
-        PathFilterQuery("in-main", inMain)
-      )
-    )
-  }
-
-  def conversionInTest(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(
-        CSFilterQuery("conversion", conversionFunction),
-        PathFilterQuery("in-test", inTest)
-      )
-    )
-  }
 
   val nonTransitiveFunction: CallSite => Boolean = {
     case CallSite(_, _, _, _, Declaration(_, _, Some(_), _, _, _), _, _) =>
@@ -326,27 +314,5 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
           CSFilterQuery("primitive-both",
                         x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
     )
-  }
-
-  def query(outfolder: String, queries: Seq[FilterQuery[_]]): Unit = {
-    def makeQuery[A](reports: Seq[ProjectReport],
-                     path: String,
-                     queries: Seq[FilterQuery[_]]): Unit = {
-      if (queries.nonEmpty) {
-        val query: FilterQuery[_] = queries.head
-        val newPath = s"$path/${query.name}"
-        // TODO Use proper polymorphism instead
-        val qres = query match {
-          case q: FilterQuery.CSFilterQuery => QueryEngine(q, reports)
-          case q: FilterQuery.PathFilterQuery => QueryEngine(q, reports)
-        }
-        printSlimCallSiteReports(
-          newPath,
-          (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
-        makeQuery(qres._1, newPath, queries.tail)
-      }
-    }
-
-    makeQuery(DATASET, outfolder, queries)
   }*/
 }
