@@ -3,7 +3,7 @@ package cz.cvut.fit.prl.scalaimplicit.core.reports
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
 import org.json4s
@@ -13,7 +13,7 @@ import io.circe.generic.auto._
 
 case class ProjectReport(
     metadata: ProjectMetadata,
-    result: ExtractionResult,
+    result: ImplicitAnalysisResult,
     stats: Statistics = Statistics.Default
 )
 
@@ -40,7 +40,7 @@ object ProjectReport extends LazyLogging {
                    JField("paths", JString(pathsPath)))) =>
             logger.debug(s"Loading ${resultsPath}")
             ProjectReport(ProjectMetadata.loadFromCSV(metadataPath, pathsPath),
-              JSONSerializer.loadJSON[ExtractionResult](resultsPath))
+              JSONSerializer.loadJSON[ImplicitAnalysisResult](resultsPath))
         }.arrayseq
     }
   }

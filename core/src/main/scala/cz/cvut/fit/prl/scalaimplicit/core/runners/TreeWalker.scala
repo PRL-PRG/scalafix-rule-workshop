@@ -5,8 +5,9 @@ import java.nio.file.Files
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ErrorCollection,
-  ExtractionResult,
-  OrphanCallSites
+  ImplicitAnalysisResult,
+  OrphanCallSites,
+  ReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
   Argument,
@@ -19,17 +20,25 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
   SemanticCtx
 }
 import org.langmeta.internal.io.PathIO
+import org.langmeta.semanticdb.Database
 
 import scala.meta.AbsolutePath
 
-class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
-  val root = AbsolutePath(rootPath)
-  logger.debug(s"Analyzing ${rootPath}")
-  def apply(f: ReflectiveCtx => ExtractionResult): ExtractionResult = {
+trait SemanticDBProcessing[A] {
+  def processDB(db: Database): A
+  def createEmpty: A
+  def merge(one: A, other: A): A
+}
+
+object TreeWalker extends LazyLogging {
+  def apply[A](rootPath: String, processing: SemanticDBProcessing[A]): A = {
+
+    val root = AbsolutePath(rootPath)
+    logger.debug(s"Analyzing ${rootPath}")
     import scala.collection.JavaConverters.asScalaIteratorConverter
     //TODO MAKE A PROPER CLASS HIERARCHY
     //deleteOldFiles(root)
-    val results = Files
+    Files
       .walk(root.toNIO)
       .iterator()
       .asScala
@@ -39,55 +48,10 @@ class TreeWalker(loader: ClassLoader, rootPath: String) extends LazyLogging {
       }
       .toSeq
       .par
-      .map { file =>
-        ReflectiveVisitor(file, loader, f)
-      }
-      .fold(ExtractionResult.Empty)(
-        (acc, res) =>
-          ExtractionResult(
-            callSites = acc.callSites ++ res.callSites,
-            declarations = acc.declarations ++ res.declarations
-        ))
-    DefnFiller(results)
-  }
-}
-
-object DefnFiller extends (ExtractionResult => ExtractionResult) {
-  def findDeclOrReport(target: {
-    def declaration: Declaration; def name: String
-  }, definitions: Set[Declaration]): Declaration =
-    definitions
-      .find(_.name == target.name)
-      .getOrElse({
-        OrphanCallSites().report("Orphan CallSite",
-                                 s"Declaration not found for {$target.name}")
-        target.declaration
+      .map(file => {
+        logger.debug(s"Processing ${file}")
+        processing.processDB(DBOps.loadDB(file))
       })
-
-  def processArgList(args: Seq[ArgumentLike],
-                     definitions: Set[Declaration]): Seq[ArgumentLike] = {
-    args.map {
-      case arg: Argument => arg
-      case iarg: ImplicitArgument =>
-        iarg.copy(
-          declaration = findDeclOrReport(iarg, definitions),
-          arguments = processArgList(iarg.arguments, definitions)
-        )
-    }
-  }
-
-  def apply(result: ExtractionResult): ExtractionResult = {
-    val defns = result.declarations
-    val nres = result.copy(
-      declarations = defns,
-      callSites = result.callSites.map(
-        cs =>
-          cs.copy(
-            declaration = cs.declaration.copy(
-              location = findDeclOrReport(cs, defns).location),
-            implicitArguments = processArgList(cs.implicitArguments, defns)
-        ))
-    )
-    nres
+      .fold(processing.createEmpty)(processing.merge)
   }
 }

@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.representation
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ExtractionResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import Representation.{CallSite, Declaration, Location, Signature}
 
 object SlimRepresentation {
@@ -48,7 +48,7 @@ object SlimRepresentation {
   case class SlimResult(callSites: Seq[SlimCallSite],
                         definitions: Set[SlimDefinition])
   object SlimResult {
-    def apply(res: ExtractionResult): SlimResult = new SlimResult(
+    def apply(res: ImplicitAnalysisResult): SlimResult = new SlimResult(
       callSites = res.callSites.map(x => SlimCallSite(x)),
       definitions = res.declarations.map(x => SlimDefinition(x))
     )

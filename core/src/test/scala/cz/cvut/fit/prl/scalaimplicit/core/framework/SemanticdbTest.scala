@@ -190,7 +190,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
     }
   }
 
-  implicit class NormalizedRes(that: ExtractionResult) {
+  implicit class NormalizedRes(that: ImplicitAnalysisResult) {
     def normalized = that.copy(
       callSites = normalizedCallSites,
       declarations = normalizedDeclarations
@@ -307,10 +307,11 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   /*
   Return the diff between the prettified JSONs of two results
    */
-  protected def compareJSON(one: ExtractionResult,
-                            other: ExtractionResult): String = {
+
+  protected def compareJSON(one: ImplicitAnalysisResult,
+                            other: ImplicitAnalysisResult): String = {
     import io.circe.generic.auto._
-    def JSONLines(from: ExtractionResult): Seq[String] = {
+    def JSONLines(from: ImplicitAnalysisResult): Seq[String] = {
       lines(Seq(JSONSerializer.prettyJSON(from)))
     }
     compareContents(JSONLines(one), JSONLines(other))

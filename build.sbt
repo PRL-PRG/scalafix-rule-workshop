@@ -16,7 +16,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(coreutils, macros, queries, implicitExtractor)
+  .aggregate(coreutils, macros, queries, implicitExtractor, callSiteCounter)
   .settings(commonSettings: _*)
 
 lazy val coreutils = (project in file("core"))
@@ -81,3 +81,14 @@ lazy val implicitExtractor = (project in file("extractor"))
     assemblyJarName in assembly := "implicit-collector.jar"
   )
   .dependsOn(coreutils)
+
+lazy val callSiteCounter = (project in file("cs-counter"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "callsite-counter.jar",
+    libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+      "com.github.scopt" % "scopt_2.12" % "3.7.0"
+    )
+  )
+  .dependsOn(coreutils % "test->test", coreutils)

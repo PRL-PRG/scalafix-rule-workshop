@@ -1,10 +1,8 @@
 package cz.cvut.fit.prl.scalaimplicit.query
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ExtractionResult, FailFastReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{FailFastReflectExtract, ImplicitAnalysisResult}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
-import cz.cvut.fit.prl.scalaimplicit.core.reports.ProjectReport
 import cz.cvut.fit.prl.scalaimplicit.matcher._
 
 class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
@@ -143,7 +141,7 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
       | }
     """.stripMargin,
     { ctx =>
-      val res: ExtractionResult = FailFastReflectExtract(ctx).normalized
+      val res: ImplicitAnalysisResult = FailFastReflectExtract(ctx).normalized
 
       import Util._
       println(res.callSites(0).toPrettyString)

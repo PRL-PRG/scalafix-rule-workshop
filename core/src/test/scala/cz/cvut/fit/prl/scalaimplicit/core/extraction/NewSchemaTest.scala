@@ -1,7 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractionResult,
+  ImplicitAnalysisResult,
   FailFastReflectExtract,
   ReflectExtract
 }
@@ -126,7 +126,7 @@ class NewSchemaTest extends SemanticdbTest {
       | val mc: C = ma
       |}
     """.trim.stripMargin, { ctx =>
-      val expected = ExtractionResult(
+      val expected = ImplicitAnalysisResult(
         Seq(
           CallSite(
             name = "nested.a2c",
@@ -448,7 +448,7 @@ class NewSchemaTest extends SemanticdbTest {
     * More sophisticated diff methods require the use of external dependencies
     * @param res
     */
-  def debugPrint(res: ExtractionResult) = {
+  def debugPrint(res: ImplicitAnalysisResult) = {
     println(res.callSites.map(x => prettyPrint(x)))
   }
 }

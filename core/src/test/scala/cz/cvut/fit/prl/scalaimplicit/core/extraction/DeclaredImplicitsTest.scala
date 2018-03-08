@@ -1,7 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ExtractionResult,
+  ImplicitAnalysisResult,
   FailFastReflectExtract
 }
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.{
@@ -19,9 +19,9 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       |}
     """.trim.stripMargin,
     ctx => {
-      val res: ExtractionResult =
+      val res: ImplicitAnalysisResult =
         FailFastReflectExtract(ctx).normalized.onlyImplicitDeclarations
-      val expected = ExtractionResult(
+      val expected = ImplicitAnalysisResult(
         Seq(),
         Set(
           r.Declaration(
@@ -92,7 +92,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       )
       compareJSON(
         res,
-        ExtractionResult(Seq(), expected.toSet)
+        ImplicitAnalysisResult(Seq(), expected.toSet)
       )
     }
   )
