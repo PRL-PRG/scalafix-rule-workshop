@@ -101,6 +101,7 @@ class Pipeline():
         reports_folder = self.get_phase_reports_folder(project_path)
         res = get_report_in(reports_folder, kind)
         # For projects that were processed before we had the _reports folder
+        if res is None: res = get_report_in(os.path.join(project_path, BASE_CONFIG["reports_folder"]), kind)
         if res is None: res = get_report_in(project_path, kind)
         return res if res is None else res.strip()
 
@@ -454,20 +455,6 @@ def condense_reports(
         projects_path=BASE_CONFIG["projects_dest"],
         project_depth=BASE_CONFIG["default_location_depth"]
 ):
-    def write_header(report_file, reports):
-        report_file.write(",".join(reports.keys))
-
-    def write_summary(reports, total, report_file):
-        report_file.write("Summary --------------------------\n Total projects: %d\n" % total)
-        for report in reports:
-            report_file.write(" - %s: Success: %d, Failure: %d\n" % (report, reports[report][0], reports[report][1]))
-        report_file.write("----------------------------")
-
-    def append_report(project_path, report_file, report_kind):
-        status = str(P.read_phase_report(project_path, report_kind)).replace('\n', ' \\ ')
-        report_file.write("  - %s: %s\n" % (report_kind, status))
-        return status
-
     def write_manifest(manifest):
         with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
             manifest_file.write("{\"projects\":[\n")
