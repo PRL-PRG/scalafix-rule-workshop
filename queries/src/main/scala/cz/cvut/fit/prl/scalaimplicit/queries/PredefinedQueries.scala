@@ -2,10 +2,9 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimResult
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
-import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.printSlimCallSiteReports
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.printCallSiteReports
 import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
 
 object PredefinedQueries extends Matchers with SchemaMatchers {
@@ -47,13 +46,10 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
               ProjectMetadata.loadFromCSV(project.metadata, project.paths))
         .seq
 
-    printSlimCallSiteReports(
+    printCallSiteReports(
       s"$OUTFOLDER/conversion",
-      reports.map(
-        report =>
-          SlimReport.apply(report._2,
-                           SlimResult(ImplicitAnalysisResult(report._1, Set())),
-                           Statistics.Default))
+      reports.map(report =>
+        ProjectReport(report._2, ImplicitAnalysisResult(report._1, Set())))
     )
   }
   /*

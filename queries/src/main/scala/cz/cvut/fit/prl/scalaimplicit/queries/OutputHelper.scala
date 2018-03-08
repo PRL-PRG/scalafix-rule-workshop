@@ -2,40 +2,32 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ImplicitArgument
-}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.TCFamily
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{
-  DefinitionSummary,
-  ReportSummary,
-  SlimReport
-}
-import org.json4s.{NoTypeHints, ShortTypeHints}
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{DefinitionSummary, ProjectReport, ReportSummary}
+import org.json4s.NoTypeHints
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.write
 
 object OutputHelper {
-  def printSlimCallSiteReports(folder: String,
-                               data: Seq[SlimReport]) = {
+  def printCallSiteReports(folder: String,
+                           data: Seq[ProjectReport]) = {
     if (!Files.exists(Paths.get(folder)))
       Files.createDirectory(Paths.get(folder))
     writeReport(folder, "results", data)
   }
 
-  def writeReport(folder: String, prefix: String, data: Seq[SlimReport]) = {
+  def writeReport(folder: String, prefix: String, data: Seq[ProjectReport]) = {
     Files.write(
       Paths.get(s"./${folder}/${prefix}.coderefs.html"),
       HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.CoderefDocument$)
+        .createDocument(data, HTMLSerializer.CoderefDocument$)
         .getBytes
     )
     Files.write(
       Paths.get(s"./${folder}/${prefix}.summary.html"),
       HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.SummaryDocument$)
+        .createDocument(data, HTMLSerializer.SummaryDocument$)
         .getBytes
     )
     Files.write(
@@ -48,18 +40,17 @@ object OutputHelper {
     )
   }
 
-  def projectCSVSummary(reports: Seq[SlimReport]): String = {
+  def projectCSVSummary(reports: Seq[ProjectReport]): String = {
     def prepareValue(x: String) = {
       // FIXME: properly escape " in x
       '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
     }
 
-    val header = "project, call_sites_before_filter, call_sites_after_filter"
+    val header = "project, call_sites_after_filter"
     val values = reports
       .map(report =>
         s"""${prepareValue(report.metadata.reponame)},${prepareValue(
-             report.stats.callSitesBeforeFilter.toString)},${prepareValue(
-             report.stats.callSitesAfterFilter.toString)}""".stripMargin)
+             report.result.callSites.size.toString)}""".stripMargin)
       .mkString("\n")
     s"$header\n$values"
   }

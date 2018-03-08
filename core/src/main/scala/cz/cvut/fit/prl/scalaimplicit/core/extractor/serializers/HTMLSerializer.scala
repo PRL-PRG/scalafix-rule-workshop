@@ -1,11 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
-  PrettyDeclaration,
-  PrettyLocation
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{PrettyDeclaration, PrettyLocation}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 
@@ -209,8 +205,8 @@ object HTMLSerializer {
     case None => Seq(onclick := "")
   }
 
-  def createSlimDocument[A](results: Seq[A],
-                            generator: HTMLDocument[A]): String = {
+  def createDocument[A](results: Seq[A],
+                        generator: HTMLDocument[A]): String = {
     html(
       head(
         link(rel := "stylesheet",
@@ -234,14 +230,14 @@ object HTMLSerializer {
     def body(data: Seq[A]): Seq[HTMLTag]
   }
 
-  object CoderefDocument$ extends HTMLDocument[SlimReport] {
-    override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
+  object CoderefDocument$ extends HTMLDocument[ProjectReport] {
+    override def sidebar(data: Seq[ProjectReport]): Seq[HTMLTag] =
       data.map(
         res =>
           a(href := s"#${res.metadata.reponame.replace("/", "-")}",
             `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
 
-    override def body(results: Seq[SlimReport]): Seq[HTMLTag] =
+    override def body(results: Seq[ProjectReport]): Seq[HTMLTag] =
       Seq(
         script(raw(s"""
                         |function changeCode(what, line) {
@@ -293,8 +289,8 @@ object HTMLSerializer {
       )
   }
 
-  object SummaryDocument$ extends HTMLDocument[SlimReport] {
-    override def sidebar(data: Seq[SlimReport]): Seq[HTMLTag] =
+  object SummaryDocument$ extends HTMLDocument[ProjectReport] {
+    override def sidebar(data: Seq[ProjectReport]): Seq[HTMLTag] =
       Seq(
         a(href := s"#summary", `class` := "w3-bar-item w3-button")(
           "all/summary")
@@ -304,7 +300,7 @@ object HTMLSerializer {
             a(href := s"#${res.metadata.reponame.replace("/", "-")}",
               `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
 
-    override def body(results: Seq[SlimReport]): Seq[HTMLTag] = {
+    override def body(results: Seq[ProjectReport]): Seq[HTMLTag] = {
       def cellMaybe(what: Option[(String, Int)]) = what match {
         case Some(thing) => Seq(td(thing._2), td(thing._1))
         case None => Seq(td(""), td(""))
@@ -316,7 +312,7 @@ object HTMLSerializer {
           table(`class` := "w3-table w3-bordered")(
             thead(
               td(
-                s"${summary.totalCallSites} (${summary.stats.percentageCovered * 100}%)"),
+                s"${summary.totalCallSites}"),
               td(b("Call Sites"))
             ),
             tbody(
@@ -389,9 +385,11 @@ object HTMLSerializer {
 
   }
 
-  case class TCItem(defn: SlimDefinition, metadata: ProjectMetadata)
+  case class TCItem(defn: Declaration, metadata: ProjectMetadata)
   case class TCFamily(parent: TCItem, instances: Seq[TCItem])
   object TCListDocument extends HTMLDocument[TCFamily] {
+    def kindedName(what: Declaration) = s"${what.kind} ${what.name}"
+
     override def sidebar(data: Seq[TCFamily]): Seq[HTMLTag] = {
       Seq(
         a(href := s"#summary", `class` := "w3-bar-item w3-button")(
@@ -413,7 +411,7 @@ object HTMLSerializer {
               li(
                 a(href := HLocation.composeGHURL(item.defn.location.get,
                                                  item.metadata))(
-                  item.defn.kindedName
+                  kindedName(item.defn)
                 )))
         )
       }
@@ -423,7 +421,7 @@ object HTMLSerializer {
           b(
             a(href := HLocation.composeGHURL(family.parent.defn.location.get,
                                              family.parent.metadata))(
-              family.parent.defn.kindedName)),
+              kindedName(family.parent.defn))),
           div(
             b("Internal Instances"),
             printInstances(

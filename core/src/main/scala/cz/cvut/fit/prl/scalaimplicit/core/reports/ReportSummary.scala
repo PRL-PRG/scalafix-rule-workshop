@@ -1,9 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.reports
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.{
-  SlimCallSite,
-  SlimDefinition
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{CallSite, Declaration}
 
 trait Mergeable[T] {
   def name: String
@@ -22,7 +19,7 @@ case class CallSiteOccurrences(name: String,
   }
 }
 object CallSiteOccurrences {
-  def apply(cs: SlimCallSite): CallSiteOccurrences =
+  def apply(cs: CallSite): CallSiteOccurrences =
     CallSiteOccurrences(cs.name, 1, cs.declaration.location.isDefined)
 }
 case class DefinitionOccurrences(name: String, occurrences: Int)
@@ -33,7 +30,7 @@ case class DefinitionOccurrences(name: String, occurrences: Int)
   }
 }
 object DefinitionOccurrences {
-  def apply(d: SlimDefinition): DefinitionOccurrences =
+  def apply(d: Declaration): DefinitionOccurrences =
     DefinitionOccurrences(d.name, 1)
 }
 case class ReportSummary(
@@ -41,8 +38,7 @@ case class ReportSummary(
     callSites: Seq[CallSiteOccurrences],
     totalCallSites: Int,
     definitions: Seq[DefinitionOccurrences],
-    totalDefinitions: Int,
-    stats: Statistics
+    totalDefinitions: Int
 ) {
   def sortedCallSites = callSites.sortBy(-_.occurrences)
   def sortedDefinitions = definitions.sortBy(-_.occurrences)
@@ -77,19 +73,18 @@ object ReportSummary {
       groups.values.map(_.size).sum
   }
 
-  def apply(report: SlimReport): ReportSummary = {
+  def apply(report: ProjectReport): ReportSummary = {
 
     val css = groupAndMerge(
       report.result.callSites.map(x => CallSiteOccurrences(x)))
     val decls = groupAndMerge(
-      report.result.definitions.map(x => DefinitionOccurrences(x)).toSeq)
+      report.result.declarations.map(x => DefinitionOccurrences(x)).toSeq)
 
     ReportSummary(report.metadata.reponame,
                   css._1,
                   css._2,
                   decls._1,
-                  decls._2,
-                  report.stats)
+                  decls._2)
   }
 
   def apply(defSum: DefinitionSummary) = {
@@ -101,8 +96,7 @@ object ReportSummary {
         defSum.definitions
           .map(x => DefinitionOccurrences(x._1, x._2))
           .toSeq)._1,
-      totalDefinitions = defSum.definitions.values.sum,
-      stats = Statistics.Default
+      totalDefinitions = defSum.definitions.values.sum
     )
   }
 }
