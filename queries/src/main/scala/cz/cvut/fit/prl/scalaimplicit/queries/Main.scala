@@ -6,7 +6,7 @@ object Main {
     PredefinedQueries.conversion()
     PredefinedQueries.dumpAll()
     PredefinedQueries.conversionTransitivity()
-    //PredefinedQueries.mainTest()
+    PredefinedQueries.mainTest()
     //PredefinedQueries.conversionInMain()
     //PredefinedQueries.conversionInTest()
     //PredefinedQueries.declarationsByCallSite()

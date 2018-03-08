@@ -27,6 +27,19 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       .seq
   }
 
+  private def queryCallSitesWithMetadata(
+                              matcher: (ProjectMetadata) => Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
+    DATASET.projects.par
+      .map(
+        project => {
+          val metadata = ProjectMetadata.loadFromCSV(project.metadata, project.paths)
+          QueryResult(
+            JsonQuery.query(project.callSitesFile, matcher(metadata)),
+            metadata)
+        })
+      .seq
+  }
+
   private def printCallSites(results: Seq[QueryResult[CallSite]],
                              destination: String): Unit = {
     printCallSiteReports(
@@ -38,12 +51,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
     )
   }
 
-  implicit class oneOf(what: String) {
-    def isOneOF(args: String*): Boolean = args.contains(what)
-    def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
-  }
-
   object PredefinedMatchers {
+
     val all: Matcher[CallSite] =
       BooleanPropertyMatcher[CallSite]("all", x => true)
 
@@ -66,6 +75,12 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       )
 
     val transitive: Matcher[CallSite] = declaration(location(isEmpty))
+
+
+    // TODO Probably this can be done with the contains() matcher
+    def isPrefixIn(strings: Seq[String]): Matcher[String] = BooleanPropertyMatcher[String]("isPrefixIn", str => strings.exists(str.startsWith))
+    def inMain(metadata: ProjectMetadata): Matcher[CallSite] = location(file(isPrefixIn(metadata.mainPaths)))
+    def inTest(metadata: ProjectMetadata): Matcher[CallSite] = location(file(isPrefixIn(metadata.testPaths)))
   }
 
   def conversion(): Unit = {
@@ -88,6 +103,12 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       "conversion/non-transitive")
   }
 
+  def mainTest() = {
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inMain), "in-main")
+
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inTest), "in-test")
+  }
+
   /*
   def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
     case (cs: CallSite, metadata: ProjectMetadata) => {
@@ -99,11 +120,6 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
     case (cs: CallSite, metadata: ProjectMetadata) => {
       cs.location.get.file.isPrefixOfOneOf(metadata.testPaths: _*)
     }
-  }
-
-  def mainTest() = {
-    query(OUTFOLDER, Seq(PathFilterQuery("in-main", inMain)))
-    query(OUTFOLDER, Seq(PathFilterQuery("in-test", inMain)))
   }
 
   def typeClassClassification() = {
