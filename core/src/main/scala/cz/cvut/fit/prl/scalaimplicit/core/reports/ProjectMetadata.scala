@@ -20,7 +20,7 @@ case class ProjectMetadata(
 )
 
 object ProjectMetadata {
-  def loadCSV(path: String): Seq[Map[String, String]] = {
+  private def loadCSV(path: String): Seq[Map[String, String]] = {
     CSVReader
       .open(new File(path))
       .allWithHeaders()

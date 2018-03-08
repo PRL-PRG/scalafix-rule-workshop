@@ -1,39 +1,62 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
-import java.nio.file.{Files, Paths}
-
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{
-  TCFamily,
-  TCItem
-}
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{
-  DefinitionSummary,
-  ProjectMetadata,
-  ProjectReport,
-  SlimReport
-}
-import cz.cvut.fit.prl.scalaimplicit.queries.FilterQuery.{
-  CSFilterQuery,
-  PathFilterQuery
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimResult
+import cz.cvut.fit.prl.scalaimplicit.core.reports._
+import cz.cvut.fit.prl.scalaimplicit.matcher._
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.printSlimCallSiteReports
+import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
 
-import scala.collection.immutable
-
-object PredefinedQueries {
+object PredefinedQueries extends Matchers with SchemaMatchers {
 
   val DATASET =
-    ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
+    Manifests.fromJSON("../test_repos/manifest.json")
 
-  val OUTFOLDER = "../results/rawdata/small"
+  val OUTFOLDER = "./results/rawdata/small"
 
   implicit class oneOf(what: String) {
     def isOneOF(args: String*): Boolean = args.contains(what)
     def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
   }
 
+  def conversion(): Unit = {
+    import io.circe.generic.auto._
+    val m: Matcher[CallSite] =
+      and(
+        isSynthetic,
+        declaration(
+          isImplicit,
+          kind(in("def", "class")),
+          signature(
+            parameterLists(
+              size(1),
+              contains(
+                !isImplicit,
+                parameters(size(1))
+              )
+            )
+          )
+        )
+      )
+    val reports: Seq[(List[CallSite], ProjectMetadata)] =
+      DATASET.projects.par
+        .map(
+          project =>
+            JsonQuery.query(project.callSitesFile, m) ->
+              ProjectMetadata.loadFromCSV(project.metadata, project.paths))
+        .seq
+
+    printSlimCallSiteReports(
+      s"$OUTFOLDER/conversion",
+      reports.map(
+        report =>
+          SlimReport.apply(report._2,
+                           SlimResult(ImplicitAnalysisResult(report._1, Set())),
+                           Statistics.Default))
+    )
+  }
+  /*
   def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
     case (cs: CallSite, metadata: ProjectMetadata) => {
       cs.location.get.file.isPrefixOfOneOf(metadata.mainPaths: _*)
@@ -111,35 +134,6 @@ object PredefinedQueries {
 
   def dumpAll() = {
     query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
-  }
-
-  val conversionFunction: CallSite => Boolean = {
-    case CallSite(
-        _,
-        _,
-        _,
-        true,
-        Declaration(
-          _,
-          kind,
-          _,
-          true,
-          Some(
-            Signature(_,
-                      Seq(DeclaredParameterList(Seq(parameter), false)),
-                      _)),
-          _),
-        _,
-        _) if (kind.contains("def") || kind.contains("class")) =>
-      true
-    case _ => false
-  }
-
-  def conversion(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction))
-    )
   }
 
   def conversionInMain(): Unit = {
@@ -318,5 +312,5 @@ object PredefinedQueries {
     }
 
     makeQuery(DATASET, outfolder, queries)
-  }
+  }*/
 }

@@ -494,11 +494,13 @@ def condense_reports(
     with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
 
+    manifestables = P.exclude_non_successful(P.exclude_non_successful(projects, "analyzer_report"), "paths_extraction_report")
+
     manifest = map(lambda proj: (
         "%s/project.csv" % os.path.join(cwd, proj),
-        "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
+        "%s/%s/" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
         "%s/%s/paths.csv" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])
-        ), projects)
+        ), manifestables)
     write_manifest(manifest)
 
 @task
@@ -566,17 +568,15 @@ def extract_paths(
     )
 
     P.info("[Paths][%s] Extracting Compile path" % project_name)
-    failed = P.local_canfail(
-        "Get Source Paths",
+    failed = P.local(
         gen_paths_command(project_name, "compile"),
-        project_path
+        project_path,
     )
     if failed:
         phase.fail("paths_extraction_report")
 
     P.info("[Paths][%s] Extracting Test path" % project_name)
-    failed = P.local_canfail(
-        "Get Test Paths",
+    failed = P.local(
         gen_paths_command(project_name, "test"),
         project_path
     )

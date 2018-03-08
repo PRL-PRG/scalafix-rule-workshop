@@ -19,11 +19,10 @@ import org.json4s.native.Serialization.write
 
 object OutputHelper {
   def printSlimCallSiteReports(folder: String,
-                               data: (Seq[SlimReport], Seq[SlimReport])) = {
+                               data: Seq[SlimReport]) = {
     if (!Files.exists(Paths.get(folder)))
       Files.createDirectory(Paths.get(folder))
-    writeReport(folder, "results", data._1)
-    writeReport(folder, "excluded", data._2)
+    writeReport(folder, "results", data)
   }
 
   def writeReport(folder: String, prefix: String, data: Seq[SlimReport]) = {
