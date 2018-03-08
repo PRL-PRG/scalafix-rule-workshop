@@ -48,7 +48,8 @@ BASE_CONFIG = {
         "classpath_report": "CLEANUP_REPORT.TXT",
         "callsite_count_report": "CALLSITES_REPORT.TXT",
         "paths_extraction_report": "PATHS_REPORT.TXT",
-        "project_info_report": "PROJECTINFO_REPORT.TXT"
+        "project_info_report": "PROJECTINFO_REPORT.TXT",
+        "split_results_report": "SPLIT_REPORT.TXT"
     }
 }
 
@@ -84,8 +85,14 @@ class Pipeline():
                 failed = True
         return failed
 
+    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+        return output_folder
+
     def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
-        report_folder = os.path.join(os.getcwd(), project_path, reports_folder_name, BASE_CONFIG["phase_reports_folder"])
+        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name), BASE_CONFIG["phase_reports_folder"])
         if not os.path.exists(report_folder):
             os.mkdir(report_folder)
         return report_folder
@@ -642,6 +649,23 @@ def merge_callsite_counts(
     with open("callsite-counts.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
+@task
+def split_analysis_results(
+        project_path
+):
+    P = Pipeline()
+    phase = Phase(project_path, "Split Results")
+    phase.depend_on("analyzer_report")
+    phase.stop_if_already_reported("split_results_report")
+
+    results_path = P.get_base_output_folder(project_path)
+    data = json.load(open(os.path.join(results_path, "results.json")))
+    with open(os.path.join(results_path, "results-callsites.json"), 'w') as outfile:
+        json.dump(data["callSites"], outfile)
+    with open(os.path.join(results_path, "results-declarations.json"), 'w') as outfile:
+        json.dump(data["declarations"], outfile)
+
+    phase.succeed("split_results_report")
 
 
 ####################
