@@ -6,13 +6,36 @@ import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
 import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.printCallSiteReports
 import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
+import io.circe.generic.auto._
 
 object PredefinedQueries extends Matchers with SchemaMatchers {
 
   val DATASET =
     Manifests.fromJSON("../test_repos/manifest.json")
 
-  val OUTFOLDER = "./results/rawdata/small"
+  val OUTFOLDER = "../tmp/results/rawdata/small"
+
+  private case class QueryResult[A](result: Seq[A], metadata: ProjectMetadata)
+  private def queryCallSites(
+      matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
+    DATASET.projects.par
+      .map(
+        project =>
+          QueryResult(
+            JsonQuery.query(project.callSitesFile, matcher),
+            ProjectMetadata.loadFromCSV(project.metadata, project.paths)))
+      .seq
+  }
+
+  private def printCallSites(results: Seq[QueryResult[CallSite]], destination: String): Unit = {
+    printCallSiteReports(
+      s"$OUTFOLDER/$destination",
+      results.map(
+        result =>
+          ProjectReport(result.metadata,
+                        ImplicitAnalysisResult(result.result, Set())))
+    )
+  }
 
   implicit class oneOf(what: String) {
     def isOneOF(args: String*): Boolean = args.contains(what)
@@ -20,7 +43,6 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   def conversion(): Unit = {
-    import io.circe.generic.auto._
     val m: Matcher[CallSite] =
       and(
         isSynthetic,
@@ -38,20 +60,15 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
           )
         )
       )
-    val reports: Seq[(List[CallSite], ProjectMetadata)] =
-      DATASET.projects.par
-        .map(
-          project =>
-            JsonQuery.query(project.callSitesFile, m) ->
-              ProjectMetadata.loadFromCSV(project.metadata, project.paths))
-        .seq
 
-    printCallSiteReports(
-      s"$OUTFOLDER/conversion",
-      reports.map(report =>
-        ProjectReport(report._2, ImplicitAnalysisResult(report._1, Set())))
-    )
+    printCallSites(queryCallSites(m), "conversion")
   }
+
+
+  def dumpAll() = {
+    printCallSites(queryCallSites(BooleanPropertyMatcher[CallSite]("all", x => true)), "all")
+  }
+
   /*
   def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
     case (cs: CallSite, metadata: ProjectMetadata) => {
@@ -127,10 +144,6 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   import OutputHelper._
-
-  def dumpAll() = {
-    query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
-  }
 
   def conversionInMain(): Unit = {
     query(
