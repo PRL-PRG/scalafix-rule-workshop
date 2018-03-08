@@ -24,10 +24,6 @@ BASE_CONFIG = {
     "allow_partial_semanticdb_files": False,
     "max_backwards_steps": 5,
 
-    "report_files": [
-        "project.csv"
-    ],
-
     "supported_build_systems": [
         "sbt"
     ],
@@ -41,7 +37,7 @@ BASE_CONFIG = {
     "sbt_plugins": ["scalameta-config"],
     "sbt_versions": ["0.13", "1.0"],
 
-    "condensed_report": "condensed-report.txt",
+    "condensed_report_long": "condensed-report.long.csv",
 
     "reports_folder": "_reports",
     "phase_reports_folder": "_phases",
@@ -455,12 +451,11 @@ def get_project_list(projects_path, depth):
 
 @task
 def condense_reports(
-        report_name=BASE_CONFIG["condensed_report"],
         projects_path=BASE_CONFIG["projects_dest"],
         project_depth=BASE_CONFIG["default_location_depth"]
 ):
-    def write_header(report_file):
-        report_file.write("Condensed analysis reports, %s\n" % datetime.datetime.now())
+    def write_header(report_file, reports):
+        report_file.write(",".join(reports.keys))
 
     def write_summary(reports, total, report_file):
         report_file.write("Summary --------------------------\n Total projects: %d\n" % total)
@@ -484,34 +479,30 @@ def condense_reports(
                 manifest_file.write("{\"metadata\":\"%s\",\"results\":\"%s\"}\n" % (last[0], last[1]))
             manifest_file.write("]}")
 
+    def read_reports(report_kinds, project):
+        P.info("[Reports] Reading reports for %s" % project)
+        return map(lambda kind: str(P.read_phase_report(project, kind)).split('\n')[0], report_kinds)
+
+
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
 
     manifest = []
 
-    with open(os.path.join(cwd, report_name), 'w') as report_file:
-        write_header(report_file)
-        reports = {
-            "compilation_report": (0, 0),
-            "semanticdb_report": (0, 0),
-            "analyzer_report": (0, 0),
-            "classpath_report": (0, 0),
-            "callsite_count_report": (0, 0)
-        }
-        total_projects = 0
-        for project_path in get_project_list(projects_path, int(float(project_depth))):
-            P.info("[Reports] Extracting from %s" % project_path)
-            project_name = project_path
-            total_projects += 1
-            report_file.write("%s:\n" % project_name)
-            for report in reports:
-                status = append_report(project_path, report_file, report)
-                res = ((1, 0) if status.startswith("SUCCESS") else (0, 1))
-                reports[report] = tuple(map(sum, zip(reports[report], res)))
-            full_path = os.path.join(cwd, project_path)
-            manifest.append(("%s/project.csv" % full_path, "%s/%s/results.json" % (full_path, BASE_CONFIG["reports_folder"])))
-        write_summary(reports, total_projects, report_file)
+    reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
+    long = create_csv(reports_summaries.keys())
+    projects = get_project_list(projects_path, int(float(project_depth)))
+
+    reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
+
+    long_csv = long
+    for report in reports: long_csv = add_row(long_csv, report)
+
+    with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
+        long_summary.write(print_csv(long_csv))
+
+    manifest = map(lambda proj: ("%s/project.csv" % os.path.join(cwd, proj), "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])), projects)
     write_manifest(manifest)
 
 @task
@@ -721,7 +712,17 @@ def drop_header(csvf, index):
         "data": csvf["data"]
     }
 
+def create_csv(headers):
+    return {
+        "headers": headers,
+        "data": []
+    }
 
+def add_row(csvf, row):
+    return {
+        "headers": csvf["headers"],
+        "data": csvf["data"] + [row]
+    }
 
         
 
