@@ -90,6 +90,8 @@ class Pipeline():
             return None
 
         reports_folder = os.path.join(project_path, reports_folder_name)
+        if not os.path.exists(reports_folder):
+            return None
         res = get_report_in(reports_folder, kind)
         # For projects that were processed before we had the _reports folder
         if res is None: res = get_report_in(project_path, kind)
@@ -240,7 +242,7 @@ def import_single(src_path, dest_dir=BASE_CONFIG["projects_dest"]):
 
 
 @task
-def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
+def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"], pull=True):
     def handle_success(project_path, project_name, tag):
         P.info("[CCompile][%s] Compilation successful on master" % (project_name))
         report = "SUCCESS\n%s" % tag
@@ -261,6 +263,9 @@ def compile(project_path, backwards_steps=BASE_CONFIG["max_backwards_steps"]):
     if report:
         P.info("[CCompile][%s] Compilation report found. Skipping" % project_name)
         sys.exit(0 if report.startswith("SUCCESS") else 1)
+
+#    if pull:
+#        P.local("git reset --hard HEAD && git checkout master && git pull", project_path)
 
     current_commit = P.local("git describe --always --abbrev=0", project_path)
     # Fetch the latest commits so they show up in `git describe`
