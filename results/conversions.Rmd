@@ -21,17 +21,15 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(gridExtra)
 library(calibrate)
-basedir = "./rawdata/small/"
+basedir = "../../tmp/results/rawdata/small/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
 }
-results_summary <- from_basedir("conversion/results.callsite.summary.csv") %>%
-  mutate(transitive = !transitive) # Should fix that in the impl
-in_main = from_basedir("conversion/in-main/results.callsite.summary.csv") %>%
-  mutate(transitive = !transitive) # Should fix that in the impl
-in_test = from_basedir("conversion/in-test/results.callsite.summary.csv") %>%
-  mutate(transitive = !transitive) # Should fix that in the impl
+results_summary <- from_basedir("conversion/results.callsite.summary.csv")
+in_main = from_basedir("conversion/in-main/results.callsite.summary.csv")
+in_test = from_basedir("conversion/in-test/results.callsite.summary.csv")
 ``` 
 
 # Exploration of conversions
@@ -56,7 +54,7 @@ draw_transitivity_distribution = function(df, where) {
     theme(legend.position="bottom", legend.direction="horizontal",
                      legend.title = element_blank()) +
     labs(y = "# Conversions", x = "Project") +
-    ggtitle(paste("Conversion transitivity distribuion in", where)) +
+    ggtitle(paste("Conversion transitivity distribution in", where)) +
     scale_fill_discrete(breaks=c("TRUE", "FALSE"),
                         labels=c("Transitive", "Non-transitive"))
 }
@@ -287,3 +285,78 @@ plot(
   main="Distribution of non-transitive implicit conversions by scala LOC"
   )
 ```
+
+## Types HOF
+
+```{r}
+draw_HOF = function (hof, where) {
+  ggplot(hof, aes(name, occurrences)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    theme(legend.position="bottom", legend.direction="horizontal",
+                     legend.title = element_blank()) +
+    #labs(y = "# Conversions", x = "Project") +
+    scale_y_discrete(limits = sort(unique(hof$occurrences))) +
+    ggtitle(paste(where, "Hall of Fame"))
+}
+
+types_HOF = function(df, title) {
+  count_by_name = function(df) {
+    df %>% group_by(name) %>% summarise(occurrences = n()) %>% arrange(occurrences)
+  }
+  
+  params_hof = df %>% mutate(name = param_type) %>% count_by_name
+  returns_hof = df %>% mutate(name = return_type) %>% count_by_name
+  
+  require(gridExtra)
+  grid.arrange(
+    draw_HOF(returns_hof, "Return Type"),
+    draw_HOF(params_hof, "Parameter Type"),
+    ncol = 1
+  )
+} 
+conversions = from_basedir("conversion/results.callsite.report.csv")
+in_main = from_basedir("conversion/in-main/results.callsite.report.csv")
+in_test = from_basedir("conversion/in-test/results.callsite.report.csv")
+```
+
+### Overall (Both test and main, both transitive and non-transitive)
+
+```{r}
+conversions = from_basedir("conversion/results.callsite.report.csv")
+types_HOF(conversions, "Overall Conversion Type hall of fame")
+```
+
+### Transitive
+
+#### In Main
+
+```{r}
+nont_conversions_in_main = in_main[in_main$transitive, ]
+types_HOF(nont_conversions_in_main, "(NON-T in Main) Conversion Type hall of fame")
+```
+
+#### In Test
+
+```{r}
+nont_conversions_in_test = in_test[in_test$transitive, ]
+types_HOF(nont_conversions_in_test, "(NON-T in Test) Conversion Type hall of fame")
+```
+
+### Non-Transitive
+
+#### In Main
+
+```{r}
+nont_conversions_in_main = in_main[!in_main$transitive, ]
+types_HOF(nont_conversions_in_main, "(NON-T in Main) Conversion Type hall of fame")
+```
+
+#### In Test
+
+```{r}
+nont_conversions_in_test = in_test[!in_test$transitive, ]
+types_HOF(nont_conversions_in_test, "(NON-T in Test) Conversion Type hall of fame")
+```
+
+
