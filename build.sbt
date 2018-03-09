@@ -76,3 +76,16 @@ lazy val callSiteCounter = (project in file("cs-counter"))
     )
   )
   .dependsOn(coreutils % "test->test", coreutils)
+
+lazy val jsonReencoder = (project in file("json-reencoder"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "reencoder.jar",
+    libraryDependencies ++= Seq(
+      "com.github.scopt" % "scopt_2.12" % "3.7.0",
+      "org.json4s" %% "json4s-native" % "3.6.0-M2",
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
+    )
+  )
+  .dependsOn(coreutils)
