@@ -291,16 +291,17 @@ plot(
 ```{r}
 hof_size = 10
 
-draw_HOF = function (hof, where) {
-  ggplot(hof, aes(name, occurrences)) +
+draw_HOF = function (hof, title) {
+  ggplot(hof, aes(x = reorder(name, occurrences), y = occurrences, fill = what)) +
     geom_bar(stat="identity") +
     coord_flip() +
+    facet_wrap(~what, scale="free_y") +
     theme(legend.position="bottom", legend.direction="horizontal",
                      legend.title = element_blank()) +
     #labs(y = "# Conversions", x = "Project") +
-    scale_x_discrete(label=function(x) substring(x, 0, 40)) +
+    scale_x_discrete(label=function(x) substring(x, nchar(x) - 40, nchar(x))) +
     #scale_y_continuous(breaks = unique(hof$occurrences)) +
-    ggtitle(paste(where, "Hall of Fame"))
+    ggtitle(paste(title, "Hall of Fame"))
 }
 
 types_HOF = function(df, title) {
@@ -308,14 +309,11 @@ types_HOF = function(df, title) {
     df %>% group_by(name) %>% summarise(occurrences = n()) %>% arrange(occurrences) %>% top_n(hof_size)
   }
   
-  params_hof = df %>% mutate(name = param_type) %>% count_by_name
-  returns_hof = df %>% mutate(name = return_type) %>% count_by_name
+  params_hof = df %>% mutate(name = param_type) %>% count_by_name %>% mutate(what = "param")
+  returns_hof = df %>% mutate(name = return_type) %>% count_by_name %>% mutate(what = "return")
   
-  require(gridExtra)
-  grid.arrange(
-    draw_HOF(returns_hof, paste(title, "- Return Type")),
-    draw_HOF(params_hof, paste(title, "- Parameter Type"))
-  )
+  data = rbind(params_hof, returns_hof)
+  draw_HOF(data, title)
 }
 ```
 
@@ -342,7 +340,7 @@ get_all_hofs = function(header, conversions) {
   t_conversions_in_test = types_HOF(in_test[!in_test$transitive, ],
                                     paste(header, "(T in Test) Conversion Type"))
   
-  marrangeGrob(
+  grid.arrange(
     grobs = list(
       overall,
       nont_conversions_in_main,
@@ -363,18 +361,40 @@ load_by_path = function(base_subdir) {
 
 ## Halls of fame for all projects
 
-```{r}
+```{r fig.height=20}
 conversions = load_by_path("conversion")
 get_all_hofs("[All Projects]", conversions)
 ```
 
 ## Halls of fame for Kamon
 
-```{r}
+```{r fig.height=20}
 conversions = load_by_path("conversion") %>% filter(project == "kamon-io/Kamon")
 get_all_hofs("[Kamon]", conversions)
 ```
 
-## Halls of fame for the 10 biggest projects
+## Halls of fame for Better-files
+
+```{r fig.height=20}
+conversions = load_by_path("conversion") %>% filter(project == "pathikrit/better-files")
+get_all_hofs("[Better-files]", conversions)
+```
+
+## Halls of fame for Json4s
+
+```{r fig.height=20}
+conversions = load_by_path("conversion") %>% filter(project == "json4s/json4s")
+get_all_hofs("[Json4s]", conversions)
+```
+
+## Halls of fame for Quill
+
+```{r fig.height=20}
+conversions = load_by_path("conversion") %>% filter(project == "getquill/quill")
+get_all_hofs("[Quill]", conversions)
+```
+
+
+
 
 
