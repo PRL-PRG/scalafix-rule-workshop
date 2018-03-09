@@ -59,22 +59,6 @@ lazy val queries = (project in file("queries"))
     ))
   .dependsOn(coreutils % "test->test", macros)
 
-
-lazy val classpathExtractor =
-  (project in file("sbt-classpath-extractor"))
-    .settings(
-      sbtVersion in Global := "0.13.16",
-      crossSbtVersions := Vector("0.13.16", "1.0.4"),
-      sbtPlugin := true,
-      scalaCompilerBridgeSource := {
-        val sv = appConfiguration.value.provider.id.version
-        ("org.scala-sbt" % "compiler-interface" % sv % "component").sources
-      },
-      organization := "cz.cvut.fit.prl",
-      name := "sbt-classpath-extractor",
-      version := "0.4-SNAPSHOT"
-    )
-
 lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)
   .settings(
