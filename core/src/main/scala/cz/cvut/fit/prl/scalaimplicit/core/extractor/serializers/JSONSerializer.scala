@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import io.circe.parser._
 import io.circe.syntax._
+import cats.syntax.show._
 import io.circe.{Decoder, Encoder}
 
 object JSONSerializer {
@@ -19,7 +20,7 @@ object JSONSerializer {
     } yield obj
 
     res match {
-      case Left(err) => sys.error("Unable to parse file: " + file + ": " + err)
+      case Left(err) => sys.error("Unable to parse file: " + file + ": Error(" + err.show + ")")
       case Right(r) => r
     }
   }
