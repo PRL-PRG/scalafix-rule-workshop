@@ -289,6 +289,8 @@ plot(
 ## Types HOF
 
 ```{r}
+hof_size = 10
+
 draw_HOF = function (hof, where) {
   ggplot(hof, aes(name, occurrences)) +
     geom_bar(stat="identity") +
@@ -296,13 +298,14 @@ draw_HOF = function (hof, where) {
     theme(legend.position="bottom", legend.direction="horizontal",
                      legend.title = element_blank()) +
     #labs(y = "# Conversions", x = "Project") +
-    scale_y_discrete(limits = sort(unique(hof$occurrences))) +
+    scale_x_discrete(label=function(x) substring(x, 0, 40)) +
+    #scale_y_continuous(breaks = unique(hof$occurrences)) +
     ggtitle(paste(where, "Hall of Fame"))
 }
 
 types_HOF = function(df, title) {
   count_by_name = function(df) {
-    df %>% group_by(name) %>% summarise(occurrences = n()) %>% arrange(occurrences)
+    df %>% group_by(name) %>% summarise(occurrences = n()) %>% arrange(occurrences) %>% top_n(hof_size)
   }
   
   params_hof = df %>% mutate(name = param_type) %>% count_by_name
@@ -310,53 +313,68 @@ types_HOF = function(df, title) {
   
   require(gridExtra)
   grid.arrange(
-    draw_HOF(returns_hof, "Return Type"),
-    draw_HOF(params_hof, "Parameter Type"),
-    ncol = 1
+    draw_HOF(returns_hof, paste(title, "- Return Type")),
+    draw_HOF(params_hof, paste(title, "- Parameter Type"))
   )
-} 
-conversions = from_basedir("conversion/results.callsite.report.csv")
-in_main = from_basedir("conversion/in-main/results.callsite.report.csv")
-in_test = from_basedir("conversion/in-test/results.callsite.report.csv")
+}
 ```
 
-### Overall (Both test and main, both transitive and non-transitive)
 
 ```{r}
-conversions = from_basedir("conversion/results.callsite.report.csv")
-types_HOF(conversions, "Overall Conversion Type hall of fame")
+get_all_hofs = function(header, conversions) {
+  in_main = conversions[conversions$in_main, ]
+  in_test = conversions[!conversions$in_main, ]
+  ### Overall (Both test and main, both transitive and non-transitive)
+  overall = types_HOF(conversions, 
+                      paste(header, "Overall Conversion Type hall of fame"))
+  ### Transitive
+  #### In Main
+  nont_conversions_in_main = types_HOF(in_main[in_main$transitive, ], 
+                                       paste(header, "(NON-T in Main) Conversion"))
+  #### In Test
+  nont_conversions_in_test = types_HOF(in_test[in_test$transitive, ],
+                                       paste(header, "(NON-T in Test) Conversion"))
+  ### Non-Transitive
+  #### In Main
+  t_conversions_in_main = types_HOF(in_main[!in_main$transitive, ],
+                                    paste(header, "(T in Main) Conversion Type"))
+  #### In Test
+  t_conversions_in_test = types_HOF(in_test[!in_test$transitive, ],
+                                    paste(header, "(T in Test) Conversion Type"))
+  
+  marrangeGrob(
+    grobs = list(
+      overall,
+      nont_conversions_in_main,
+      nont_conversions_in_test,
+      t_conversions_in_test,
+      t_conversions_in_main
+    ),
+    ncol = 1,
+    nrow = 5
+  )
+}
+load_by_path = function(base_subdir) {
+  in_main = from_basedir(paste(base_subdir, "in-main/results.callsite.report.csv", sep="/")) %>% mutate(in_main = TRUE)
+  in_test = from_basedir(paste(base_subdir, "in-test/results.callsite.report.csv", sep="/")) %>% mutate(in_main = FALSE)
+  rbind(in_main, in_test)
+}
 ```
 
-### Transitive
-
-#### In Main
+## Halls of fame for all projects
 
 ```{r}
-nont_conversions_in_main = in_main[in_main$transitive, ]
-types_HOF(nont_conversions_in_main, "(NON-T in Main) Conversion Type hall of fame")
+conversions = load_by_path("conversion")
+get_all_hofs("[All Projects]", conversions)
 ```
 
-#### In Test
+## Halls of fame for Kamon
 
 ```{r}
-nont_conversions_in_test = in_test[in_test$transitive, ]
-types_HOF(nont_conversions_in_test, "(NON-T in Test) Conversion Type hall of fame")
+conversions = load_by_path("conversion") %>% filter(project == "kamon-io/Kamon")
+get_all_hofs("[Kamon]", conversions)
 ```
 
-### Non-Transitive
-
-#### In Main
-
-```{r}
-nont_conversions_in_main = in_main[!in_main$transitive, ]
-types_HOF(nont_conversions_in_main, "(NON-T in Main) Conversion Type hall of fame")
-```
-
-#### In Test
-
-```{r}
-nont_conversions_in_test = in_test[!in_test$transitive, ]
-types_HOF(nont_conversions_in_test, "(NON-T in Test) Conversion Type hall of fame")
-```
+## Halls of fame for the 10 biggest projects
 
 
