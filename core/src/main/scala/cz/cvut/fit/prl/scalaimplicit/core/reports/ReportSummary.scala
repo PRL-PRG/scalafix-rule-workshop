@@ -20,7 +20,7 @@ case class CallSiteOccurrences(name: String,
 }
 object CallSiteOccurrences {
   def apply(cs: CallSite): CallSiteOccurrences =
-    CallSiteOccurrences(cs.name, 1, cs.declaration.location.isDefined)
+    CallSiteOccurrences(cs.name, 1, cs.declaration.location.isEmpty)
 }
 case class DefinitionOccurrences(name: String, occurrences: Int)
     extends Mergeable[DefinitionOccurrences] {
