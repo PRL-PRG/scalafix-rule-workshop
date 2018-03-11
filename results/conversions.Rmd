@@ -23,6 +23,7 @@ library(tidyr)
 library(ggplot2)
 library(gridExtra)
 library(calibrate)
+library(knitr)
 basedir = "../../tmp/results/rawdata/small/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
@@ -362,22 +363,22 @@ load_by_path = function(base_subdir) {
 ## Halls of fame for all projects
 
 ```{r fig.height=20}
-conversions = load_by_path("conversion")
-get_all_hofs("[All Projects]", conversions)
+#conversions = load_by_path("conversion")
+#get_all_hofs("[All Projects]", conversions)
 ```
 
 ## Halls of fame for Kamon
 
 ```{r fig.height=20}
-conversions = load_by_path("conversion") %>% filter(project == "kamon-io/Kamon")
-get_all_hofs("[Kamon]", conversions)
+#conversions = load_by_path("conversion") %>% filter(project == "kamon-io/Kamon")
+#get_all_hofs("[Kamon]", conversions)
 ```
 
 ## Halls of fame for Better-files
 
 ```{r fig.height=20}
-conversions = load_by_path("conversion") %>% filter(project == "pathikrit/better-files")
-get_all_hofs("[Better-files]", conversions)
+#conversions = load_by_path("conversion") %>% filter(project == "pathikrit/better-files")
+#get_all_hofs("[Better-files]", conversions)
 ```
 
 ## Halls of fame for Json4s
@@ -390,9 +391,107 @@ get_all_hofs("[Json4s]", conversions)
 ## Halls of fame for Quill
 
 ```{r fig.height=20}
-conversions = load_by_path("conversion") %>% filter(project == "getquill/quill")
-get_all_hofs("[Quill]", conversions)
+#conversions = load_by_path("conversion") %>% filter(project == "getquill/quill")
+#get_all_hofs("[Quill]", conversions)
 ```
+
+# Identifying library primitives
+
+## Non transitive conversions in main
+
+```{r fig.height=40}
+conversions = load_by_path("conversion") %>% 
+  filter(in_main) %>% 
+  filter(!transitive) %>%
+  dplyr::select(project, param_type, return_type)
+
+with_counts = unique(
+    conversions %>%
+    dplyr::select(param_type, project) %>%
+    group_by(param_type) %>%
+    mutate(occurrences = n()) %>%
+    arrange(-occurrences)
+  )
+
+ggplot(with_counts, aes(x = reorder(param_type, occurrences), y = occurrences, fill = project)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  facet_grid(project ~ ., scale="free_y") +
+  theme(legend.position="none") +
+  scale_x_discrete(label=function(x) substring(x, nchar(x) - 50, nchar(x))) +
+  #scale_y_continuous(breaks = unique(hof$occurrences)) +
+  ggtitle("Most popular param types (Non transitive in main in Call Sites)")
+```
+
+Delving deeper into slick
+
+```{r}
+is_ast_base = function(name) {
+  grepl("ast.", name)
+}
+slick_data = conversions %>% filter(project == "slick/slick") %>% filter(grepl("ast.", param_type))
+with_counts = unique(
+  slick_data %>% 
+    mutate(signature = paste(param_type, return_type, sep = " => ")) %>%
+    group_by(signature) %>% 
+    mutate(occurrences = n())
+  )
+kable(with_counts %>% dplyr::select(signature, occurrences))
+```
+That was with call sites, let's go with definitions
+
+```{r definitions-types, fig.height=50}
+definitions = from_basedir("conversion/results.definition.report.csv")
+params = {
+  with_counts = unique(
+      definitions %>%
+      dplyr::select(param_type, project) %>%
+      group_by(param_type) %>%
+      mutate(occurrences = n()) %>%
+      arrange(-occurrences)
+    )
+  
+  ggplot(with_counts, aes(x = reorder(param_type, occurrences), y = occurrences, fill = project)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    facet_grid(project ~ ., scale="free_y") +
+    theme(legend.position="none") +
+    scale_x_discrete(label=function(x) substring(x, nchar(x) - 30, nchar(x))) +
+    #scale_y_continuous(breaks = unique(hof$occurrences)) +
+    ggtitle("Most popular param types in definitions")
+}
+returns = {
+  with_counts = unique(
+      definitions %>%
+      dplyr::select(return_type, project) %>%
+      group_by(return_type) %>%
+      mutate(occurrences = n()) %>%
+      arrange(-occurrences)
+    )
+  
+  ggplot(with_counts, aes(x = reorder(return_type, occurrences), y = occurrences, fill = project)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    facet_grid(project ~ ., scale="free_y") +
+    theme(legend.position="none") +
+    scale_x_discrete(label=function(x) substring(x, nchar(x) - 30, nchar(x))) +
+    #scale_y_continuous(breaks = unique(hof$occurrences)) +
+    ggtitle("Most popular return types in definitions")
+}
+
+grid.arrange(
+  params,
+  returns,
+  ncol = 2
+)
+```
+
+
+```{r}
+
+```
+
+
 
 
 

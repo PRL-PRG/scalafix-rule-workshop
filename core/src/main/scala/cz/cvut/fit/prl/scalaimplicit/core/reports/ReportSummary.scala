@@ -86,17 +86,4 @@ object ReportSummary {
                   decls._1,
                   decls._2)
   }
-
-  def apply(defSum: DefinitionSummary) = {
-    new ReportSummary(
-      defSum.metadata.reponame,
-      callSites = Seq(),
-      totalCallSites = 0,
-      definitions = groupAndMerge(
-        defSum.definitions
-          .map(x => DefinitionOccurrences(x._1, x._2))
-          .toSeq)._1,
-      totalDefinitions = defSum.definitions.values.sum
-    )
-  }
 }

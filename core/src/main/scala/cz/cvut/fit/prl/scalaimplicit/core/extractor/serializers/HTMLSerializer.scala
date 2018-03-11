@@ -337,53 +337,6 @@ object HTMLSerializer {
     }
   }
 
-  object DefinitionDocument$ extends HTMLDocument[DefinitionSummary] {
-    override def sidebar(data: Seq[DefinitionSummary]): Seq[HTMLTag] =
-      Seq(
-        a(href := s"#summary", `class` := "w3-bar-item w3-button")(
-          "all/summary")
-      ) ++
-        data.map(
-          res =>
-            a(href := s"#${res.metadata.reponame.replace("/", "-")}",
-              `class` := "w3-bar-item w3-button")(s"${res.metadata.reponame}"))
-
-    override def body(results: Seq[DefinitionSummary]): Seq[HTMLTag] = {
-      def printSummary(summary: ReportSummary) = {
-        div(id := s"${summary.reponame.replace("/", "-")}")(
-          b(s"CallSites per Definition for ${summary.reponame}"),
-          table(`class` := "w3-table w3-bordered")(
-            thead(
-              td(""),
-              td(b("Definitions"))
-            ),
-            tbody(
-              summary.sortedDefinitions
-                .map(row => {
-                  tr(td(row.occurrences), td(row.name))
-                })
-                .toSeq
-            )
-          )
-        )
-      }
-      val projectSummaries =
-        results.map(res => ReportSummary(res))
-      val overallSummary = ReportSummary(projectSummaries)
-      Seq(
-        h3("Declarations of Implicits"),
-        h4("With a count of how many call sites they appear in"),
-        div(id := "summary", `class` := "w3-table w3-bordered")()(
-          h4(b("Summary")),
-          printSummary(
-            overallSummary.copy(
-              definitions = overallSummary.sortedDefinitions.take(10)))
-        )
-      ) ++
-        projectSummaries.map(printSummary)
-    }
-
-  }
 
   case class TCItem(defn: Declaration, metadata: ProjectMetadata)
   case class TCFamily(parent: TCItem, instances: Seq[TCItem])

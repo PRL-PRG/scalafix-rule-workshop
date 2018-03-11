@@ -9,6 +9,7 @@ object Main {
     PredefinedQueries.mainTest()
     PredefinedQueries.conversionInMain()
     PredefinedQueries.conversionInTest()
+    PredefinedQueries.conversionDefinitions()
     //PredefinedQueries.declarationsByCallSite()
     //PredefinedQueries.typeClass()
     //PredefinedQueries.moreThanOneParam()

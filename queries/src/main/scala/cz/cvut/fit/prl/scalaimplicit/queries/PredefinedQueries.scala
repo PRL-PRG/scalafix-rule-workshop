@@ -4,7 +4,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
-import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.printCallSiteReports
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{CallSiteReporter, DeclarationReporter, ProjectReporter}
 import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
 import io.circe.generic.auto._
 
@@ -16,6 +16,29 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   val OUTFOLDER = "../tmp/results/rawdata/small"
 
   private case class QueryResult[A](result: Seq[A], metadata: ProjectMetadata)
+  private def queryDeclarations(
+      matcher: Matcher[Declaration]): Seq[QueryResult[Declaration]] = {
+    DATASET.projects.par
+      .map(
+        project =>
+          QueryResult(
+            JsonQuery.query(project.definitionsFile, matcher),
+            ProjectMetadata.loadFromCSV(project.metadata, project.paths)))
+      .seq
+  }
+
+  private def printDeclarations(results: Seq[QueryResult[Declaration]],
+                                destination: String): Unit = {
+    OutputHelper.printReports(
+      s"$OUTFOLDER/$destination",
+      results.map(
+        result =>
+          ProjectReport(result.metadata,
+                        ImplicitAnalysisResult(Seq(), result.result.toSet))),
+      ProjectReporter, DeclarationReporter
+    )
+  }
+
   private def queryCallSites(
       matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
     DATASET.projects.par
@@ -42,12 +65,13 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
 
   private def printCallSites(results: Seq[QueryResult[CallSite]],
                              destination: String): Unit = {
-    printCallSiteReports(
+    OutputHelper.printReports(
       s"$OUTFOLDER/$destination",
       results.map(
         result =>
           ProjectReport(result.metadata,
-                        ImplicitAnalysisResult(result.result, Set())))
+                        ImplicitAnalysisResult(result.result, Set()))),
+      ProjectReporter, CallSiteReporter
     )
   }
 
@@ -56,12 +80,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
     val all: Matcher[CallSite] =
       BooleanPropertyMatcher[CallSite]("all", x => true)
 
-    val conversion: Matcher[CallSite] =
-      and(
-        isSynthetic,
-        declaration(
-          isImplicit,
-          kind(in("def", "class")),
+    val conversionDecl: Matcher[Declaration] =
+      and(and(isImplicit, kind(in("def", "class"))),
           signature(
             parameterLists(
               size(1),
@@ -70,7 +90,13 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
                 parameters(size(1))
               )
             )
-          )
+          ))
+
+    val conversion: Matcher[CallSite] =
+      and(
+        isSynthetic,
+        declaration(
+          conversionDecl
         )
       )
 
@@ -126,6 +152,10 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       queryCallSitesWithMetadata(data =>
         and(PredefinedMatchers.inTest(data), PredefinedMatchers.conversion)),
       "conversion/in-test")
+  }
+
+  def conversionDefinitions(): Unit = {
+    printDeclarations(queryDeclarations(PredefinedMatchers.conversionDecl), "conversion")
   }
 
   /*
