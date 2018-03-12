@@ -24,7 +24,7 @@ library(ggplot2)
 library(gridExtra)
 library(calibrate)
 library(knitr)
-basedir = "../../fromserver/results/rawdata/big/"
+basedir = "../../fromserver/results/rawdata/small/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
 }
@@ -46,8 +46,6 @@ transform = function(df, where) {
     summarise(count = sum(occurrences))
 }
 
-counts = rbind(transform(in_main, "main"), transform(in_test, "test"))
-
 draw_transitivity_distribution = function(df, where) {
   ggplot(transform(df), aes(x = project, y = count, fill = transitive)) +
     geom_bar(stat = "identity", position = "dodge") +
@@ -60,6 +58,7 @@ draw_transitivity_distribution = function(df, where) {
                         labels=c("Transitive", "Non-transitive"))
 }
 
+draw_transitivity_distribution(results_summary, "ALL")
 draw_transitivity_distribution(in_main, "Main")
 draw_transitivity_distribution(in_test, "Test")
 ```
@@ -142,7 +141,13 @@ printgraph = function(data, names, title) {
   names = paste(names, "(")
   names = paste(names, pct) # add percents to labels
   names = paste(names,"%)",sep="") # ad % to labels
-  barplot(data, names.arg = names, horiz = TRUE, main=title, cex.names = 0.6, las = 2)
+  f = data.frame(
+    name = names,
+    data = data
+  )
+  ggplot(f, aes(name, data)) +
+    geom_bar(stat="identity") +
+    coord_flip()
 }
 ```
 
@@ -241,18 +246,14 @@ We can envision another graph, with the same data but the axes changed:
 
 ```{r}
 intervals = c(0, 1, 10, 100, 1000, 1000000)
-partitioned = 
-  split(summary, cut(summary$occurrences, intervals, include.lowest=TRUE))
+partitioned = summary %>% 
+  mutate(interval = cut(summary$occurrences, intervals, include.lowest=TRUE)) %>%
+  group_by(interval) %>%
+  summarise(num_in_interval = n())
 
-palette = sample(heat.colors(length(intervals)))
-barplot(
- sapply(partitioned,nrow),
- horiz = TRUE,
- las = 2,
- main = "Occurrence intervals of non-transitive implicit conversions",
- xlab = "Number of distinct conversion functions",
- ylab = "Number of occurrences"
-)
+ggplot(partitioned, aes(interval, num_in_interval)) +
+  geom_bar(stat="identity")+
+  coord_flip()
 ```
 
 
@@ -278,14 +279,12 @@ relevantNames = function(df) {
  Map({function(row) {if (row.call_density < 0.1) {row.project = ""}}}, df)
 }
 
-plot(
-  x = as.integer(locDistribution$scala_loc),
-  y = as.integer(locDistribution$occurrences), 
-  xlab = "Scala LOC", 
-  ylab = "Non-transitive implicit conversions", 
-  log = "xy",
-  main="Distribution of non-transitive implicit conversions by scala LOC"
-  )
+ggplot(locDistribution, aes(scala_loc, occurrences)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Distribution of non-transitive implicit conversions by scala LOC")
 ```
 
 ## Types HOF
@@ -443,7 +442,7 @@ That was with call sites, let's go with
 
 ## Definitions
 
-```{r definitions-types, fig.height=500}
+```{r definitions-types, fig.height=100, }
 definitions = from_basedir("conversion/results.definition.report.csv")
 params = {
   with_counts = unique(
