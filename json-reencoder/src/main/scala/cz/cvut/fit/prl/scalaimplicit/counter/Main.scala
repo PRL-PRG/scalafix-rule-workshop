@@ -32,9 +32,9 @@ import scala.util.{Failure, Try}
 object SchemaConverter extends App with LazyLogging {
 
   val Root =
-    "/root"
+    "/var/lib/scala/projects/"
 
-  val depth = 3
+  val depth = 4
   val InputFile = "results.json"
   val OutputCallSitesFile = "results-callsites.json"
   val OutputDeclarationsFile = "results-declarations.json"
@@ -58,11 +58,15 @@ object SchemaConverter extends App with LazyLogging {
 
     Try(read[ImplicitAnalysisResult](FileInput(path.toFile)))
       .flatMap(
-        res =>
+        res => { 
+          logger.info(s"Finished reading $path")
           Try(write(callSiteFile, res.callSites.asJson.noSpaces.getBytes))
-            .flatMap(_ =>
+            .flatMap(_ => {
+              logger.info(s"Call Sites written for $path")
               Try(write(declarationsFile,
-                        res.declarations.asJson.noSpaces.getBytes))))
+                        res.declarations.asJson.noSpaces.getBytes))
+              })
+          })
   }.seq
 
   val failures = res zip paths collect {

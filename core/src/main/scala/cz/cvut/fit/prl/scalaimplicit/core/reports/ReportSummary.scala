@@ -1,6 +1,9 @@
 package cz.cvut.fit.prl.scalaimplicit.core.reports
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{CallSite, Declaration}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
+  CallSite,
+  Declaration
+}
 
 trait Mergeable[T] {
   def name: String
@@ -80,10 +83,6 @@ object ReportSummary {
     val decls = groupAndMerge(
       report.result.declarations.map(x => DefinitionOccurrences(x)).toSeq)
 
-    ReportSummary(report.metadata.reponame,
-                  css._1,
-                  css._2,
-                  decls._1,
-                  decls._2)
+    ReportSummary(report.metadata.reponame, css._1, css._2, decls._1, decls._2)
   }
 }

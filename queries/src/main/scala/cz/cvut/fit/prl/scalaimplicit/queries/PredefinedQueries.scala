@@ -4,7 +4,11 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
-import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{CallSiteReporter, DeclarationReporter, ProjectReporter}
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{
+  CallSiteReporter,
+  DeclarationReporter,
+  ProjectReporter
+}
 import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
 import io.circe.generic.auto._
 
@@ -35,7 +39,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
         result =>
           ProjectReport(result.metadata,
                         ImplicitAnalysisResult(Seq(), result.result.toSet))),
-      ProjectReporter, DeclarationReporter
+      ProjectReporter,
+      DeclarationReporter
     )
   }
 
@@ -43,10 +48,13 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
     DATASET.projects.par
       .map(
-        project =>
+        project => {
+          println(project)
           QueryResult(
             JsonQuery.query(project.callSitesFile, matcher),
-            ProjectMetadata.loadFromCSV(project.metadata, project.paths)))
+            ProjectMetadata.loadFromCSV(project.metadata, project.paths))
+        }
+      )
       .seq
   }
 
@@ -71,7 +79,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
         result =>
           ProjectReport(result.metadata,
                         ImplicitAnalysisResult(result.result, Set()))),
-      ProjectReporter, CallSiteReporter
+      ProjectReporter,
+      CallSiteReporter
     )
   }
 
@@ -155,7 +164,8 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   def conversionDefinitions(): Unit = {
-    printDeclarations(queryDeclarations(PredefinedMatchers.conversionDecl), "conversion")
+    printDeclarations(queryDeclarations(PredefinedMatchers.conversionDecl),
+                      "conversion")
   }
 
   /*

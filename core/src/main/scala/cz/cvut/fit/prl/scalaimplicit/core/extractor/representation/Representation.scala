@@ -56,7 +56,7 @@ object Representation {
                               declaration: Declaration,
                               typeArguments: Seq[Type],
                               arguments: Seq[ArgumentLike])
-    extends ArgumentLike
+      extends ArgumentLike
 }
 
 object Factories {

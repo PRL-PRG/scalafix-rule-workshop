@@ -3,7 +3,6 @@ package cz.cvut.fit.prl.scalaimplicit.matcher
 import scala.language.reflectiveCalls
 import scala.language.implicitConversions
 
-
 sealed trait MatchResult[A] {
   def instance: A
 

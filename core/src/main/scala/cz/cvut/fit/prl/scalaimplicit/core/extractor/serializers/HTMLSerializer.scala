@@ -1,7 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{PrettyDeclaration, PrettyLocation}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
+  PrettyDeclaration,
+  PrettyLocation
+}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 
@@ -205,8 +208,7 @@ object HTMLSerializer {
     case None => Seq(onclick := "")
   }
 
-  def createDocument[A](results: Seq[A],
-                        generator: HTMLDocument[A]): String = {
+  def createDocument[A](results: Seq[A], generator: HTMLDocument[A]): String = {
     html(
       head(
         link(rel := "stylesheet",
@@ -311,8 +313,7 @@ object HTMLSerializer {
           b(s"Call sites for ${summary.reponame}"),
           table(`class` := "w3-table w3-bordered")(
             thead(
-              td(
-                s"${summary.totalCallSites}"),
+              td(s"${summary.totalCallSites}"),
               td(b("Call Sites"))
             ),
             tbody(
@@ -336,7 +337,6 @@ object HTMLSerializer {
         projectSummaries.map(printSummary)
     }
   }
-
 
   case class TCItem(defn: Declaration, metadata: ProjectMetadata)
   case class TCFamily(parent: TCItem, instances: Seq[TCItem])

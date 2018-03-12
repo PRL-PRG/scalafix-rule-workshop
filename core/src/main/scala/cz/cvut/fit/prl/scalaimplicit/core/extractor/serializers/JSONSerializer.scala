@@ -20,7 +20,9 @@ object JSONSerializer {
     } yield obj
 
     res match {
-      case Left(err) => sys.error("Unable to parse file: " + file + ": Error(" + err.show + ")")
+      case Left(err) =>
+        sys.error(
+          "Unable to parse file: " + file + ": Error(" + err.show + ")")
       case Right(r) => r
     }
   }
