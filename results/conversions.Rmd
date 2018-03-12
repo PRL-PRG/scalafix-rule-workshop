@@ -24,7 +24,7 @@ library(ggplot2)
 library(gridExtra)
 library(calibrate)
 library(knitr)
-basedir = "../../tmp/results/rawdata/small/"
+basedir = "../../fromserver/results/rawdata/big/"
 from_basedir = function(folder) {
   read_csv(paste(basedir, folder, sep=""))
 }
@@ -283,6 +283,7 @@ plot(
   y = as.integer(locDistribution$occurrences), 
   xlab = "Scala LOC", 
   ylab = "Non-transitive implicit conversions", 
+  log = "xy",
   main="Distribution of non-transitive implicit conversions by scala LOC"
   )
 ```
@@ -363,8 +364,8 @@ load_by_path = function(base_subdir) {
 ## Halls of fame for all projects
 
 ```{r fig.height=20}
-#conversions = load_by_path("conversion")
-#get_all_hofs("[All Projects]", conversions)
+conversions = load_by_path("conversion")
+get_all_hofs("[All Projects]", conversions)
 ```
 
 ## Halls of fame for Kamon
@@ -384,8 +385,8 @@ load_by_path = function(base_subdir) {
 ## Halls of fame for Json4s
 
 ```{r fig.height=20}
-conversions = load_by_path("conversion") %>% filter(project == "json4s/json4s")
-get_all_hofs("[Json4s]", conversions)
+#conversions = load_by_path("conversion") %>% filter(project == "json4s/json4s")
+#get_all_hofs("[Json4s]", conversions)
 ```
 
 ## Halls of fame for Quill
@@ -438,9 +439,11 @@ with_counts = unique(
   )
 kable(with_counts %>% dplyr::select(signature, occurrences))
 ```
-That was with call sites, let's go with definitions
+That was with call sites, let's go with 
 
-```{r definitions-types, fig.height=50}
+## Definitions
+
+```{r definitions-types, fig.height=500}
 definitions = from_basedir("conversion/results.definition.report.csv")
 params = {
   with_counts = unique(
@@ -487,9 +490,7 @@ grid.arrange(
 ```
 
 
-```{r}
 
-```
 
 
 
