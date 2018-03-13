@@ -6,6 +6,8 @@ import io.circe.parser._
 import io.circe.syntax._
 import cats.syntax.show._
 import io.circe.{Decoder, Encoder}
+import io.circe._
+import cz.cvut.fit.prl.scalaimplicit.core.util.Scala212Backport.Either212
 
 object JSONSerializer {
   def saveJSON[T: Encoder](res: T, file: String): Path = {
