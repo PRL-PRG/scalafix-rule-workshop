@@ -36,7 +36,10 @@ object Main extends LazyLogging {
         val res = TreeWalker(conf.root, extractFunction)
         val matchedDefs = DefnFiller(res)
         JSONSerializer.saveJSON(matchedDefs, conf.outdir + "/results.json")
-        JSONSerializer.saveJSON(matchedDefs.callSites, conf.outdir + "/results-callsites.json")
+        JSONSerializer.saveJSON(matchedDefs.callSites,
+                                conf.outdir + "/results-callsites.json")
+        JSONSerializer.saveJSON(matchedDefs.declarations,
+                                conf.outdir + "/results-declarations.json")
         ErrorCollection().toFile(conf.outdir + "/errors.log")
         OrphanCallSites().toFile(conf.outdir + "/orphan-callsites.log")
       }

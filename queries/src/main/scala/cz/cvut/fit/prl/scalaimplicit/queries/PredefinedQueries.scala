@@ -1,56 +1,174 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
-import java.nio.file.{Files, Paths}
-
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.SlimRepresentation.SlimDefinition
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.{
-  TCFamily,
-  TCItem
+import cz.cvut.fit.prl.scalaimplicit.core.reports._
+import cz.cvut.fit.prl.scalaimplicit.matcher._
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{
+  CallSiteReporter,
+  DeclarationReporter,
+  ProjectReporter
 }
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{
-  DefinitionSummary,
-  ProjectMetadata,
-  ProjectReport,
-  SlimReport
-}
-import cz.cvut.fit.prl.scalaimplicit.queries.FilterQuery.{
-  CSFilterQuery,
-  PathFilterQuery
-}
+import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
+import io.circe.generic.auto._
 
-import scala.collection.immutable
-
-object PredefinedQueries {
+object PredefinedQueries extends Matchers with SchemaMatchers {
 
   val DATASET =
-    ProjectReport.loadReportsFromManifest("../test_repos/manifest.json")
+    Manifests.fromJSON("../test_repos/manifest.json")
 
-  val OUTFOLDER = "../results/rawdata/small"
+  val OUTFOLDER = "../tmp/results/rawdata/small"
 
-  implicit class oneOf(what: String) {
-    def isOneOF(args: String*): Boolean = args.contains(what)
-    def isPrefixOfOneOf(args: String*): Boolean = args.exists(what.startsWith)
+  private case class QueryResult[A](result: Seq[A], metadata: ProjectMetadata)
+  private def queryDeclarations(
+      matcher: Matcher[Declaration]): Seq[QueryResult[Declaration]] = {
+    DATASET.projects.par
+      .map(
+        project =>
+          QueryResult(
+            JsonQuery.query(project.definitionsFile, matcher),
+            ProjectMetadata.loadFromCSV(project.metadata, project.paths)))
+      .seq
   }
 
-  def inMain(param: (CallSite, ProjectMetadata)): Boolean = param match {
-    case (cs: CallSite, metadata: ProjectMetadata) => {
-      cs.location.get.file.isPrefixOfOneOf(metadata.mainPaths: _*)
-    }
+  private def printDeclarations(results: Seq[QueryResult[Declaration]],
+                                destination: String): Unit = {
+    OutputHelper.printReports(
+      s"$OUTFOLDER/$destination",
+      results.map(
+        result =>
+          ProjectReport(result.metadata,
+                        ImplicitAnalysisResult(Seq(), result.result.toSet))),
+      ProjectReporter,
+      DeclarationReporter
+    )
   }
 
-  def inTest(param: (CallSite, ProjectMetadata)): Boolean = param match {
-    case (cs: CallSite, metadata: ProjectMetadata) => {
-      cs.location.get.file.isPrefixOfOneOf(metadata.testPaths: _*)
-    }
+  private def queryCallSites(
+      matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
+    DATASET.projects.par
+      .map(
+        project => {
+          println(project)
+          QueryResult(
+            JsonQuery.query(project.callSitesFile, matcher),
+            ProjectMetadata.loadFromCSV(project.metadata, project.paths))
+        }
+      )
+      .seq
+  }
+
+  private def queryCallSitesWithMetadata(
+      matcher: (ProjectMetadata) => Matcher[CallSite])
+    : Seq[QueryResult[CallSite]] = {
+    DATASET.projects.par
+      .map(project => {
+        val metadata =
+          ProjectMetadata.loadFromCSV(project.metadata, project.paths)
+        QueryResult(JsonQuery.query(project.callSitesFile, matcher(metadata)),
+                    metadata)
+      })
+      .seq
+  }
+
+  private def printCallSites(results: Seq[QueryResult[CallSite]],
+                             destination: String): Unit = {
+    OutputHelper.printReports(
+      s"$OUTFOLDER/$destination",
+      results.map(
+        result =>
+          ProjectReport(result.metadata,
+                        ImplicitAnalysisResult(result.result, Set()))),
+      ProjectReporter,
+      CallSiteReporter
+    )
+  }
+
+  object PredefinedMatchers {
+
+    val all: Matcher[CallSite] =
+      BooleanPropertyMatcher[CallSite]("all", x => true)
+
+    val conversionDecl: Matcher[Declaration] =
+      and(and(isImplicit, kind(in("def", "class"))),
+          signature(
+            parameterLists(
+              size(1),
+              contains(
+                !isImplicit,
+                parameters(size(1))
+              )
+            )
+          ))
+
+    val conversion: Matcher[CallSite] =
+      and(
+        isSynthetic,
+        declaration(
+          conversionDecl
+        )
+      )
+
+    val transitive: Matcher[CallSite] = declaration(location(isEmpty))
+
+    // TODO Probably this can be done with the contains() matcher
+    def isPrefixIn(strings: Seq[String]): Matcher[String] =
+      BooleanPropertyMatcher[String]("isPrefixIn",
+                                     str => strings.exists(str.startsWith))
+    def inMain(metadata: ProjectMetadata): Matcher[CallSite] =
+      location(file(isPrefixIn(metadata.mainPaths)))
+    def inTest(metadata: ProjectMetadata): Matcher[CallSite] =
+      location(file(isPrefixIn(metadata.testPaths)))
+  }
+
+  def conversion(): Unit = {
+    printCallSites(queryCallSites(PredefinedMatchers.conversion), "conversion")
+  }
+
+  def dumpAll() = {
+    printCallSites(queryCallSites(PredefinedMatchers.all), "all")
+  }
+
+  def conversionTransitivity() = {
+    printCallSites(
+      queryCallSites(
+        and(PredefinedMatchers.conversion, PredefinedMatchers.transitive)),
+      "conversion/transitive")
+
+    printCallSites(
+      queryCallSites(
+        and(PredefinedMatchers.conversion, !PredefinedMatchers.transitive)),
+      "conversion/non-transitive")
   }
 
   def mainTest() = {
-    query(OUTFOLDER, Seq(PathFilterQuery("in-main", inMain)))
-    query(OUTFOLDER, Seq(PathFilterQuery("in-test", inMain)))
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inMain),
+                   "in-main")
+
+    printCallSites(queryCallSitesWithMetadata(PredefinedMatchers.inTest),
+                   "in-test")
   }
 
+  def conversionInMain(): Unit = {
+    printCallSites(
+      queryCallSitesWithMetadata(data =>
+        and(PredefinedMatchers.inMain(data), PredefinedMatchers.conversion)),
+      "conversion/in-main")
+  }
+
+  def conversionInTest(): Unit = {
+    printCallSites(
+      queryCallSitesWithMetadata(data =>
+        and(PredefinedMatchers.inTest(data), PredefinedMatchers.conversion)),
+      "conversion/in-test")
+  }
+
+  def conversionDefinitions(): Unit = {
+    printDeclarations(queryDeclarations(PredefinedMatchers.conversionDecl),
+                      "conversion")
+  }
+
+  /*
   def typeClassClassification() = {
     def parentCandidate(s: Declaration): Boolean = {
       s.signature.get.typeParams.nonEmpty &&
@@ -109,71 +227,11 @@ object PredefinedQueries {
 
   import OutputHelper._
 
-  def dumpAll() = {
-    query(OUTFOLDER, Seq(CSFilterQuery("all", x => true)))
-  }
-
-  val conversionFunction: CallSite => Boolean = {
-    case CallSite(
-        _,
-        _,
-        _,
-        true,
-        Declaration(
-          _,
-          kind,
-          _,
-          true,
-          Some(
-            Signature(_,
-                      Seq(DeclaredParameterList(Seq(parameter), false)),
-                      _)),
-          _),
-        _,
-        _) if (kind.contains("def") || kind.contains("class")) =>
-      true
-    case _ => false
-  }
-
-  def conversion(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction))
-    )
-  }
-
-  def conversionInMain(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(
-        CSFilterQuery("conversion", conversionFunction),
-        PathFilterQuery("in-main", inMain)
-      )
-    )
-  }
-
-  def conversionInTest(): Unit = {
-    query(
-      OUTFOLDER,
-      Seq(
-        CSFilterQuery("conversion", conversionFunction),
-        PathFilterQuery("in-test", inTest)
-      )
-    )
-  }
 
   val nonTransitiveFunction: CallSite => Boolean = {
     case CallSite(_, _, _, _, Declaration(_, _, Some(_), _, _, _), _, _) =>
       true
     case _ => false
-  }
-
-  def nonTransitiveConversion() = {
-    query(
-      OUTFOLDER,
-      Seq(CSFilterQuery("conversion", conversionFunction),
-          CSFilterQuery("nontransitive", nonTransitiveFunction))
-    )
   }
 
   def typeClass() = {
@@ -296,27 +354,5 @@ object PredefinedQueries {
           CSFilterQuery("primitive-both",
                         x => hasPrimitiveParam(x) && hasPrimitiveRetType(x)))
     )
-  }
-
-  def query(outfolder: String, queries: Seq[FilterQuery[_]]): Unit = {
-    def makeQuery[A](reports: Seq[ProjectReport],
-                     path: String,
-                     queries: Seq[FilterQuery[_]]): Unit = {
-      if (queries.nonEmpty) {
-        val query: FilterQuery[_] = queries.head
-        val newPath = s"$path/${query.name}"
-        // TODO Use proper polymorphism instead
-        val qres = query match {
-          case q: FilterQuery.CSFilterQuery => QueryEngine(q, reports)
-          case q: FilterQuery.PathFilterQuery => QueryEngine(q, reports)
-        }
-        printSlimCallSiteReports(
-          newPath,
-          (qres._1.map(SlimReport(_)), qres._2.map(SlimReport(_))))
-        makeQuery(qres._1, newPath, queries.tail)
-      }
-    }
-
-    makeQuery(DATASET, outfolder, queries)
-  }
+  }*/
 }

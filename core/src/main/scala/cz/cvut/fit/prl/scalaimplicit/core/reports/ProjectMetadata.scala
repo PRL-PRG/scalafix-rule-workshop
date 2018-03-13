@@ -20,7 +20,7 @@ case class ProjectMetadata(
 )
 
 object ProjectMetadata {
-  def loadCSV(path: String): Seq[Map[String, String]] = {
+  private def loadCSV(path: String): Seq[Map[String, String]] = {
     CSVReader
       .open(new File(path))
       .allWithHeaders()
@@ -31,7 +31,13 @@ object ProjectMetadata {
       rawdata: Seq[Map[String, String]]): Map[String, Seq[String]] = {
     def convertToRelativePaths(entry: Map[String, String]) = Map(
       "kind" -> entry("kind"),
-      "path" -> entry("path").split(s"/${entry("project")}/")(1)
+      "path" -> {
+        val split = entry("path").split(s"/${entry("project")}")
+        split.size match {
+          case 1 => "/"
+          case _ => split(1)
+        }
+      }
     )
 
     rawdata
@@ -53,8 +59,8 @@ object ProjectMetadata {
       ghStars = metadata("gh_stars").toInt,
       totalLOC = metadata("total_loc").toInt,
       scalaLOC = metadata("scala_loc").toInt,
-      mainPaths = paths("compile"),
-      testPaths = paths("test")
+      mainPaths = paths.get("compile").getOrElse(Seq("/")), // If no main path is given, we assume it's all main
+      testPaths = paths.get("test").getOrElse(Seq("nothing will match this"))
     )
   }
 }

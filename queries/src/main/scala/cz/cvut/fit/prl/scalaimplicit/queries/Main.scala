@@ -3,15 +3,16 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 object Main {
 
   def main(args: Array[String]): Unit = {
-    PredefinedQueries.dumpAll()
     PredefinedQueries.conversion()
-    PredefinedQueries.nonTransitiveConversion()
-    PredefinedQueries.typeClass()
-    PredefinedQueries.declarationsByCallSite()
-    PredefinedQueries.moreThanOneParam()
-    PredefinedQueries.typeClassClassification()
+    PredefinedQueries.dumpAll()
+    PredefinedQueries.conversionTransitivity()
     PredefinedQueries.mainTest()
     PredefinedQueries.conversionInMain()
     PredefinedQueries.conversionInTest()
+    PredefinedQueries.conversionDefinitions()
+    //PredefinedQueries.declarationsByCallSite()
+    //PredefinedQueries.typeClass()
+    //PredefinedQueries.moreThanOneParam()
+    //PredefinedQueries.typeClassClassification()
   }
 }

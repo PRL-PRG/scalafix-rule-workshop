@@ -18,10 +18,12 @@ trait EqMatchers {
 
     override def test(v: A): Boolean = findMatching(v).isDefined
 
-    override def describeMatch(v: A): Option[String] = findMatching(v).map("is " + fmt(_))
+    override def describeMatch(v: A): Option[String] =
+      findMatching(v).map("is " + fmt(_))
   }
 
-  def isNone[A]: Matcher[Option[A]] = FunMatcher(_.isEmpty, "is None", "is Some")
+  def isNone[A]: Matcher[Option[A]] =
+    FunMatcher(_.isEmpty, "is None", "is Some")
 
   def some[A](x: Matcher[A]): Matcher[Option[A]] = new Matcher[Option[A]] {
     override def test(v: Option[A]): Boolean = v.exists(x.test)
@@ -29,7 +31,8 @@ trait EqMatchers {
     override def description: String = "value " + x.description
 
     override def describeMismatch(v: Option[A]): Option[String] =
-      v.flatMap(x.describeMismatch).orElse(Some("empty value " + x.negativeDescription))
+      v.flatMap(x.describeMismatch)
+        .orElse(Some("empty value " + x.negativeDescription))
 
     override def negativeDescription: String = "value " + x.negativeDescription
 
@@ -42,7 +45,8 @@ trait EqMatchers {
 
     override def description: String = s"always mismatch: $reason"
 
-    override def describeMismatch(v: A): Option[String] = Some(s"${fmt(v)} $reason")
+    override def describeMismatch(v: A): Option[String] =
+      Some(s"${fmt(v)} $reason")
 
     override def negativeDescription: String = "always match: $reason"
 

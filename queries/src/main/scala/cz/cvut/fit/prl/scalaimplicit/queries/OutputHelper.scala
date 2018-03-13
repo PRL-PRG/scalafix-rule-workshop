@@ -2,113 +2,185 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ImplicitArgument
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer.TCFamily
 import cz.cvut.fit.prl.scalaimplicit.core.reports.{
-  DefinitionSummary,
-  ReportSummary,
-  SlimReport
+  ProjectReport,
+  ReportSummary
 }
-import org.json4s.{NoTypeHints, ShortTypeHints}
-import org.json4s.native.Serialization
-import org.json4s.native.Serialization.write
+
+trait Reporter {
+  def writeReports(folder: String, prefix: String, data: Seq[ProjectReport])
+}
 
 object OutputHelper {
-  def printSlimCallSiteReports(folder: String,
-                               data: (Seq[SlimReport], Seq[SlimReport])) = {
+  def printReports(folder: String,
+                   data: Seq[ProjectReport],
+                   reporter: Reporter,
+                   reporters: Reporter*) = {
     if (!Files.exists(Paths.get(folder)))
       Files.createDirectory(Paths.get(folder))
-    writeReport(folder, "results", data._1)
-    writeReport(folder, "excluded", data._2)
+
+    (reporter +: reporters).foreach(_.writeReports(folder, "results", data))
   }
 
-  def writeReport(folder: String, prefix: String, data: Seq[SlimReport]) = {
-    Files.write(
-      Paths.get(s"./${folder}/${prefix}.coderefs.html"),
-      HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.CoderefDocument$)
-        .getBytes
-    )
-    Files.write(
-      Paths.get(s"./${folder}/${prefix}.summary.html"),
-      HTMLSerializer
-        .createSlimDocument(data, HTMLSerializer.SummaryDocument$)
-        .getBytes
-    )
-    Files.write(
-      Paths.get(s"./${folder}/${prefix}.project.summary.csv"),
-      projectCSVSummary(data).getBytes
-    )
-    Files.write(
-      Paths.get(s"./${folder}/${prefix}.callsite.summary.csv"),
-      callSiteCSVSummary(data.map(x => ReportSummary(x))).getBytes
-    )
-  }
-
-  def projectCSVSummary(reports: Seq[SlimReport]): String = {
-    def prepareValue(x: String) = {
-      // FIXME: properly escape " in x
-      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
-    }
-
-    val header = "project, call_sites_before_filter, call_sites_after_filter"
-    val values = reports
-      .map(report =>
-        s"""${prepareValue(report.metadata.reponame)},${prepareValue(
-             report.stats.callSitesBeforeFilter.toString)},${prepareValue(
-             report.stats.callSitesAfterFilter.toString)}""".stripMargin)
-      .mkString("\n")
-    s"$header\n$values"
-  }
-
-  def callSiteCSVSummary(projectSummaries: Seq[ReportSummary]): String = {
-    def pV(x: String): String = {
+  object ValuePreppers {
+    def sV(x: String) = {
       // FIXME: properly escape " in x
       '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
     }
 
     def bV(x: Boolean): String = if (x) "T" else "F"
 
-    val header = "project, name, occurrences, transitive"
-    val values = projectSummaries
-      .flatMap(
-        report =>
-          report.sortedCallSites
-            .map(row =>
-              s"""${pV(report.reponame)}, ${row.name}, ${row.occurrences}, ${bV(
-                row.isTransitive)}""")
-      )
-      .mkString("\n")
-    s"$header\n$values"
+    def printType(t: Type): String =
+      s"${t.name}[${t.parameters.map(x => "_").mkString(",")}]"
+
   }
 
-  def definitionCSVSummary(projectSummaries: Seq[DefinitionSummary]): String = {
-    def pV(x: String): String = {
-      // FIXME: properly escape " in x
-      '"' + x.replaceAll("\n", "\\\\n").replaceAll("\"", "'") + '"'
+  object ProjectReporter extends Reporter {
+
+    def writeReports(folder: String,
+                     prefix: String,
+                     data: Seq[ProjectReport]) = {
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.project.summary.csv"),
+        projectCSVSummary(data).getBytes
+      )
     }
 
-    def bV(x: Boolean): String = if (x) "T" else "F"
+    def projectCSVSummary(reports: Seq[ProjectReport]): String = {
 
-    val header = "project, sloc, name, occurrences, call_density"
-    val values = projectSummaries
-      .flatMap(
-        report =>
-          report.definitions
-            .map(row =>
-              s"""${pV(report.metadata.reponame)}, ${report.metadata.scalaLOC}, ${row._1}, ${row._2}, ${row._2.toDouble / report.metadata.scalaLOC.toDouble}""")
+      val header = "project, call_sites_after_filter"
+      val values = reports
+        .map(report =>
+          s"""${ValuePreppers.sV(report.metadata.reponame)},${ValuePreppers.sV(
+               report.result.callSites.size.toString)}""".stripMargin)
+        .mkString("\n")
+      s"$header\n$values"
+    }
+  }
+
+  object CallSiteReporter extends Reporter {
+
+    def writeReports(folder: String,
+                     prefix: String,
+                     data: Seq[ProjectReport]) = {
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.coderefs.html"),
+        HTMLSerializer
+          .createDocument(data, HTMLSerializer.CoderefDocument$)
+          .getBytes
       )
-      .mkString("\n")
-    s"$header\n$values"
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.summary.html"),
+        HTMLSerializer
+          .createDocument(data, HTMLSerializer.SummaryDocument$)
+          .getBytes
+      )
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.callsite.summary.csv"),
+        callSiteCSVSummary(data.map(x => ReportSummary(x))).getBytes
+      )
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.callsite.report.csv"),
+        callSiteCSVReport(data).getBytes
+      )
+    }
+
+    def callSiteCSVSummary(projectSummaries: Seq[ReportSummary]): String = {
+
+      val header = "project, name, occurrences, transitive"
+      val values = projectSummaries
+        .flatMap(
+          report =>
+            report.sortedCallSites
+              .map(row =>
+                s"""${ValuePreppers
+                  .sV(report.reponame)}, ${row.name}, ${row.occurrences}, ${ValuePreppers
+                  .bV(row.isTransitive)}""")
+        )
+        .mkString("\n")
+      s"$header\n$values"
+    }
+
+    def callSiteCSVReport(reports: Seq[ProjectReport]): String = {
+
+      val header = "project, name, transitive, param_type, return_type"
+      val values = reports
+        .flatMap(
+          report =>
+            report.result.callSites
+              .map(row =>
+                Seq[String](
+                  ValuePreppers.sV(report.metadata.reponame),
+                  '"' + row.name + '"',
+                  '"' + ValuePreppers
+                    .bV(row.declaration.location.isEmpty) + '"',
+                  '"' + row.declaration.signature.get.parameterLists
+                    .map(list =>
+                      s"(${list.params.map(p => ValuePreppers.printType(p.tipe)).mkString(",")})")
+                    .mkString(",") + '"',
+                  '"' + row.declaration.signature.get.returnType
+                    .map(ValuePreppers.printType)
+                    .get + '"'
+                ).mkString(","))
+        )
+        .mkString("\n")
+      s"$header\n$values"
+    }
   }
 
-  def TCFamiliesJSONSummary(data: Seq[TCFamily]): String = {
-    implicit val formats = Serialization.formats(NoTypeHints)
-    write(data)
-  }
+  object DeclarationReporter extends Reporter {
 
+    def writeReports(folder: String,
+                     prefix: String,
+                     data: Seq[ProjectReport]) = {
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.definition.summary.csv"),
+        definitionCSVSummary(data.map(x => ReportSummary(x))).getBytes
+      )
+      Files.write(
+        Paths.get(s"./${folder}/${prefix}.definition.report.csv"),
+        definitionCSVReport(data).getBytes
+      )
+    }
+
+    def definitionCSVSummary(projectSummaries: Seq[ReportSummary]): String = {
+
+      val header = "project, name, occurrences"
+      val values = projectSummaries
+        .flatMap(
+          report =>
+            report.definitions
+              .map(row =>
+                s"""${ValuePreppers
+                  .sV(report.reponame)}, ${row.name}, ${row.occurrences}""")
+        )
+        .mkString("\n")
+      s"$header\n$values"
+    }
+
+    def definitionCSVReport(reports: Seq[ProjectReport]): String = {
+      val header = "project, name, param_type, return_type"
+      val values = reports
+        .flatMap(
+          report =>
+            report.result.declarations
+              .map(row =>
+                Seq[String](
+                  ValuePreppers.sV(report.metadata.reponame),
+                  '"' + row.name + '"',
+                  '"' + row.signature.get.parameterLists
+                    .map(list =>
+                      s"(${list.params.map(p => ValuePreppers.printType(p.tipe)).mkString(",")})")
+                    .mkString(",") + '"',
+                  '"' + row.signature.get.returnType
+                    .map(ValuePreppers.printType)
+                    .get + '"'
+                ).mkString(","))
+        )
+        .mkString("\n")
+      s"$header\n$values"
+    }
+  }
 }

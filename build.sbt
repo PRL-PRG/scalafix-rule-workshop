@@ -59,22 +59,6 @@ lazy val queries = (project in file("queries"))
     ))
   .dependsOn(coreutils % "test->test", macros)
 
-
-lazy val classpathExtractor =
-  (project in file("sbt-classpath-extractor"))
-    .settings(
-      sbtVersion in Global := "0.13.16",
-      crossSbtVersions := Vector("0.13.16", "1.0.4"),
-      sbtPlugin := true,
-      scalaCompilerBridgeSource := {
-        val sv = appConfiguration.value.provider.id.version
-        ("org.scala-sbt" % "compiler-interface" % sv % "component").sources
-      },
-      organization := "cz.cvut.fit.prl",
-      name := "sbt-classpath-extractor",
-      version := "0.4-SNAPSHOT"
-    )
-
 lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)
   .settings(
@@ -92,3 +76,16 @@ lazy val callSiteCounter = (project in file("cs-counter"))
     )
   )
   .dependsOn(coreutils % "test->test", coreutils)
+
+lazy val jsonReencoder = (project in file("json-reencoder"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "reencoder.jar",
+    libraryDependencies ++= Seq(
+      "com.github.scopt" % "scopt_2.12" % "3.7.0",
+      "org.json4s" %% "json4s-native" % "3.6.0-M2",
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion
+    )
+  )
+  .dependsOn(coreutils)

@@ -48,7 +48,8 @@ BASE_CONFIG = {
         "classpath_report": "CLEANUP_REPORT.TXT",
         "callsite_count_report": "CALLSITES_REPORT.TXT",
         "paths_extraction_report": "PATHS_REPORT.TXT",
-        "project_info_report": "PROJECTINFO_REPORT.TXT"
+        "project_info_report": "PROJECTINFO_REPORT.TXT",
+        "split_results_report": "SPLIT_REPORT.TXT"
     }
 }
 
@@ -84,8 +85,14 @@ class Pipeline():
                 failed = True
         return failed
 
+    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+        output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+        return output_folder
+
     def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
-        report_folder = os.path.join(os.getcwd(), project_path, reports_folder_name, BASE_CONFIG["phase_reports_folder"])
+        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name), BASE_CONFIG["phase_reports_folder"])
         if not os.path.exists(report_folder):
             os.mkdir(report_folder)
         return report_folder
@@ -171,6 +178,7 @@ class Phase:
 
 
     def run_and_resume(self, command, error_title ="runAndResume ERROR"):
+        self.info("Running %s" % command)
         failed = self.P.local_canfail(error_title, command, os.getcwd())
         if failed:
             self.error("Failed command %s on project %s" % (command, self.project_path))
@@ -367,7 +375,7 @@ def analyze(
     phase.run_and_resume("fab setup:tools_dest=%s" % tools_dir, "Setup")
     phase.run_and_resume("fab compile:project_path=%s" % project_path, "Clean compilation")
     phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "Project info")
-    phase.run_and_resume("fab create_project_info:project_path=%s" % project_path, "SDB File generation")
+    phase.run_and_resume("fab gen_sdb:project_path=%s" % project_path, "SDB File generation")
     phase.run_and_resume("fab classpath:project_path=%s" % project_path, "Classpath generation")
 
     failed = run_analysis_tool(analysis_tool_path, jvm_options)
@@ -456,7 +464,7 @@ def get_project_list(projects_path, depth):
         return paths
 
 @task
-def condense_reports(
+def merge_reports(
         projects_path=BASE_CONFIG["projects_dest"],
         project_depth=BASE_CONFIG["default_location_depth"]
 ):
@@ -475,30 +483,35 @@ def condense_reports(
         P.info("[Reports] Reading reports for %s" % project)
         return map(lambda kind: str(P.read_phase_report(project, kind)).split('\n')[0], report_kinds)
 
-
     cwd = os.getcwd()
     P = Pipeline()
     P.info("[Reports] Generating analysis report")
 
-    manifest = []
-
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
     projects = get_project_list(projects_path, int(float(project_depth)))
+    project_names = map(lambda p: os.path.split(p)[1], projects)
 
     reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
 
     long_csv = long
     for report in reports: long_csv = add_row(long_csv, report)
+    long_csv = extend_csv(long_csv, "project", project_names)
 
     with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
 
+    manifestables = P.exclude_non_successful(
+        P.exclude_non_successful(
+            projects,
+            "analyzer_report"),
+        "paths_extraction_report")
+
     manifest = map(lambda proj: (
         "%s/project.csv" % os.path.join(cwd, proj),
-        "%s/%s/results.json" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
+        "%s/%s/" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
         "%s/%s/paths.csv" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])
-        ), projects)
+        ), manifestables)
     write_manifest(manifest)
 
 @task
@@ -566,17 +579,15 @@ def extract_paths(
     )
 
     P.info("[Paths][%s] Extracting Compile path" % project_name)
-    failed = P.local_canfail(
-        "Get Source Paths",
+    failed = P.local(
         gen_paths_command(project_name, "compile"),
-        project_path
+        project_path,
     )
     if failed:
         phase.fail("paths_extraction_report")
 
     P.info("[Paths][%s] Extracting Test path" % project_name)
-    failed = P.local_canfail(
-        "Get Test Paths",
+    failed = P.local(
         gen_paths_command(project_name, "test"),
         project_path
     )
@@ -638,6 +649,23 @@ def merge_callsite_counts(
     with open("callsite-counts.all.csv", 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
+@task
+def split_analysis_results(
+        project_path
+):
+    P = Pipeline()
+    phase = Phase(project_path, "Split Results")
+    phase.depend_on("analyzer_report")
+    phase.stop_if_already_reported("split_results_report")
+
+    results_path = P.get_base_output_folder(project_path)
+    data = json.load(open(os.path.join(results_path, "results.json")))
+    with open(os.path.join(results_path, "results-callsites.json"), 'w') as outfile:
+        json.dump(data["callSites"], outfile)
+    with open(os.path.join(results_path, "results-declarations.json"), 'w') as outfile:
+        json.dump(data["declarations"], outfile)
+
+    phase.succeed("split_results_report")
 
 
 ####################
