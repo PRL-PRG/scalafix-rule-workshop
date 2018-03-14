@@ -1,3 +1,5 @@
+import sbtprotoc.ProtocPlugin.ProtobufConfig
+
 lazy val fs2Version = "0.10.1"
 lazy val circeVersion = "0.9.0"
 
@@ -40,7 +42,11 @@ lazy val coreutils = (project in file("core"))
       "com.github.tototoshi" %% "scala-csv" % "1.3.5",
       "org.spire-math" %% "jawn-json4s" % "0.11.0",
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion
+      "io.circe" %% "circe-parser" % circeVersion,
+      "com.jsuereth" %% "scala-arm" % "2.0"
+    ),
+    PB.targets in Compile := Seq(
+      scalapb.gen() -> (sourceManaged in Compile).value
     )
   )
 lazy val macros = (project in file("macros"))
@@ -74,7 +80,7 @@ lazy val callSiteCounter = (project in file("cs-counter"))
     libraryDependencies ++= Seq(
       "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
       //"com.github.scopt" % "scopt_2.12" % "3.7.0"
-      "com.github.scopt" % "scopt_2.11" % "3.7.0"
+      "com.github.scopt" %% "scopt" % "3.7.0"
     )
   )
   .dependsOn(coreutils % "test->test", coreutils)
@@ -84,7 +90,7 @@ lazy val jsonReencoder = (project in file("json-reencoder"))
   .settings(
     assemblyJarName in assembly := "reencoder.jar",
     libraryDependencies ++= Seq(
-      "com.github.scopt" % "scopt_2.12" % "3.7.0",
+      "com.github.scopt" %% "scopt" % "3.7.0",
       "org.json4s" %% "json4s-native" % "3.6.0-M2",
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion

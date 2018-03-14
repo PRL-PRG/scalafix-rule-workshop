@@ -1,0 +1,65 @@
+syntax = "proto2";
+package cz.cvut.fit.prl.scalaimplicit;
+
+message Location {
+    required string file = 1;
+    required int32 line = 2;
+    required int32 col = 3;
+}
+
+message Type {
+    required string name = 1;
+    repeated Type parameters = 2;
+}
+
+message Declaration {
+    required string name = 1;
+    required string kind = 2;
+    required bool isImplicit = 3;
+    optional Signature signature = 4;
+    repeated Parent parents = 5;
+}
+
+message Signature {
+    repeated Type typeParameters = 1;
+    repeated ParameterList parameterLists = 2;
+    required Type returnType = 3;
+}
+
+message Parent {
+    required string name = 1;
+    required Declaration declaration = 2;
+    repeated Type typeArguments = 3;
+}
+
+message ParameterList {
+    required bool isImplicit = 1;
+    repeated Parameter parameters = 2;
+}
+
+message Parameter {
+    required string name = 1;
+    required Type parameterType = 2;
+}
+
+message CallSite {
+    required string name = 1;
+    required string code = 2;
+    optional Location location = 3;
+    required bool isSynthetic = 4;
+    required Declaration declaration = 5;
+    repeated Type typeArguments = 6;
+    repeated Argument implicitArguments = 7;
+}
+
+message Argument {
+    required string code = 1;
+    optional ArgumentInfo info = 2;
+}
+
+message ArgumentInfo {
+    required string name = 1;
+    required Declaration declaration = 2;
+    repeated Type typeArguments = 3;
+    repeated Argument arguments = 4;
+}
