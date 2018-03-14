@@ -2,6 +2,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
+import $ivy.`cz.cvut.fit.prl::queries:0.1-SNAPSHOT`
 import cz.cvut.fit.prl.scalaimplicit.core.util.Scala212Backport._
 import cz.cvut.fit.prl.scalaimplicit.{schema => s}
 import cz.cvut.fit.prl.scalaimplicit.schema.callSiteProtoCompanion
@@ -17,10 +18,7 @@ val InputFile = "results-callsites.json"
 val OutputFile = "results-callsites.proto"
 
 val paths =
-  Files.find(Paths.get(Root), 3, (path: Path, _: BasicFileAttributes) => path.endsWith(InputFile))
-    .collect(Collectors.toSet[Path])
-    .asScala
-    .toSeq
+  Files.find(Paths.get(Root), 3, (path: Path, _: BasicFileAttributes) => path.endsWith(InputFile)).collect(Collectors.toSet[Path]).asScala.toSeq
 
 def convert(in: r.CallSite): s.CallSite = {
   def convertDeclaration(in: r.Declaration): s.Declaration =
@@ -86,21 +84,25 @@ def convert(in: r.CallSite): s.CallSite = {
   )
 }
 
+def run() = {
+  paths
+    .par
+    .map { path =>
+      val size = Files.size(path)
+      println(s"Loading $path ($size bytes)")
+
+      val protoFile = path.getParent.resolve(OutputFile)
+
+      for {
+        xs <- Try(JSONSerializer.loadJSON[List[r.CallSite]](path.toFile.getPath).map(convert))
+        _ <- ProtoSerializer.save(xs, protoFile.toString)
+      } yield size
+    }
+    .seq
+}
+
 val start = System.currentTimeMillis()
-val res = paths
-  .par
-  .map { path =>
-    val size = Files.size(path)
-    println(s"Loading $path ($size bytes)")
-
-    val protoFile = path.getParent.resolve(OutputFile)
-
-    for {
-      xs <- Try(JSONSerializer.loadJSON[List[r.CallSite]](path.toFile.getPath).map(convert))
-      _ <- ProtoSerializer.save(xs, protoFile.toString)
-    } yield size
-  }
-  .seq
+val res = run()
 
 val end = System.currentTimeMillis()
 val elapsed = (end - start) / 1000

@@ -42,8 +42,7 @@ lazy val coreutils = (project in file("core"))
       "com.github.tototoshi" %% "scala-csv" % "1.3.5",
       "org.spire-math" %% "jawn-json4s" % "0.11.0",
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
-      "com.jsuereth" %% "scala-arm" % "2.0"
+      "io.circe" %% "circe-parser" % circeVersion
     ),
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value
