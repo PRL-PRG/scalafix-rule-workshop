@@ -6,12 +6,68 @@ import $ivy.`cz.cvut.fit.prl::queries:0.1-SNAPSHOT`
 import cz.cvut.fit.prl.scalaimplicit.core.util.Scala212Backport._
 import cz.cvut.fit.prl.scalaimplicit.{schema => s}
 import cz.cvut.fit.prl.scalaimplicit.schema.callSiteProtoCompanion
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.{Representation => r}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{JSONSerializer, ProtoSerializer}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import io.circe.generic.auto._
+
+
+/**
+  * Module to hold the internal representation of extracted information
+  */
+object Representation {
+
+  case class Location(file: String, line: Int, col: Int) {
+    override def toString: String = s"$file:$line:$col"
+  }
+  case class Type(name: String, parameters: Seq[Type] = Seq()) {
+    def shortName =
+      name
+        .split("""\{""")
+        .head
+        .split("""\n""")
+        .head
+  }
+
+  case class Declaration(name: String,
+                         kind: String,
+                         location: Option[Location],
+                         isImplicit: Boolean,
+                         signature: Option[Signature] = None,
+                         parents: Seq[Parent] = Seq())
+  case class Signature(typeParams: Seq[Type] = Seq(),
+                       parameterLists: Seq[DeclaredParameterList] = Seq(),
+                       returnType: Option[Type] = None)
+  case class Parent(name: String,
+                    declaration: Declaration,
+                    typeArguments: Seq[Type])
+  case class DeclaredParameterList(params: Seq[DeclaredParameter],
+                                   isImplicit: Boolean)
+  case class DeclaredParameter(name: String, tipe: Type)
+
+  case class CallSite(name: String,
+                      code: String,
+                      location: Option[Location],
+                      isSynthetic: Boolean,
+                      declaration: Declaration,
+                      typeArguments: Seq[Type],
+                      implicitArguments: Seq[ArgumentLike])
+
+  sealed trait ArgumentLike {
+    def code: String
+  }
+  case class Argument(code: String) extends ArgumentLike
+  case class ImplicitArgument(name: String,
+                              code: String,
+                              declaration: Declaration,
+                              typeArguments: Seq[Type],
+                              arguments: Seq[ArgumentLike])
+    extends ArgumentLike
+}
+
+
+type Representation = r
 
 class Job {
   val Root = "projects"
@@ -26,6 +82,7 @@ class Job {
       s.Declaration(
         name = in.name,
         kind = in.kind,
+        location = in.location.map(convertLocation)
         isImplicit = in.isImplicit,
         signature = in.signature.map(convertSignature),
         parents = in.parents.map(convertParent)
