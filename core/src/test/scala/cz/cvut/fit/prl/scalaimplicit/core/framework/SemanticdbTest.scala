@@ -1,40 +1,26 @@
 package cz.cvut.fit.prl.scalaimplicit.core.framework
 
+import java.io.{File, UncheckedIOException}
+import java.net.URLClassLoader
+import java.nio.file.{AccessDeniedException, Files}
+
 import com.typesafe.scalalogging.LazyLogging
 import cz.cvut.fit.prl.scalaimplicit.core.extractor._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{JSONSerializer, PrettyPrinters}
+import cz.cvut.fit.prl.scalaimplicit.schema.{Argument, _}
 import org.langmeta.internal.semanticdb.{schema => s}
 import org.langmeta.semanticdb.Database
-import org.scalatest.exceptions.TestFailedException
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.compat.Platform.EOL
-import scala.meta.internal.semanticdb.{
-  DatabaseOps,
-  FailureMode,
-  ProfilingMode,
-  SemanticdbMode
-}
+import scala.meta.internal.semanticdb.{DatabaseOps, FailureMode, ProfilingMode, SemanticdbMode}
 import scala.meta.io.AbsolutePath
 import scala.tools.cmd.CommandLineParser
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.{CompilerCommand, Global, Settings}
 import scala.util.{Failure, Success, Try}
-import java.io.{File, UncheckedIOException}
-import java.net.URLClassLoader
-import java.nio.file.{AccessDeniedException, Files}
-
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Location => _,
-  _
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{
-  JSONSerializer,
-  PrettyPrinters
-}
 
 abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
   private val workingDir =
@@ -241,17 +227,15 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       declaration = normalizedDeclaration(p.declaration)
     )
 
-    private def normalizedArgument(arg: ArgumentLike): ArgumentLike =
-      arg match {
-        case a: Argument => a
-        case a: ImplicitArgument =>
-          a.copy(
-            declaration = normalizedDeclaration(a.declaration),
-            arguments = a.arguments.map(normalizedArgument)
-          )
-      }
-    private def normalizedLocation(location: Option[Representation.Location])
-      : Option[Representation.Location] =
+    private def normalizedArgument(arg: Argument): Argument =
+      arg.copy(info = arg.info.map(info =>
+        info.copy(
+          declaration = normalizedDeclaration(info.declaration),
+          arguments = info.arguments.map(normalizedArgument)
+        )
+      ))
+    private def normalizedLocation(location: Option[Location])
+      : Option[Location] =
       location.map(loc => loc.copy(file = ""))
   }
 

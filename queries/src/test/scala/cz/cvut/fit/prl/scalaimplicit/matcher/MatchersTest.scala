@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.matcher
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.schema._
 import org.scalatest.{FunSuite, Matchers => ScalaTestMatchers}
 
 class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchingSupport with Matchers {

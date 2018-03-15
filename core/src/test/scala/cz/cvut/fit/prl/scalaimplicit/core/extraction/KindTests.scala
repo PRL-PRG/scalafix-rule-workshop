@@ -1,10 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  FailFastReflectExtract,
-  ReflectExtract
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.ImplicitArgument
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.FailFastReflectExtract
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class KindTests extends SemanticdbTest {
@@ -77,8 +73,9 @@ class KindTests extends SemanticdbTest {
       cs.name.contains("f") shouldBe true
       cs.declaration.kind.contains("def") shouldBe true
       cs.implicitArguments.size shouldBe 1
-      val arg = cs.implicitArguments.head.asInstanceOf[ImplicitArgument]
-      arg.declaration.kind.contains("val") shouldBe true
+      val arg = cs.implicitArguments.head
+      arg.info shouldBe defined
+      arg.info.get.declaration.kind.contains("val") shouldBe true
     }
   )
 
@@ -100,8 +97,9 @@ class KindTests extends SemanticdbTest {
       cs.name.contains("f") shouldBe true
       cs.declaration.kind.contains("def") shouldBe true
       cs.implicitArguments.size shouldBe 1
-      val arg = cs.implicitArguments.head.asInstanceOf[ImplicitArgument]
-      arg.declaration.kind.contains("object") shouldBe true
+      val arg = cs.implicitArguments.head
+      arg.info shouldBe defined
+      arg.info.get.declaration.kind.contains("object") shouldBe true
     }
   )
 
@@ -123,8 +121,9 @@ class KindTests extends SemanticdbTest {
       cs.name.contains("f") shouldBe true
       cs.declaration.kind.contains("def") shouldBe true
       cs.implicitArguments.size shouldBe 1
-      val arg = cs.implicitArguments.head.asInstanceOf[ImplicitArgument]
-      arg.declaration.kind.contains("def") shouldBe true
+      val arg = cs.implicitArguments.head
+      arg.info shouldBe defined
+      arg.info.get.declaration.kind.contains("def") shouldBe true
     }
   )
 }

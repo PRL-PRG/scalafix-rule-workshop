@@ -1,9 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.reports
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  CallSite,
-  Declaration
-}
+import cz.cvut.fit.prl.scalaimplicit.schema._
 
 trait Mergeable[T] {
   def name: String

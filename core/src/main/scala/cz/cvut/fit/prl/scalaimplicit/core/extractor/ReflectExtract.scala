@@ -1,10 +1,7 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  CallSite,
-  Declaration
-}
+import cz.cvut.fit.prl.scalaimplicit.schema._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers.{
   DefnDecomposer,

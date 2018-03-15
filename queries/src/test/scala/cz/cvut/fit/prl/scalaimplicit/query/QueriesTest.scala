@@ -20,7 +20,7 @@ class QueriesTest extends SemanticdbTest with Matchers with SchemaMatchers {
     true,
     Some(
     Signature(_,
-    Seq(DeclaredParameterList(Seq(parameter), false)),
+    Seq(ParameterList(Seq(parameter), false)),
     _)),
     _),
     _,

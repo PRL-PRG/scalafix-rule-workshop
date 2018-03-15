@@ -1,13 +1,13 @@
 package cz.cvut.fit.prl.scalaimplicit.matcher
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.schema._
 import cz.cvut.fit.prl.scalaimplicit.matcher.OverloadHacks._
 import cz.cvut.fit.prl.scalaimplicit.matcher.LogicalMatchers._
 
 import scala.language.reflectiveCalls
 
 trait SchemaMatchers {
-  def arguments[A <: {def arguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
+  def arguments[A <: {def arguments : Seq[Argument]}](x: Matcher[Seq[Argument]], xs: Matcher[Seq[Argument]]*): Matcher[A] =
     PropertyMatcher("arguments", _.arguments, combineAnd(x +: xs))
 
   def code[A <: {def code : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
@@ -22,7 +22,7 @@ trait SchemaMatchers {
   def file[A <: {def file : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
     PropertyMatcher("file", _.file, combineAnd(x +: xs))
 
-  def implicitArguments[A <: {def implicitArguments : Seq[ArgumentLike]}](x: Matcher[Seq[ArgumentLike]], xs: Matcher[Seq[ArgumentLike]]*): Matcher[A] =
+  def implicitArguments[A <: {def implicitArguments : Seq[Argument]}](x: Matcher[Seq[Argument]], xs: Matcher[Seq[Argument]]*): Matcher[A] =
     PropertyMatcher("implicitArguments", _.implicitArguments, combineAnd(x +: xs))
 
   def isImplicit[A <: {def isImplicit : Boolean}]: Matcher[A] = BooleanPropertyMatcher("implicit", _.isImplicit)
@@ -44,10 +44,10 @@ trait SchemaMatchers {
   def name[A <: {def name : String}](x: Matcher[String], xs: Matcher[String]*): Matcher[A] =
     PropertyMatcher("name", _.name, combineAnd(x +: xs))
 
-  def parameters[A <: {def params : Seq[DeclaredParameter]}](x: Matcher[Seq[DeclaredParameter]], xs: Matcher[Seq[DeclaredParameter]]*): Matcher[A] =
-    PropertyMatcher("parameters", v => v.params, combineAnd(x +: xs))
+  def parameters[A <: {def parameters : Seq[Parameter]}](x: Matcher[Seq[Parameter]], xs: Matcher[Seq[Parameter]]*): Matcher[A] =
+    PropertyMatcher("parameters", v => v.parameters, combineAnd(x +: xs))
 
-  def parameterLists[A <: {def parameterLists : Seq[DeclaredParameterList]}](x: Matcher[Seq[DeclaredParameterList]], xs: Matcher[Seq[DeclaredParameterList]]*): Matcher[A] =
+  def parameterLists[A <: {def parameterLists : Seq[ParameterList]}](x: Matcher[Seq[ParameterList]], xs: Matcher[Seq[ParameterList]]*): Matcher[A] =
     PropertyMatcher("parameterLists", _.parameterLists, combineAnd(x +: xs))
 
   def parents[A <: {def parents : Seq[Parent]}](x: Matcher[Seq[Parent]], xs: Matcher[Seq[Parent]]*): Matcher[A] =

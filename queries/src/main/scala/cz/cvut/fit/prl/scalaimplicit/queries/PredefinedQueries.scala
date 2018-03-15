@@ -1,16 +1,11 @@
 package cz.cvut.fit.prl.scalaimplicit.queries
 
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
-import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{
-  CallSiteReporter,
-  DeclarationReporter,
-  ProjectReporter
-}
+import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{CallSiteReporter, DeclarationReporter, ProjectReporter}
 import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
-import io.circe.generic.auto._
+import cz.cvut.fit.prl.scalaimplicit.schema._
 
 object PredefinedQueries extends Matchers with SchemaMatchers {
 

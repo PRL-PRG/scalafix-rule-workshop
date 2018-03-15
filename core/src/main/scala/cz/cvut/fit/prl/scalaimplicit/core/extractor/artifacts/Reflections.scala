@@ -1,10 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{
-  ReflectiveCtx,
-  SemanticCtx
-}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.{ReflectiveCtx, SemanticCtx}
 import org.langmeta.inputs.Position
 import org.langmeta.semanticdb.Denotation
 
