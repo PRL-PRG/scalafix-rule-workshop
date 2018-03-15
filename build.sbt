@@ -1,4 +1,4 @@
-import sbtprotoc.ProtocPlugin.ProtobufConfig
+
 
 lazy val fs2Version = "0.10.1"
 lazy val circeVersion = "0.9.0"
