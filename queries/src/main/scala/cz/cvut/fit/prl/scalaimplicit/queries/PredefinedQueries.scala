@@ -4,7 +4,6 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
 import cz.cvut.fit.prl.scalaimplicit.core.reports._
 import cz.cvut.fit.prl.scalaimplicit.matcher._
 import cz.cvut.fit.prl.scalaimplicit.queries.OutputHelper.{CallSiteReporter, DeclarationReporter, ProjectReporter}
-import cz.cvut.fit.prl.scalaimplicit.query.JsonQuery
 import cz.cvut.fit.prl.scalaimplicit.schema._
 
 object PredefinedQueries extends Matchers with SchemaMatchers {
@@ -16,7 +15,10 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
 
   private case class QueryResult[A](result: Seq[A], metadata: ProjectMetadata)
   private def queryDeclarations(
-      matcher: Matcher[Declaration]): Seq[QueryResult[Declaration]] = {
+      matcher: Matcher[Declaration]): Seq[QueryResult[Declaration]] = ???
+  // TODO Translate to protobuf if needed
+  /*
+  {
     DATASET.projects.par
       .map(
         project =>
@@ -25,6 +27,7 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
             ProjectMetadata.loadFromCSV(project.metadata, project.paths)))
       .seq
   }
+  */
 
   private def printDeclarations(results: Seq[QueryResult[Declaration]],
                                 destination: String): Unit = {
@@ -40,7 +43,10 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
   }
 
   private def queryCallSites(
-      matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = {
+      matcher: Matcher[CallSite]): Seq[QueryResult[CallSite]] = ???
+  // TODO Translate to protobuf if needed
+  /*
+  {
     DATASET.projects.par
       .map(
         project => {
@@ -52,10 +58,14 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       )
       .seq
   }
+  */
 
   private def queryCallSitesWithMetadata(
       matcher: (ProjectMetadata) => Matcher[CallSite])
-    : Seq[QueryResult[CallSite]] = {
+    : Seq[QueryResult[CallSite]] = ???
+  // TODO Translate to protobuf if needed
+   /*
+   {
     DATASET.projects.par
       .map(project => {
         val metadata =
@@ -65,6 +75,7 @@ object PredefinedQueries extends Matchers with SchemaMatchers {
       })
       .seq
   }
+  */
 
   private def printCallSites(results: Seq[QueryResult[CallSite]],
                              destination: String): Unit = {

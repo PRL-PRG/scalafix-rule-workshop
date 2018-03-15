@@ -53,11 +53,9 @@ lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "scalatags" % "0.6.7",
-      "co.fs2" %% "fs2-io" % fs2Version,
-      "io.circe" %% "circe-fs2" % circeVersion
+      "com.lihaoyi" %% "scalatags" % "0.6.7"
     ))
-  .dependsOn(coreutils % "test->test")
+  .dependsOn(coreutils % "test->test", coreutils % "compile->test")
 
 lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)
