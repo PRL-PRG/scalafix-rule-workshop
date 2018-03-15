@@ -16,6 +16,7 @@ import io.circe.generic.auto._
 /**
   * Module to hold the internal representation of extracted information
   */
+object reprholder {
 object Representation {
 
   case class Location(file: String, line: Int, col: Int) {
@@ -65,9 +66,9 @@ object Representation {
                               arguments: Seq[ArgumentLike])
     extends ArgumentLike
 }
+}
 
-
-type Representation = r
+import reprholder.{Representation => r}
 
 class Job {
   val Root = "projects"
@@ -82,7 +83,7 @@ class Job {
       s.Declaration(
         name = in.name,
         kind = in.kind,
-        location = in.location.map(convertLocation)
+        location = in.location.map(convertLocation),
         isImplicit = in.isImplicit,
         signature = in.signature.map(convertSignature),
         parents = in.parents.map(convertParent)
