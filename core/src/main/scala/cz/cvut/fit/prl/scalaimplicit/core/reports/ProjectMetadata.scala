@@ -29,21 +29,17 @@ object ProjectMetadata {
 
   def processPaths(
       rawdata: Seq[Map[String, String]]): Map[String, Seq[String]] = {
-    def convertToRelativePaths(entry: Map[String, String]) = Map(
-      "kind" -> entry("kind"),
-      "path" -> {
-        val split = entry("path").split(s"/${entry("project")}")
-        split.size match {
-          case 1 => "/"
-          case _ => split(1)
-        }
+    def convertToRelativePaths(entry: Map[String, String]): (String, Seq[String]) = 
+      entry("kind") -> {
+        val split = entry("path").split(s"(?=/${entry("project")})").tail.map(_.stripPrefix("/"))
+        split.tail.foldLeft(Seq(split.head))(((acc, elem) => acc.map(_ + "/" + elem) ++ Seq(elem)))
       }
-    )
+   
 
     rawdata
       .map(convertToRelativePaths)
-      .groupBy(_("kind"))
-      .map(p => p._1 -> p._2.map(_("path")))
+      .groupBy(_._1)
+      .map(p => p._1 -> p._2.flatMap(_._2))
   }
 
   def loadFromCSV(metadataFile: String, pathsFile: String): ProjectMetadata = {
