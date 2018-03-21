@@ -51,6 +51,8 @@ class PropertyMatchersTest extends FunSuite with ScalaTestMatchers with ScalaTes
     (X(Some(2)) matches p1) should matched("p1 value is > 1")
     (X(Some(1)) matches p1) should mismatched("p1 value (1) is <= 1")
     (X(None) matches p1) should mismatched("p1 is None")
+
+    p1.describeMismatch(X(Some(2))) shouldBe None
   }
 
   test("nested properties") {
