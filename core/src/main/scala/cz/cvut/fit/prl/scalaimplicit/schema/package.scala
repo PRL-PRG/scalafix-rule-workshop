@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit
 
-import scalapb.GeneratedMessageCompanion
+import com.trueaccord.scalapb.GeneratedMessageCompanion
 
 package object schema {
   implicit val callSiteProtoCompanion: GeneratedMessageCompanion[CallSite] = CallSite
