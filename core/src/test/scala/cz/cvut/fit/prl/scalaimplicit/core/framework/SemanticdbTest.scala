@@ -116,7 +116,7 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
             .isInstanceOf[AccessDeniedException] && semanticdbFile.exists() =>
       // there is a bug in scalameta trying to access files it should not
       // ignore it if it generated file
-      case e: Throwable => fail(s"Unable to compile", e)
+      case e: Throwable => fail(s"Unable to compile ${e.getMessage}", e)
     } finally {
       assert(testFile.delete())
     }

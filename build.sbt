@@ -1,4 +1,4 @@
-
+import com.trueaccord.scalapb.compiler.Version.scalapbVersion
 
 lazy val fs2Version = "0.10.1"
 lazy val circeVersion = "0.9.0"
@@ -42,7 +42,8 @@ lazy val coreutils = (project in file("core"))
       "com.github.tototoshi" %% "scala-csv" % "1.3.5",
       "org.spire-math" %% "jawn-json4s" % "0.11.0",
       "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion
+      "io.circe" %% "circe-parser" % circeVersion,
+      "com.trueaccord.scalapb" %% "scalapb-runtime" % scalapbVersion
     ),
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value

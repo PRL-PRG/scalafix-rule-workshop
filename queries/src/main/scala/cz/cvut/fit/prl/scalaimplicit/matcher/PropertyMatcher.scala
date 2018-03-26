@@ -36,7 +36,8 @@ case class OptionPropertyMatcher[A, B](name: String, property: A => Option[B], m
   override def describeMatch(v: A): Option[String] =
     property(v).flatMap(matcher.describeMatch).map(name + " value " + _)
 
-  override def describeMismatch(v: A): Option[String] = {
-    property(v).flatMap(matcher.describeMismatch).map(name + " value " + _).orElse(Some(name + " is None"))
+  override def describeMismatch(v: A): Option[String] = property(v) match {
+    case x@Some(_) => x.flatMap(matcher.describeMismatch).map(name + " value " + _)
+    case None => Some(name + " is None")
   }
 }
