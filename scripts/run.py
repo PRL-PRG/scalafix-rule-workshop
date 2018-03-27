@@ -250,6 +250,13 @@ def create_project_info(
                 if line["language"] == "Scala":
                     scala_lines += lines
         return {"total": total_lines, "scala": scala_lines}
+    def get_gh_stars(repo_info):
+        if "stargazers_count" in repo_info:
+           return repo_info["stargazers_count"]
+        elif "watchers_count" in repo_info:
+           return repo_info["watchers_count"]
+        else:
+           P.error(repo_info)
 
     def generate_project_metadata(repo_path):
         repo_url = P.local("git config --get remote.origin.url", repo_path)
@@ -258,7 +265,7 @@ def create_project_info(
         reponame = repo_url.split('.com/')[1]
         sloc = count_locs(repo_path)
         repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, repo_path))
-        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else (repo_info["watchers_count"] if "watchers_count" in repo_info else -1)
+        gh_stars = get_gh_stars(repo_info)
         build_system = P.get_build_systems(repo_path)
         project_info = {
             "name": str(project_name),
