@@ -538,14 +538,14 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    metadata_files = map(lambda proj: proj + "/project.csv", projects)
-    projects_info = merge_all(load_many(metadata_files))
+    metadata_files = load_many(map(lambda proj: proj + "/project.csv", projects))
+    projects_info = merge_all(metadata_files)
     with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
     sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
     sloc_csvs = load_many(sloc_files)
-    headers_clean = map(lambda i: drop_header(sloc_csvs[i], 5), range(1, len(sloc_csvs))) # Drop the annoying cloc timestamp
-    with_project = map(lambda i: extend_csv(headers_clean[i], "project", get_data(projects_info, i, "reponame")), range(1, len(headers_clean)))
+    headers_clean = [drop_header(csvf, 5) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
+    with_project = [extend_csv(headers_clean[i], "project", get_data(metadata_files[i], 0, "reponame")) for i in range(0, len(headers_clean))]
     all_in_one = merge_all(with_project)
     with open("slocs.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
