@@ -720,12 +720,12 @@ def extend_csv(csvf, colname, coldata):
         assert(len(coldata) == len(csvf["data"]))
         return {
             "headers": csvf["headers"] + [colname],
-            "data": map(lambda i: csvf["data"][i] + [coldata[i]], range(1, len(csvf["data"])))
+            "data": [csvf["data"][i] + [coldata[i]] for i in range(0, len(csvf["data"]))]
         }
     else:
         return {
             "headers": csvf["headers"] + [colname],
-            "data": map(lambda i: csvf["data"][i] + [coldata], range(1, len(csvf["data"])))
+            "data": [row + [coldata] for row in csvf["data"]]
         }
 
 def drop_header(csvf, index):
