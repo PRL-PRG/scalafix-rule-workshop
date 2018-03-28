@@ -545,7 +545,7 @@ def merge_metadata(
     sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
     sloc_csvs = load_many(sloc_files)
     headers_clean = map(lambda i: drop_header(sloc_csvs[i], 5), range(1, len(sloc_csvs))) # Drop the annoying cloc timestamp
-    with_project = map(lambda i: extend_csv(headers_clean[i], "project", os.path.split(projects[i])[1]), range(1, len(headers_clean)))
+    with_project = map(lambda i: extend_csv(headers_clean[i], "project", get_data(projects_info, i, "reponame")), range(1, len(headers_clean)))
     all_in_one = merge_all(with_project)
     with open("slocs.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
@@ -747,6 +747,10 @@ def add_row(csvf, row):
         "headers": csvf["headers"],
         "data": csvf["data"] + [row]
     }
+
+def get_data(csvf, row, colname):
+    colindex = csvf["headers"].index(colname)
+    return csvf["data"][row][colindex]
 
         
 
