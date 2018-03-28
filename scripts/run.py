@@ -456,7 +456,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
 
 def get_project_list(projects_path, depth):
     if depth == 0:
-        return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
+        return list([os.path.join(projects_path, x) for x in os.listdir(projects_path)])
     else:
         paths = []
         for p in os.listdir(projects_path):
@@ -490,9 +490,9 @@ def merge_reports(
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
     projects = get_project_list(projects_path, int(float(project_depth)))
-    project_names = map(lambda p: os.path.split(p)[1], projects)
+    project_names = [os.path.split(p)[1] for p in projects]
 
-    reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
+    reports = [read_reports(reports_summaries.keys(), project) for project in projects]
 
     long_csv = long
     for report in reports: long_csv = add_row(long_csv, report)
@@ -507,11 +507,11 @@ def merge_reports(
             "analyzer_report"),
         "paths_extraction_report")
 
-    manifest = map(lambda proj: (
+    manifest = [(
         "%s/project.csv" % os.path.join(cwd, proj),
         "%s/%s/" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
         "%s/%s/paths.csv" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])
-        ), manifestables)
+        ) for proj in manifestables]
     write_manifest(manifest)
 
 @task
@@ -538,11 +538,11 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    metadata_files = load_many(map(lambda proj: proj + "/project.csv", projects))
+    metadata_files = load_many([proj + "/project.csv" for proj in projects])
     projects_info = merge_all(metadata_files)
     with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
-    sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
+    sloc_files = [proj+"/sloc.csv" for proj in projects]
     sloc_csvs = load_many(sloc_files)
     headers_clean = [drop_header(csvf, 5) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
     with_project = [extend_csv(headers_clean[i], "project", get_data(metadata_files[i], 0, "reponame")) for i in range(0, len(headers_clean))]
@@ -604,10 +604,10 @@ def merge_paths(
 ):
     P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
-    projects = get_project_list(projects_path, project_depth)
+    projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
+    paths_files = load_many([os.path.join(p, reports_folder, "paths.csv") for p in projects])
     merged = merge_all(paths_files)
 
     with open("paths.all.csv", 'w') as pathsfile:
@@ -642,8 +642,8 @@ def merge_callsite_counts(
     projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "callsite_count_report")
-    files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
-    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(1, len(files)))
+    files = load_many([os.path.join(p, reports_folder, "callsite-counts.csv") for p in projects])
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
 
     with open("callsite-counts.all.csv", 'w') as pathsfile:
