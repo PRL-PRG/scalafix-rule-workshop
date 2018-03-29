@@ -86,15 +86,15 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
         output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
-        if not os.path.exists(output_folder):
+        if create_if_missing and (not os.path.exists(report_folder)):
             os.mkdir(output_folder)
         return output_folder
 
-    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
-        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name), BASE_CONFIG["phase_reports_folder"])
-        if not os.path.exists(report_folder):
+    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
+        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name, create_if_missing), BASE_CONFIG["phase_reports_folder"])
+        if create_if_missing and (not os.path.exists(report_folder)):
             os.mkdir(report_folder)
         return report_folder
 
@@ -114,7 +114,7 @@ class Pipeline():
         return res if res is None else res.strip()
 
     def write_phase_report(self, content, project_path, kind):
-        report_folder = self.get_phase_reports_folder(project_path)
+        report_folder = self.get_phase_reports_folder(project_path, create_if_missing=True)
         report_path = os.path.join(report_folder, BASE_CONFIG["phase_reports"][kind])
         with open(report_path, 'w') as report:
             return report.write(content)
@@ -548,7 +548,7 @@ def merge_metadata(
     sloc_report_name = BASE_CONFIG["cloc_report"]
     sloc_files = [proj+"/"+sloc_report_name for proj in projects]
     sloc_csvs = load_many(sloc_files)
-    headers_clean = [drop_header(csvf, 5) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
+    headers_clean = [(drop_header(csvf, 5) if len(csvf["headers"]) == 6 else csvf) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
     with_project = [extend_csv(headers_clean[i], "project", get_data(metadata_files[i], 0, "reponame")) for i in range(0, len(headers_clean))]
     all_in_one = merge_all(with_project)
     with open(sloc_report_name, 'w') as slocs_file:
