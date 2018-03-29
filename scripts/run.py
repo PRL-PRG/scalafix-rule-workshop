@@ -17,7 +17,7 @@ import datetime
 BASE_CONFIG = {
     "debug_info": True,
     "projects_dest": "./projects",
-    "default_location_depth": 0,
+    "default_location_depth": 1,
     "temporal_git_repo_storage": "_gitrepotmp",
 
     "force_recompile_on_fail": False,
@@ -547,14 +547,14 @@ def merge_metadata(
         projects = P.exclude_non_successful(projects, "analyzer_report")
     metadata_files = map(lambda proj: proj + "/project.csv", projects)
     projects_info = merge_all(load_many(metadata_files))
-    with open("project-metadata.csv", 'w') as metadata:
+    with open("project-metadata.all.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
     sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
     sloc_csvs = load_many(sloc_files)
     headers_clean = map(lambda i: drop_header(sloc_csvs[i], 5), range(1, len(sloc_csvs))) # Drop the annoying cloc timestamp
     with_project = map(lambda i: extend_csv(headers_clean[i], "project", os.path.split(projects[i])[1]), range(1, len(headers_clean)))
     all_in_one = merge_all(with_project)
-    with open("slocs.csv", 'w') as slocs_file:
+    with open("slocs.all.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
 
 # Run sbt to extract test and compile source paths
@@ -673,6 +673,22 @@ def split_analysis_results(
         json.dump(data["declarations"], outfile)
 
     phase.succeed("split_results_report")
+
+@task
+def merge_gh_stars(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "analyzer_report")
+    stars_files = [os.path.join(proj, reports_folder, "gh_stars.csv") for proj in projects]
+    values = merge_all(load_many(stars_files))
+    with open("gh_stars.all.csv", 'w') as starsfile:
+        starsfile.write(print_csv(values))
 
 
 ####################
