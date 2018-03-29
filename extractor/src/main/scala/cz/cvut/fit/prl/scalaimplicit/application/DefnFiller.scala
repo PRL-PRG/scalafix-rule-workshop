@@ -4,12 +4,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ImplicitAnalysisResult,
   OrphanCallSites
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ArgumentLike,
-  Declaration,
-  ImplicitArgument
-}
+import cz.cvut.fit.prl.scalaimplicit.schema._
 
 object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
   def findDeclOrReport(target: {
@@ -23,15 +18,15 @@ object DefnFiller extends (ImplicitAnalysisResult => ImplicitAnalysisResult) {
         target.declaration
       })
 
-  def processArgList(args: Seq[ArgumentLike],
-                     definitions: Set[Declaration]): Seq[ArgumentLike] = {
-    args.map {
-      case arg: Argument => arg
-      case iarg: ImplicitArgument =>
-        iarg.copy(
-          declaration = findDeclOrReport(iarg, definitions),
-          arguments = processArgList(iarg.arguments, definitions)
-        )
+  def processArgList(args: Seq[Argument],
+                     definitions: Set[Declaration]): Seq[Argument] = {
+    args.map { arg =>
+      arg.copy(
+        info = arg.info.map(
+          _.copy(
+            declaration = findDeclOrReport(arg.info.get, definitions),
+            arguments = processArgList(arg.info.get.arguments, definitions)
+          )))
     }
   }
 

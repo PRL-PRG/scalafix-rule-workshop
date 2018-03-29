@@ -6,61 +6,8 @@ import org.langmeta.inputs.{Input, Position}
 
 import scala.reflect.runtime.{universe => u}
 
-/**
-  * Module to hold the internal representation of extracted information
-  */
-object Representation {
-
-  case class Location(file: String, line: Int, col: Int) {
-    override def toString: String = s"$file:$line:$col"
-  }
-  case class Type(name: String, parameters: Seq[Type] = Seq()) {
-    def shortName =
-      name
-        .split("""\{""")
-        .head
-        .split("""\n""")
-        .head
-  }
-
-  case class Declaration(name: String,
-                         kind: String,
-                         location: Option[Location],
-                         isImplicit: Boolean,
-                         signature: Option[Signature] = None,
-                         parents: Seq[Parent] = Seq())
-  case class Signature(typeParams: Seq[Type] = Seq(),
-                       parameterLists: Seq[DeclaredParameterList] = Seq(),
-                       returnType: Option[Type] = None)
-  case class Parent(name: String,
-                    declaration: Declaration,
-                    typeArguments: Seq[Type])
-  case class DeclaredParameterList(params: Seq[DeclaredParameter],
-                                   isImplicit: Boolean)
-  case class DeclaredParameter(name: String, tipe: Type)
-
-  case class CallSite(name: String,
-                      code: String,
-                      location: Option[Location],
-                      isSynthetic: Boolean,
-                      declaration: Declaration,
-                      typeArguments: Seq[Type],
-                      implicitArguments: Seq[ArgumentLike])
-
-  sealed trait ArgumentLike {
-    def code: String
-  }
-  case class Argument(code: String) extends ArgumentLike
-  case class ImplicitArgument(name: String,
-                              code: String,
-                              declaration: Declaration,
-                              typeArguments: Seq[Type],
-                              arguments: Seq[ArgumentLike])
-      extends ArgumentLike
-}
-
 object Factories {
-  import Representation._
+  import cz.cvut.fit.prl.scalaimplicit.schema._
 
   def createLocation(pos: Position = Position.None): Option[Location] = {
     pos match {
@@ -100,18 +47,18 @@ object Factories {
     )
   }
 
-  def createParam(ctx: ReflectiveCtx, symbol: u.Symbol): DeclaredParameter = {
-    DeclaredParameter(
+  def createParam(ctx: ReflectiveCtx, symbol: u.Symbol): Parameter = {
+    Parameter(
       name = symbol.name.toString,
-      tipe = createTypeParameter(symbol.typeSignature.typeSymbol.asType)
+      parameterType = createTypeParameter(symbol.typeSignature.typeSymbol.asType)
     )
   }
 
   def createParamList(ctx: ReflectiveCtx,
-                      paramList: List[u.Symbol]): DeclaredParameterList = {
-    DeclaredParameterList(
+                      paramList: List[u.Symbol]): ParameterList = {
+    ParameterList(
       isImplicit = paramList.nonEmpty && paramList.head.isImplicit, // We assume that if one param is implicit, every param is
-      params = paramList.map(createParam(ctx, _))
+      parameters = paramList.map(createParam(ctx, _))
     )
   }
 
@@ -123,9 +70,9 @@ object Factories {
 
     Some(
       Signature(
-        typeParams = typeParams,
+        typeParameters = typeParams,
         parameterLists = reflection.paramLists.map(createParamList(ctx, _)),
-        returnType = Some(createTypeArgument(reflection.returnType))
+        returnType = createTypeArgument(reflection.returnType)
       ))
   }
 
@@ -160,16 +107,18 @@ object Factories {
     )
   }
 
-  def createImplicitArgument(ctx: ReflectiveCtx, param: Param): ArgumentLike = {
+  def createImplicitArgument(ctx: ReflectiveCtx, param: Param): Argument = {
     param match {
       case reflection: ImplicitReflection => {
         val original = reflection.originalSymbol
-        ImplicitArgument(
-          name = reflection.fullName,
+        Argument(
           code = reflection.code,
-          declaration = createDeclaration(ctx, reflection.declaration),
-          typeArguments = reflection.typeArguments.map(createTypeArgument),
-          arguments = reflection.args.map(createImplicitArgument(ctx, _))
+          info = Some(ArgumentInfo(
+            name = reflection.fullName,
+            declaration = createDeclaration(ctx, reflection.declaration),
+            typeArguments = reflection.typeArguments.map(createTypeArgument),
+            arguments = reflection.args.map(createImplicitArgument(ctx, _))
+          ))
         )
       }
       case p: Param => {
