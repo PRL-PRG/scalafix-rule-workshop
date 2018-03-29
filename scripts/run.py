@@ -38,6 +38,7 @@ BASE_CONFIG = {
     "sbt_versions": ["0.13", "1.0"],
 
     "condensed_report_long": "condensed-report.long.csv",
+    "cloc_report": "sloc.csv",
 
     "reports_folder": "_reports",
     "phase_reports_folder": "_phases",
@@ -237,10 +238,11 @@ def create_project_info(
         last_commit=None,
 ):
     def count_locs(project_path):
-        if not os.path.exists(os.path.join(project_path, "cloc_report.csv")):
-            P.local("cloc --out=cloc_report.csv --csv .", project_path)
+        cloc_report_name = BASE_CONFIG["cloc_report"]
+        if not os.path.exists(os.path.join(project_path, cloc_report_name)):
+            P.local("cloc --out=%s --csv ." % cloc_report_name, project_path)
 
-        with open(os.path.join(project_path, "cloc_report.csv")) as csv_file:
+        with open(os.path.join(project_path, cloc_report_name)) as csv_file:
             scala_lines = 0
             total_lines = 0
             reader = csv.DictReader(csv_file)
@@ -542,12 +544,14 @@ def merge_metadata(
     projects_info = merge_all(metadata_files)
     with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
-    sloc_files = [proj+"/sloc.csv" for proj in projects]
+
+    sloc_report_name = BASE_CONFIG["cloc_report"]
+    sloc_files = [proj+"/"+sloc_report_name for proj in projects]
     sloc_csvs = load_many(sloc_files)
     headers_clean = [(drop_header(csvf, 5) if len(csvf["headers"]) == 6 else csvf) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
     with_project = [extend_csv(headers_clean[i], "project", get_data(metadata_files[i], 0, "reponame")) for i in range(0, len(headers_clean))]
     all_in_one = merge_all(with_project)
-    with open("slocs.all.csv", 'w') as slocs_file:
+    with open(sloc_report_name, 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
 
 # Run sbt to extract test and compile source paths
