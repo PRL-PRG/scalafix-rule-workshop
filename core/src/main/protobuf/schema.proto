@@ -15,9 +15,10 @@ message Type {
 message Declaration {
     required string name = 1;
     required string kind = 2;
-    required bool isImplicit = 3;
-    optional Signature signature = 4;
-    repeated Parent parents = 5;
+    optional Location location = 3;
+    required bool isImplicit = 4;
+    optional Signature signature = 5;
+    repeated Parent parents = 6;
 }
 
 message Signature {

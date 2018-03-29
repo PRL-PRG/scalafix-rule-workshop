@@ -1,15 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import java.net.URL
-
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx.Cleaners
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Signature
-import org.langmeta.inputs.Position
-import org.langmeta.semanticdb.ResolvedName
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx.Cleaners
 import org.langmeta.semanticdb.Signature._
 
-import scala.meta.{Database, Denotation, Symbol, Synthetic}
+import scala.meta.{Database, Symbol, Synthetic}
 import scala.reflect.runtime.{universe => u}
 import scala.util.{Failure, Success, Try}
 

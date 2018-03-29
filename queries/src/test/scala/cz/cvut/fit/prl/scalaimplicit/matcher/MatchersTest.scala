@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.matcher
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.schema._
 import org.scalatest.{FunSuite, Matchers => ScalaTestMatchers}
 
 class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchingSupport with Matchers {
@@ -125,9 +125,9 @@ class MatchersTest extends FunSuite with ScalaTestMatchers with ScalaTestMatchin
       "code",
       Some(Location("file", 1, 2)),
       true,
-      Declaration("decl-name", "def", Some(Location("fil", 3, 4)), true, None, Seq(Parent("parent", null, null))),
-      null,
-      null
+      Declaration("decl-name", "def", Some(Location("fil", 3, 4)), true, None, Seq(Parent("parent", Declaration("a.parent", "class", None, false, None, Seq()), Seq()))),
+      Seq(),
+      Seq()
     )
 
     val m = cs.matches(

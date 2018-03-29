@@ -1,14 +1,10 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extraction
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ImplicitAnalysisResult,
-  FailFastReflectExtract,
-  ReflectExtract
-}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.PrettyCallSite
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters._
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{FailFastReflectExtract, ImplicitAnalysisResult}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
+import cz.cvut.fit.prl.scalaimplicit.schema._
 
 class NewSchemaTest extends SemanticdbTest {
 
@@ -64,26 +60,26 @@ class NewSchemaTest extends SemanticdbTest {
           isImplicit = true,
           signature = Some(
             Signature(
-              typeParams = Seq(
+              typeParameters = Seq(
                 Type(
                   name = "test.T",
                   constraints = Some(": JsonConverter")
                 )),
               parameterLists = Seq(
-                DeclaredParameterList(
+                ParameterList(
                   isImplicit = false,
                   params = Seq(
-                    DeclaredParameter(
+                    Parameter(
                       name = "",
-                      tipe = Type("test.T")
+                      parameterType = Type("test.T")
                     ))
                 ),
-                DeclaredParameterList(
+                ParameterList(
                   isImplicit = true,
                   params = Seq(
-                    DeclaredParameter(
+                    Parameter(
                       name = "evidence",
-                      tipe = Type(
+                      parameterType = Type(
                         name = "test.T",
                         constraints = Some(": JsonConverter")
                       )
@@ -142,102 +138,104 @@ class NewSchemaTest extends SemanticdbTest {
               isImplicit = true,
               signature = Some(
                 Signature(
-                  typeParams = Seq(),
+                  typeParameters = Seq(),
                   parameterLists = Seq(
-                    DeclaredParameterList(
+                    ParameterList(
                       isImplicit = false,
-                      params = Seq(
-                        DeclaredParameter(
+                      parameters = Seq(
+                        Parameter(
                           name = "a",
-                          tipe = Type("nested.A")
+                          parameterType = Type("nested.A")
                         ))
                     ),
-                    DeclaredParameterList(
+                    ParameterList(
                       isImplicit = true,
-                      params = Seq(
-                        DeclaredParameter(
+                      parameters = Seq(
+                        Parameter(
                           name = "b",
-                          tipe = Type(name = "scala.Function1",
-                                      parameters =
-                                        Seq(Type("scala.Function1.T1"),
-                                            Type("scala.Function1.R")))
+                          parameterType = Type(name = "scala.Function1",
+                                               parameters =
+                                                 Seq(Type("scala.Function1.T1"),
+                                                     Type("scala.Function1.R")))
                         ),
-                        DeclaredParameter(
+                        Parameter(
                           name = "c",
-                          tipe = Type(name = "scala.Function1",
-                                      parameters =
-                                        Seq(Type("scala.Function1.T1"),
-                                            Type("scala.Function1.R")))
+                          parameterType = Type(name = "scala.Function1",
+                                               parameters =
+                                                 Seq(Type("scala.Function1.T1"),
+                                                     Type("scala.Function1.R")))
                         )
                       )
                     )
                   ),
-                  returnType = Some(Type("nested.C"))
+                  returnType = Type("nested.C")
                 )
               )
             ),
             implicitArguments = Seq(
-              ImplicitArgument(
-                name = "nested.a2b",
+              Argument(
                 code = "nested.this.a2b(a)",
-                typeArguments = Seq(),
-                arguments = Seq(
-                  Argument(
-                    code = "a"
-                  )
-                ),
-                declaration = Declaration(
+                info = Some(ArgumentInfo(
                   name = "nested.a2b",
-                  kind = "def",
-                  location = None,
-                  isImplicit = true,
-                  signature = Some(
-                    Signature(
-                      typeParams = Seq(),
-                      parameterLists = Seq(
-                        DeclaredParameterList(
-                          isImplicit = false,
-                          params = Seq(
-                            DeclaredParameter(
+                  typeArguments = Seq(),
+                  arguments = Seq(
+                    Argument(
+                      code = "a"
+                    )
+                  ),
+                  declaration = Declaration(
+                    name = "nested.a2b",
+                    kind = "def",
+                    location = None,
+                    isImplicit = true,
+                    signature = Some(
+                      Signature(
+                        typeParameters = Seq(),
+                        parameterLists = Seq(
+                          ParameterList(
+                            isImplicit = false,
+                            parameters = Seq(Parameter(
                               name = "a",
-                              tipe = Type("nested.A")
+                              parameterType = Type("nested.A")
                             ))
-                        )),
-                      returnType = Some(Type("nested.B"))
+                          )),
+                        returnType = Type("nested.B")
+                      )
                     )
                   )
-                )
+                ))
               ),
-              ImplicitArgument(
-                name = "nested.b2c",
+              Argument(
                 code = "nested.this.b2c(b)",
-                typeArguments = Seq(),
-                arguments = Seq(
-                  Argument(
-                    code = "b"
-                  )
-                ),
-                declaration = Declaration(
+                info = Some(ArgumentInfo(
                   name = "nested.b2c",
-                  kind = "def",
-                  location = None,
-                  isImplicit = true,
-                  signature = Some(
-                    Signature(
-                      typeParams = Seq(),
-                      parameterLists = Seq(
-                        DeclaredParameterList(
-                          isImplicit = false,
-                          params = Seq(
-                            DeclaredParameter(
+                  typeArguments = Seq(),
+                  arguments = Seq(
+                    Argument(
+                      code = "b"
+                    )
+                  ),
+                  declaration = Declaration(
+                    name = "nested.b2c",
+                    kind = "def",
+                    location = None,
+                    isImplicit = true,
+                    signature = Some(
+                      Signature(
+                        typeParameters = Seq(),
+                        parameterLists = Seq(
+                          ParameterList(
+                            isImplicit = false,
+                            parameters = Seq(Parameter(
                               name = "b",
-                              tipe = Type("nested.B")
+                              parameterType = Type("nested.B")
                             ))
-                        )),
-                      returnType = Some(Type("nested.C"))
+                          )),
+                        returnType = Type("nested.C")
+                      )
                     )
                   )
-                )
+                ))
               )
             )
           )
@@ -289,19 +287,18 @@ class NewSchemaTest extends SemanticdbTest {
           isImplicit = true,
           signature = Some(
             Signature(
-              typeParams = Seq(Type("classConv.Hello.T")),
+              typeParameters = Seq(Type("classConv.Hello.T")),
               parameterLists = Seq(
-                DeclaredParameterList(
+                ParameterList(
                   isImplicit = false,
-                  params =
-                    Seq(DeclaredParameter("s", Type("classConv.Hello.T")))
+                  parameters = Seq(Parameter("s", Type("classConv.Hello.T")))
                 ),
-                DeclaredParameterList(
+                ParameterList(
                   isImplicit = true,
-                  params = Seq(
-                    DeclaredParameter(
+                  parameters = Seq(
+                    Parameter(
                       name = "evidence$1",
-                      tipe = Type(
+                      parameterType = Type(
                         name = "classConv.Writer",
                         parameters = Seq(Type("classConv.Writer.A"))
                       )
@@ -309,58 +306,60 @@ class NewSchemaTest extends SemanticdbTest {
                 )
               ),
               returnType =
-                Some(Type("classConv.Hello[T]", parameters = Seq(Type("T"))))
+                Type("classConv.Hello[T]", parameters = Seq(Type("T")))
             )),
           parents = Seq()
         ),
         typeArguments = Seq(Type("scala.Int")),
         implicitArguments = Seq(
-          ImplicitArgument(
-            name = "classConv.IntWriter",
+          Argument(
             code = "classConv.this.IntWriter",
-            declaration = Declaration(
-              name = "classConv.IntWriter",
-              kind = "final object",
-              location = None,
-              isImplicit = true,
-              signature = Some(
-                Signature(
-                  returnType = Some(Type("classConv.IntWriter.type"))
-                )),
-              parents = Seq(
-                Parent(
-                  name = "classConv.Useless",
-                  declaration = Declaration(
-                    name = "classConv.Useless",
-                    kind = "abstract trait",
-                    location = None,
-                    isImplicit = false,
-                    signature = Some(
-                      Signature(
-                        returnType = Some(Type("<notype>"))
-                      ))
-                  ),
-                  typeArguments = Seq()
+            info = Some(
+              ArgumentInfo(
+                name = "classConv.IntWriter",
+                declaration = Declaration(
+                  name = "classConv.IntWriter",
+                  kind = "final object",
+                  location = None,
+                  isImplicit = true,
+                  signature = Some(
+                    Signature(
+                      returnType = Type("classConv.IntWriter.type")
+                    )),
+                  parents = Seq(
+                    Parent(
+                      name = "classConv.Useless",
+                      declaration = Declaration(
+                        name = "classConv.Useless",
+                        kind = "abstract trait",
+                        location = None,
+                        isImplicit = false,
+                        signature = Some(Signature(
+                          returnType = Type("<notype>")
+                        ))
+                      ),
+                      typeArguments = Seq()
+                    ),
+                    Parent(
+                      name = "classConv.Writer",
+                      declaration = Declaration(
+                        name = "classConv.Writer",
+                        kind = "abstract trait",
+                        location = None,
+                        isImplicit = false,
+                        signature = Some(
+                          Signature(
+                            typeParameters = Seq(Type("classConv.Writer.A")),
+                            returnType = Type("<notype>")
+                          ))
+                      ),
+                      typeArguments = Seq(Type("scala.Int"))
+                    )
+                  )
                 ),
-                Parent(
-                  name = "classConv.Writer",
-                  declaration = Declaration(
-                    name = "classConv.Writer",
-                    kind = "abstract trait",
-                    location = None,
-                    isImplicit = false,
-                    signature = Some(
-                      Signature(
-                        typeParams = Seq(Type("classConv.Writer.A")),
-                        returnType = Some(Type("<notype>"))
-                      ))
-                  ),
-                  typeArguments = Seq(Type("scala.Int"))
-                )
-              )
-            ),
-            typeArguments = Seq(),
-            arguments = Seq()
+                typeArguments = Seq(),
+                arguments = Seq()
+              ))
           )
         )
       )

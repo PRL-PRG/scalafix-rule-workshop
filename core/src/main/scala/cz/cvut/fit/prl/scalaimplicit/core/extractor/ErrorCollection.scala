@@ -2,8 +2,6 @@ package cz.cvut.fit.prl.scalaimplicit.core.extractor
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.CallSite
-
 /**
   * Class that buffers logs, and can print them to a file.
   * It does have state, but the only operation it allows is to add,

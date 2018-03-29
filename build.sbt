@@ -18,7 +18,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(coreutils, macros, queries, implicitExtractor, callSiteCounter)
+  .aggregate(coreutils, queries, implicitExtractor, callSiteCounter)
   .settings(commonSettings: _*)
 
 lazy val coreutils = (project in file("core"))
@@ -49,22 +49,14 @@ lazy val coreutils = (project in file("core"))
       scalapb.gen() -> (sourceManaged in Compile).value
     )
   )
-lazy val macros = (project in file("macros"))
-  .settings(commonSettings: _*)
-  .settings(
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
-  )
-  .dependsOn(coreutils)
 
 lazy val queries = (project in file("queries"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %% "scalatags" % "0.6.7",
-      "co.fs2" %% "fs2-io" % fs2Version,
-      "io.circe" %% "circe-fs2" % circeVersion
+      "com.lihaoyi" %% "scalatags" % "0.6.7"
     ))
-  .dependsOn(coreutils % "test->test", macros)
+  .dependsOn(coreutils % "test->test", coreutils % "compile->test")
 
 lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)

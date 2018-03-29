@@ -4,9 +4,7 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
   ImplicitAnalysisResult,
   FailFastReflectExtract
 }
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.{
-  Representation => r
-}
+import cz.cvut.fit.prl.scalaimplicit.{schema => s}
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 
 class DeclaredImplicitsTest extends SemanticdbTest {
@@ -24,25 +22,25 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       val expected = ImplicitAnalysisResult(
         Seq(),
         Set(
-          r.Declaration(
+          s.Declaration(
             name = "dI.basicInfo.m",
             kind = "def",
-            location = Some(r.Location("", 2, 40)),
+            location = Some(s.Location("", 2, 40)),
             isImplicit = true,
             signature = Some(
-              r.Signature(
-                typeParams = Seq(),
+              s.Signature(
+                typeParameters = Seq(),
                 parameterLists = Seq(
-                  r.DeclaredParameterList(
-                    params = Seq(
-                      r.DeclaredParameter(
+                  s.ParameterList(
+                    parameters = Seq(
+                      s.Parameter(
                         name = "a",
-                        tipe = r.Type("java.lang.String")
+                        parameterType = s.Type("java.lang.String")
                       )),
                     isImplicit = false
                   )
                 ),
-                returnType = Some(r.Type("String"))
+                returnType = s.Type("String")
               )),
             parents = Seq()
           )
@@ -67,25 +65,25 @@ class DeclaredImplicitsTest extends SemanticdbTest {
       val res = FailFastReflectExtract(ctx).normalized
       val resDecls = res.sortedDeclarations
       val expected = Seq(
-        r.Declaration(
+        s.Declaration(
           name = "dI.m1.msgDeclaration",
           kind = "val",
-          location = Some(r.Location("", 2, 28)),
+          location = Some(s.Location("", 2, 28)),
           isImplicit = true,
           signature = Some(
-            r.Signature(
-              returnType = Some(r.Type("String"))
+            s.Signature(
+              returnType = s.Type("String")
             )),
           parents = resDecls(0).parents
         ),
-        r.Declaration(
+        s.Declaration(
           name = "dI.m2.msgDeclaration",
           kind = "val",
-          location = Some(r.Location("", 5, 28)),
+          location = Some(s.Location("", 5, 28)),
           isImplicit = true,
           signature = Some(
-            r.Signature(
-              returnType = Some(r.Type("String"))
+            s.Signature(
+              returnType = s.Type("String")
             )),
           parents = resDecls(1).parents
         )
@@ -129,7 +127,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
 
       res.funs shouldBe empty
       res.links shouldBe empty
-      res.params shouldBe empty
+      res.parameters shouldBe empty
 
     }
   )
@@ -189,7 +187,7 @@ class DeclaredImplicitsTest extends SemanticdbTest {
     "Type parameters are resolved to their fqn in the type signature",
     """
       |package iP
-      |object defsWithTypeParams {
+      |object defsWithtypeParameters {
       | implicit def hello[A](m: A): String = "Hello"
       |}
     """.trim.stripMargin,

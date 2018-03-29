@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation._
+import cz.cvut.fit.prl.scalaimplicit.schema._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.PrettyPrinters.PrettyInstances.{
   PrettyDeclaration,
   PrettyLocation
@@ -95,24 +95,24 @@ object HTMLSerializer {
     override def print(what: Signature)(implicit metadata: ProjectMetadata) =
       ???
   }
-  implicit object HDeclaredParameterList
-      extends HTMLPrintable[DeclaredParameterList] {
-    override def print(what: DeclaredParameterList)(
+  implicit object HParameterList
+      extends HTMLPrintable[ParameterList] {
+    override def print(what: ParameterList)(
         implicit metadata: ProjectMetadata) = ???
   }
-  implicit object HDeclaredParameter extends HTMLPrintable[DeclaredParameter] {
-    override def print(what: DeclaredParameter)(
+  implicit object HParameter extends HTMLPrintable[Parameter] {
+    override def print(what: Parameter)(
         implicit metadata: ProjectMetadata) = ???
   }
-  implicit object HArgumentLike extends HTMLPrintable[ArgumentLike] {
-    override def print(what: ArgumentLike)(
+  implicit object HArgumentLike extends HTMLPrintable[Argument] {
+    override def print(what: Argument)(
         implicit metadata: ProjectMetadata) = {
-      what match {
-        case iarg: ImplicitArgument =>
+      what.info match {
+        case Some(info) =>
           htable("",
-                 tr(td(span("Name")), td(iarg.name)),
-                 tr(td(span("Declaration")), td(pprint(iarg.declaration))))
-        case arg: Argument => span(arg.code)
+                 tr(td(span("Name")), td(info.name)),
+                 tr(td(span("Declaration")), td(pprint(info.declaration))))
+        case None => span(what.code)
       }
     }
   }

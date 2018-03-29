@@ -2,12 +2,9 @@ package cz.cvut.fit.prl.scalaimplicit.queries
 
 import java.nio.file.{Files, Paths}
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.Type
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.HTMLSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.reports.{
-  ProjectReport,
-  ReportSummary
-}
+import cz.cvut.fit.prl.scalaimplicit.core.reports.{ProjectReport, ReportSummary}
+import cz.cvut.fit.prl.scalaimplicit.schema.Type
 
 trait Reporter {
   def writeReports(folder: String, prefix: String, data: Seq[ProjectReport])
@@ -118,11 +115,9 @@ object OutputHelper {
                     .bV(row.declaration.location.isEmpty) + '"',
                   '"' + row.declaration.signature.get.parameterLists
                     .map(list =>
-                      s"(${list.params.map(p => ValuePreppers.printType(p.tipe)).mkString(",")})")
+                      s"(${list.parameters.map(p => ValuePreppers.printType(p.parameterType)).mkString(",")})")
                     .mkString(",") + '"',
-                  '"' + row.declaration.signature.get.returnType
-                    .map(ValuePreppers.printType)
-                    .get + '"'
+                  '"' + ValuePreppers.printType(row.declaration.signature.get.returnType) + '"'
                 ).mkString(","))
         )
         .mkString("\n")
@@ -172,11 +167,9 @@ object OutputHelper {
                   '"' + row.name + '"',
                   '"' + row.signature.get.parameterLists
                     .map(list =>
-                      s"(${list.params.map(p => ValuePreppers.printType(p.tipe)).mkString(",")})")
+                      s"(${list.parameters.map(p => ValuePreppers.printType(p.parameterType)).mkString(",")})")
                     .mkString(",") + '"',
-                  '"' + row.signature.get.returnType
-                    .map(ValuePreppers.printType)
-                    .get + '"'
+                  '"' + ValuePreppers.printType(row.signature.get.returnType) + '"'
                 ).mkString(","))
         )
         .mkString("\n")

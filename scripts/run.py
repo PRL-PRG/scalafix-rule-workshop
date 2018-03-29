@@ -85,15 +85,15 @@ class Pipeline():
                 failed = True
         return failed
 
-    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
+    def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
         output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
-        if not os.path.exists(output_folder):
+        if create_if_missing and (not os.path.exists(report_folder)):
             os.mkdir(output_folder)
         return output_folder
 
-    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"]):
-        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name), BASE_CONFIG["phase_reports_folder"])
-        if not os.path.exists(report_folder):
+    def get_phase_reports_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
+        report_folder = os.path.join(self.get_base_output_folder(project_path, reports_folder_name, create_if_missing), BASE_CONFIG["phase_reports_folder"])
+        if create_if_missing and (not os.path.exists(report_folder)):
             os.mkdir(report_folder)
         return report_folder
 
@@ -113,7 +113,7 @@ class Pipeline():
         return res if res is None else res.strip()
 
     def write_phase_report(self, content, project_path, kind):
-        report_folder = self.get_phase_reports_folder(project_path)
+        report_folder = self.get_phase_reports_folder(project_path, create_if_missing=True)
         report_path = os.path.join(report_folder, BASE_CONFIG["phase_reports"][kind])
         with open(report_path, 'w') as report:
             return report.write(content)
@@ -463,7 +463,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
 
 def get_project_list(projects_path, depth):
     if depth == 0:
-        return list(map(lambda x: os.path.join(projects_path, x), os.listdir(projects_path)))
+        return list([os.path.join(projects_path, x) for x in os.listdir(projects_path)])
     else:
         paths = []
         for p in os.listdir(projects_path):
@@ -497,9 +497,9 @@ def merge_reports(
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
     projects = get_project_list(projects_path, int(float(project_depth)))
-    project_names = map(lambda p: os.path.split(p)[1], projects)
+    project_names = [os.path.split(p)[1] for p in projects]
 
-    reports = map(lambda project: read_reports(reports_summaries.keys(), project), projects)
+    reports = [read_reports(reports_summaries.keys(), project) for project in projects]
 
     long_csv = long
     for report in reports: long_csv = add_row(long_csv, report)
@@ -514,11 +514,11 @@ def merge_reports(
             "analyzer_report"),
         "paths_extraction_report")
 
-    manifest = map(lambda proj: (
+    manifest = [(
         "%s/project.csv" % os.path.join(cwd, proj),
         "%s/%s/" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"]),
         "%s/%s/paths.csv" % (os.path.join(cwd, proj), BASE_CONFIG["reports_folder"])
-        ), manifestables)
+        ) for proj in manifestables]
     write_manifest(manifest)
 
 @task
@@ -545,14 +545,15 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    metadata_files = map(lambda proj: proj + "/project.csv", projects)
-    projects_info = merge_all(load_many(metadata_files))
-    with open("project-metadata.all.csv", 'w') as metadata:
+
+    metadata_files = load_many([proj + "/project.csv" for proj in projects])
+    projects_info = merge_all(metadata_files)
+    with open("project-metadata.csv", 'w') as metadata:
         metadata.write(print_csv(projects_info))
-    sloc_files = map(lambda proj: proj+"/sloc.csv", projects)
+    sloc_files = [proj+"/sloc.csv" for proj in projects]
     sloc_csvs = load_many(sloc_files)
-    headers_clean = map(lambda i: drop_header(sloc_csvs[i], 5), range(1, len(sloc_csvs))) # Drop the annoying cloc timestamp
-    with_project = map(lambda i: extend_csv(headers_clean[i], "project", os.path.split(projects[i])[1]), range(1, len(headers_clean)))
+    headers_clean = [(drop_header(csvf, 5) if len(csvf["headers"]) == 6 else csvf) for csvf in sloc_csvs] # Drop the annoying cloc timestamp
+    with_project = [extend_csv(headers_clean[i], "project", get_data(metadata_files[i], 0, "reponame")) for i in range(0, len(headers_clean))]
     all_in_one = merge_all(with_project)
     with open("slocs.all.csv", 'w') as slocs_file:
         slocs_file.write(print_csv(all_in_one))
@@ -611,10 +612,10 @@ def merge_paths(
 ):
     P = Pipeline()
     reports_folder = BASE_CONFIG["reports_folder"]
-    projects = get_project_list(projects_path, project_depth)
+    projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    paths_files = load_many(map(lambda p: os.path.join(p, reports_folder, "paths.csv"), projects))
+    paths_files = load_many([os.path.join(p, reports_folder, "paths.csv") for p in projects])
     merged = merge_all(paths_files)
 
     with open("paths.all.csv", 'w') as pathsfile:
@@ -649,8 +650,8 @@ def merge_callsite_counts(
     projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "callsite_count_report")
-    files = load_many(map(lambda p: os.path.join(p, reports_folder, "callsite-counts.csv"), projects))
-    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(1, len(files)))
+    files = load_many([os.path.join(p, reports_folder, "callsite-counts.csv") for p in projects])
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
 
     with open("callsite-counts.all.csv", 'w') as pathsfile:
@@ -754,12 +755,12 @@ def extend_csv(csvf, colname, coldata):
         assert(len(coldata) == len(csvf["data"]))
         return {
             "headers": csvf["headers"] + [colname],
-            "data": map(lambda i: csvf["data"][i] + [coldata[i]], range(1, len(csvf["data"])))
+            "data": [csvf["data"][i] + [coldata[i]] for i in range(0, len(csvf["data"]))]
         }
     else:
         return {
             "headers": csvf["headers"] + [colname],
-            "data": map(lambda i: csvf["data"][i] + [coldata], range(1, len(csvf["data"])))
+            "data": [row + [coldata] for row in csvf["data"]]
         }
 
 def drop_header(csvf, index):
@@ -781,6 +782,10 @@ def add_row(csvf, row):
         "headers": csvf["headers"],
         "data": csvf["data"] + [row]
     }
+
+def get_data(csvf, row, colname):
+    colindex = csvf["headers"].index(colname)
+    return csvf["data"][row][colindex]
 
         
 
