@@ -17,7 +17,7 @@ import datetime
 BASE_CONFIG = {
     "debug_info": True,
     "projects_dest": "./projects",
-    "default_location_depth": 0,
+    "default_location_depth": 1,
     "temporal_git_repo_storage": "_gitrepotmp",
 
     "force_recompile_on_fail": False,
@@ -250,6 +250,13 @@ def create_project_info(
                 if line["language"] == "Scala":
                     scala_lines += lines
         return {"total": total_lines, "scala": scala_lines}
+    def get_gh_stars(repo_info):
+        if "stargazers_count" in repo_info:
+           return repo_info["stargazers_count"]
+        elif "watchers_count" in repo_info:
+           return repo_info["watchers_count"]
+        else:
+           P.error(repo_info)
 
     def generate_project_metadata(repo_path):
         repo_url = P.local("git config --get remote.origin.url", repo_path)
@@ -258,7 +265,7 @@ def create_project_info(
         reponame = repo_url.split('.com/')[1]
         sloc = count_locs(repo_path)
         repo_info = json.loads(P.local("curl 'https://api.github.com/repos/%s'" % reponame, repo_path))
-        gh_stars = repo_info["stargazers_count"] if "stargazers_count" in repo_info else (repo_info["watchers_count"] if "watchers_count" in repo_info else -1)
+        gh_stars = get_gh_stars(repo_info)
         build_system = P.get_build_systems(repo_path)
         project_info = {
             "name": str(project_name),
@@ -465,8 +472,8 @@ def get_project_list(projects_path, depth):
 
 @task
 def merge_reports(
-        projects_path=BASE_CONFIG["projects_dest"],
-        project_depth=BASE_CONFIG["default_location_depth"]
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"]
 ):
     def write_manifest(manifest):
         with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
@@ -538,6 +545,7 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
+
     metadata_files = load_many([proj + "/project.csv" for proj in projects])
     projects_info = merge_all(metadata_files)
     with open("project-metadata.csv", 'w') as metadata:
@@ -667,6 +675,33 @@ def split_analysis_results(
 
     phase.succeed("split_results_report")
 
+@task
+def merge_gh_stars(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "analyzer_report")
+    stars_files = [os.path.join(proj, reports_folder, "gh_stars.csv") for proj in projects]
+    values = merge_all(load_many(stars_files))
+    with open("gh_stars.all.csv", 'w') as starsfile:
+        starsfile.write(print_csv(values))
+
+@task
+def merge(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    merge_gh_stars(project_depth, projects_path, exclude_unfinished)
+    merge_callsite_counts(project_depth, projects_path, exclude_unfinished)
+    merge_paths(project_depth, projects_path, exclude_unfinished)
+    merge_metadata(project_depth, projects_path, exclude_unfinished)
+    merge_reports(project_depth, projects_path)
 
 ####################
 # CSVManip
