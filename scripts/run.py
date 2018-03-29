@@ -472,8 +472,8 @@ def get_project_list(projects_path, depth):
 
 @task
 def merge_reports(
-        projects_path=BASE_CONFIG["projects_dest"],
-        project_depth=BASE_CONFIG["default_location_depth"]
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"]
 ):
     def write_manifest(manifest):
         with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
@@ -690,6 +690,17 @@ def merge_gh_stars(
     with open("gh_stars.all.csv", 'w') as starsfile:
         starsfile.write(print_csv(values))
 
+@task
+def merge(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    merge_gh_stars(project_depth, projects_path, exclude_unfinished)
+    merge_callsite_counts(project_depth, projects_path, exclude_unfinished)
+    merge_paths(project_depth, projects_path, exclude_unfinished)
+    merge_metadata(project_depth, projects_path, exclude_unfinished)
+    merge_reports(project_depth, projects_path)
 
 ####################
 # CSVManip
