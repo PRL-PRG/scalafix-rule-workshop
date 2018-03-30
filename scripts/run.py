@@ -87,7 +87,7 @@ class Pipeline():
 
     def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
         output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
-        if create_if_missing and (not os.path.exists(report_folder)):
+        if create_if_missing and (not os.path.exists(output_folder)):
             os.mkdir(output_folder)
         return output_folder
 
