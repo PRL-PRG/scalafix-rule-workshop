@@ -88,7 +88,7 @@ class Pipeline():
 
     def get_base_output_folder(self, project_path, reports_folder_name=BASE_CONFIG["reports_folder"], create_if_missing=False):
         output_folder = os.path.join(os.getcwd(), project_path, reports_folder_name)
-        if create_if_missing and (not os.path.exists(report_folder)):
+        if create_if_missing and (not os.path.exists(output_folder)):
             os.mkdir(output_folder)
         return output_folder
 
@@ -467,8 +467,8 @@ def get_project_list(projects_path, depth):
 
 @task
 def merge_reports(
-        projects_path=BASE_CONFIG["projects_dest"],
-        project_depth=BASE_CONFIG["default_location_depth"]
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"]
 ):
     def write_manifest(manifest):
         with open(os.path.join(cwd, "manifest.json"), 'w') as manifest_file:
@@ -482,12 +482,11 @@ def merge_reports(
             manifest_file.write("]}")
 
     def read_reports(report_kinds, project):
-        P.info("[Reports] Reading reports for %s" % project)
         return map(lambda kind: str(P.read_phase_report(project, kind)).split('\n')[0], report_kinds)
 
     cwd = os.getcwd()
     P = Pipeline()
-    P.info("[Reports] Generating analysis report")
+    P.info("[Reports] Generating analysis report into %s" % BASE_CONFIG["condensed_report_long"])
 
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
@@ -540,9 +539,11 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
+    project_metadata_report = "project-metadata.csv"
+    P.info(" Merging metadata into %s" % project_metadata_report)
     metadata_files = load_many([proj + "/project.csv" for proj in projects])
     projects_info = merge_all(metadata_files)
-    with open("project-metadata.csv", 'w') as metadata:
+    with open(project_metadata_report, 'w') as metadata:
         metadata.write(print_csv(projects_info))
 
     sloc_report_name = BASE_CONFIG["cloc_report"]
@@ -611,6 +612,7 @@ def merge_paths(
     projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
+    P.info(" Merging paths into %s" % "paths.all.csv")
     paths_files = load_many([os.path.join(p, reports_folder, "paths.csv") for p in projects])
     merged = merge_all(paths_files)
 
@@ -646,6 +648,7 @@ def merge_callsite_counts(
     projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "callsite_count_report")
+    P.info(" Merging call site counts into %s" % "callsite-counts.all.csv")
     files = load_many([os.path.join(p, reports_folder, "callsite-counts.csv") for p in projects])
     with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
@@ -671,6 +674,16 @@ def split_analysis_results(
 
     phase.succeed("split_results_report")
 
+@task
+def merge(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    merge_callsite_counts(project_depth, projects_path, exclude_unfinished)
+    merge_paths(project_depth, projects_path, exclude_unfinished)
+    merge_metadata(project_depth, projects_path, exclude_unfinished)
+    merge_reports(project_depth, projects_path)
 
 ####################
 # CSVManip
