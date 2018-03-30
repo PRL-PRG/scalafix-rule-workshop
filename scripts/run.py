@@ -37,8 +37,13 @@ BASE_CONFIG = {
     "sbt_plugins": ["scalameta-config"],
     "sbt_versions": ["0.13", "1.0"],
 
-    "condensed_report_long": "condensed-report.long.csv",
     "cloc_report": "sloc.csv",
+
+    "condensed_report_merged": "condensed-report.all.csv",
+    "project_metadata_merged": "project-metadata.all.csv",
+    "sloc_merged": "slocs.all.csv",
+    "paths_merged": "paths.all.csv",
+    "callsite_counts_merged": "callsite-counts.all.csv",
 
     "reports_folder": "_reports",
     "phase_reports_folder": "_phases",
@@ -486,7 +491,7 @@ def merge_reports(
 
     cwd = os.getcwd()
     P = Pipeline()
-    P.info("[Reports] Generating analysis report into %s" % BASE_CONFIG["condensed_report_long"])
+    P.info("[Reports] Generating analysis report into %s" % BASE_CONFIG["condensed_report_merged"])
 
     reports_summaries = { report: (0, 0) for report in BASE_CONFIG["phase_reports"]}
     long = create_csv(reports_summaries.keys())
@@ -499,7 +504,7 @@ def merge_reports(
     for report in reports: long_csv = add_row(long_csv, report)
     long_csv = extend_csv(long_csv, "project", project_names)
 
-    with open(BASE_CONFIG["condensed_report_long"], 'w') as long_summary:
+    with open(BASE_CONFIG["condensed_report_merged"], 'w') as long_summary:
         long_summary.write(print_csv(long_csv))
 
     manifestables = P.exclude_non_successful(
@@ -539,7 +544,7 @@ def merge_metadata(
     projects = get_project_list(projects_path, depth)
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "analyzer_report")
-    project_metadata_report = "project-metadata.csv"
+    project_metadata_report = BASE_CONFIG["project_metadata_merged"]
     P.info(" Merging metadata into %s" % project_metadata_report)
     metadata_files = load_many([proj + "/project.csv" for proj in projects])
     projects_info = merge_all(metadata_files)
@@ -616,7 +621,7 @@ def merge_paths(
     paths_files = load_many([os.path.join(p, reports_folder, "paths.csv") for p in projects])
     merged = merge_all(paths_files)
 
-    with open("paths.all.csv", 'w') as pathsfile:
+    with open(BASE_CONFIG["paths_merged"], 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
 @task
@@ -653,7 +658,7 @@ def merge_callsite_counts(
     with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
 
-    with open("callsite-counts.all.csv", 'w') as pathsfile:
+    with open(BASE_CONFIG["callsite_counts_merged"], 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
 @task
