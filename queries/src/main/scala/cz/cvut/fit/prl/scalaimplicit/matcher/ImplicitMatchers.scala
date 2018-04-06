@@ -12,9 +12,13 @@ trait ImplicitMatchers {
 
   implicit class QueryCollectionSupport[A, +Repr](
       that: TraversableLike[A, Repr]) {
+
     def query[That](matcher: Matcher[A], matchers: Matcher[A]*)(
         implicit bf: CanBuildFrom[Repr, MatchResult[A], That]): That =
       that.map(combineAnd(matcher +: matchers).matches)
+
+    def select(matcher: Matcher[A], matchers: Matcher[A]*): Repr =
+      that.filter(combineAnd(matcher +: matchers).matches(_).matches)
   }
 
   implicit class AnyMatcher[A](that: A) {

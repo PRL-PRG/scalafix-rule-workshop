@@ -4,6 +4,7 @@ import java.io.{File, FileInputStream}
 import java.net.{URL, URLClassLoader}
 
 import com.typesafe.scalalogging.LazyLogging
+
 import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, OrphanCallSites, ReflectExtract}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{JSONSerializer, ProtoSerializer}
@@ -26,8 +27,7 @@ object Main extends LazyLogging {
     config match {
       case Some(conf) => {
         logger.debug(s"Root: ${conf.root}")
-        val loader: ClassLoader = loadClasspath(conf.classpath)
-        val extractFunction = new ExtractImplicitsFromCtx(loader)
+        val extractFunction = new ExtractImplicitsFromCtx(conf.classpath)
         val res = TreeWalker(conf.root, extractFunction)
         val matchedDefs = DefnFiller(res)
         ProtoSerializer.save(res.callSites, conf.outdir + "/results-callsites.proto")
