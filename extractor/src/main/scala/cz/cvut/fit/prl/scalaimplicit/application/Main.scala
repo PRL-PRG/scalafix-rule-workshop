@@ -30,8 +30,8 @@ object Main extends LazyLogging {
         val extractFunction = new ExtractImplicitsFromCtx(loader)
         val res = TreeWalker(conf.root, extractFunction)
         val matchedDefs = DefnFiller(res)
-        ProtoSerializer.save(res.callSites, conf.outdir + "results-callsites.proto")
-        ProtoSerializer.save(res.declarations.toSeq, conf.outdir + "results-declarations.proto")
+        ProtoSerializer.save(res.callSites, conf.outdir + "/results-callsites.proto")
+        ProtoSerializer.save(res.declarations.toSeq, conf.outdir + "/results-declarations.proto")
         ErrorCollection().toFile(conf.outdir + "/errors.log")
         OrphanCallSites().toFile(conf.outdir + "/orphan-callsites.log")
       }
