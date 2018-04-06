@@ -62,7 +62,11 @@ lazy val queries = (project in file("queries"))
 lazy val implicitExtractor = (project in file("extractor"))
   .settings(commonSettings: _*)
   .settings(
-    assemblyJarName in assembly := "implicit-collector.jar"
+    assemblyJarName in assembly := "implicit-analyzer.jar",
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
   )
   .dependsOn(coreutils)
 
@@ -74,7 +78,11 @@ lazy val callSiteCounter = (project in file("cs-counter"))
       "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
       //"com.github.scopt" % "scopt_2.12" % "3.7.0"
       "com.github.scopt" %% "scopt" % "3.7.0"
-    )
+    ),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
   )
   .dependsOn(coreutils % "test->test", coreutils)
 

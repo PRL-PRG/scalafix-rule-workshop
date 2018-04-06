@@ -1,6 +1,6 @@
 package cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts
 
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, ImplicitAnalysisResult}
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.artifacts._
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.decomposers.PatDecomposer
 import cz.cvut.fit.prl.scalaimplicit.{schema => s}
@@ -35,17 +35,19 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
       case Symbol.Global(Symbol.None, Signature.Term("_root_")) =>
         g.rootMirror.RootClass
       case Symbol.Global(Symbol.None, Signature.Term("_empty_")) =>
-        g.rootMirror.EmptyPackageClass
-      //g.rootMirror.RootClass.info.member(g.TermName("<empty>"))
+        g.rootMirror.EmptyPackage
       case Symbol.Global(qual, Signature.Term(name)) =>
-        loop(qual).info.member(g.TermName(name))
+        val owner = loop(qual)
+        owner.info.member(g.TermName(name))
       case Symbol.Global(qual, Signature.Type(name)) =>
-        loop(qual).info.member(g.TypeName(name))
+        val owner = loop(qual)
+        owner.info.member(g.TypeName(name))
       case Symbol.Global(qual, Signature.TypeParameter(name)) =>
         val owner = loop(qual)
         owner.typeParams.find(_.nameString == name).get
       case Symbol.Global(qual, Signature.Method(name, jvmSignature)) =>
-        val all = loop(qual).info.members
+        val owner = loop(qual)
+        val all = owner.info.members
         val candidates = all.filter(x => x.isMethod && x.nameString == name)
 
         candidates
@@ -95,22 +97,59 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
     val isSelf = symbol.signature.isInstanceOf[Signature.Self]
   }
 
-  val callSites = {
-    syntheticsWithImplicits
-      .map(breakDownSynthetic)
-      .map(reflectOnCallSite)
-      .map(createCallSite)
+
+  def analyzeChecked: ImplicitAnalysisResult = {
+    val callSites = {
+      syntheticsWithImplicits
+        .map(breakDownSynthetic)
+        .map(reflectOnCallSite)
+        .map(createCallSite)
+    }
+
+    val declarations = {
+      inSourceDefinitions
+        .flatMap(getDefn)
+        .map(DeclarationReflection(_))
+        .map(createDeclaration)
+        .toSet
+    }
+
+    ImplicitAnalysisResult(callSites, declarations)
   }
 
-  val declarations = {
-    inSourceDefinitions
-      .flatMap(getDefn)
-      .map(DeclarationReflection(_))
-      .map(createDeclaration)
-      .toSet
+  def analyze: ImplicitAnalysisResult = {
+    val callSites = {
+      syntheticsWithImplicits
+        .map(syn => Try(createCallSite(reflectOnCallSite(breakDownSynthetic(syn)))))
+        .reportAndExtract("CallSite")
+    }
+
+    val declarations = {
+      inSourceDefinitions
+        .map(t => Try(getDefn(t)))
+        .reportAndExtract("Definition")
+        .flatten
+        .map(d => createDeclaration(DeclarationReflection(d)))
+        .toSet
+    }
+
+    ImplicitAnalysisResult(callSites, declarations)
   }
 
-  val result = ImplicitAnalysisResult(callSites, declarations)
+  private implicit class TryCollection[A](from: Seq[Try[A]]) {
+    def reportAndExtract(header: String): Seq[A] =
+      from
+        .map {
+          case Failure(t) => {
+            ErrorCollection().report(header, t)
+          };
+            Failure(t)
+          case t => t
+        }
+        .collect {
+          case Success(t) => t
+        }
+  }
 
   def getDefn(tree: Tree): Seq[DefnBreakdown] = {
     def finder(t: Tree): Symbol = symbol(t).get
