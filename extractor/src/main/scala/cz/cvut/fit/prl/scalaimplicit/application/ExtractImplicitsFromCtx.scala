@@ -9,11 +9,11 @@ import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.ReflectiveCtx
 import cz.cvut.fit.prl.scalaimplicit.core.runners.SemanticDBProcessing
 import org.langmeta.semanticdb.Database
 
-class ExtractImplicitsFromCtx(loader: ClassLoader)
+class ExtractImplicitsFromCtx(classpath: String)
     extends SemanticDBProcessing[ImplicitAnalysisResult]
     with LazyLogging {
   override def processDB(db: Database): ImplicitAnalysisResult = {
-    val ctx = new ReflectiveCtx(loader, db)
+    val ctx = ReflectiveCtx.fromClasspath(classpath, false, db)
     logger.debug(s"Exracting implicits from ${ctx.file}")
     ReflectExtract(ctx)
   }

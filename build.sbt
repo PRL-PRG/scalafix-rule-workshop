@@ -30,6 +30,7 @@ lazy val coreutils = (project in file("core"))
       "org.scalameta" %% "testkit" % "2.1.2",
       //"org.scalameta" % "semanticdb-scalac_2.12.4" % "2.1.2",
       "org.scalameta" % "semanticdb-scalac_2.11.11" % "2.1.2",
+      "org.scalameta" % "semanticdb_2.11" % "2.1.2",
       "org.scala-lang" % "scala-compiler" % scalaVersion.value,
       "com.github.scopt" % "scopt_2.11" % "3.7.0",
       //"com.github.scopt" % "scopt_2.12" % "3.7.0",
