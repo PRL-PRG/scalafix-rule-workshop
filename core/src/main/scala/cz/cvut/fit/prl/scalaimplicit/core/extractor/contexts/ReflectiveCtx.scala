@@ -157,8 +157,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     def findTypeSymbol(metaSymbol: Symbol.Global): u.Symbol = {
       if (metaSymbol.isTypeParameter) {
         Loaders.loadTypeParameter(metaSymbol) match {
-          case Success(s) => s
-          case Failure(_) => logAndThrow("type symbol param", metaSymbol)
+          case Some(s) => s
+          case _ => logAndThrow("type symbol param", metaSymbol)
         }
       } else {
         Loaders.loadClass(metaSymbol) match {
@@ -185,34 +185,51 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
   }
 
   object Loaders {
+    private def lookInTypeSignature(target: Symbol, where: u.Symbol, function: u.Symbol => Boolean): Option[u.Symbol] = {
+      val candidates =
+        where.typeSignature.members.sorted
+          .filter(function)
+          .filter(_.toString.endsWith(target.cleanName))
+      assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in the type signature of ${where}")
+      candidates.size match {
+        case 1 => Some(candidates.head)
+        case 0 => None
+      }
+    }
+
+    private def lookInModuleClass(target: Symbol, where: u.ModuleSymbol, function: u.Symbol => Boolean): Option[u.Symbol] = {
+      val candidates =
+        where.moduleClass.info.members.sorted
+          .filter(function)
+          .filter(_.toString.endsWith(target.cleanName))
+      assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in the module class of ${where}")
+      candidates.size match {
+        case 1 => Some(candidates.head)
+        case 0 => None
+      }
+    }
+
+    private def lookInTypeParams(target: Symbol, where: u.Symbol, function: u.Symbol => Boolean): Option[u.Symbol] = {
+      val candidates =
+        where.typeSignature.typeParams
+          .filter(function)
+          .filter(_.toString.endsWith(target.cleanName))
+      assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in the type parameters of ${where}")
+      candidates.size match {
+        case 1 => Some(candidates.head)
+        case 0 => None
+      }
+    }
+
     private def loadField(
                            target: Symbol.Global,
                            filterFunction: (u.Symbol => Boolean)): Option[u.Symbol] = {
+
       def searchInClass(s: Option[u.ClassSymbol]): Option[u.Symbol] =
-        s.flatMap(a => {
-              val candidates =
-                a.typeSignature.members.sorted
-                 .filter(filterFunction)
-                 .filter(_.toString.endsWith(target.cleanName))
-            assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in class ${s}")
-            candidates.size match {
-              case 1 => Some(candidates.head)
-              case 0 => None
-            }
-          })
+        s.flatMap(a => lookInTypeSignature(target, a, filterFunction))
 
       def searchInModule(s: Option[u.ModuleSymbol]): Option[u.Symbol] =
-        s.flatMap(a => {
-            val candidates =
-              a.moduleClass.info.members.sorted
-                .filter(filterFunction)
-                .filter(_.toString.endsWith(target.cleanName))
-            assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in class ${s}")
-            candidates.size match {
-              case 1 => Some(candidates.head)
-              case 0 => None
-            }
-          })
+        s.flatMap(a => lookInModuleClass(target, a, filterFunction))
 
       searchInClass(loadClass(target.owner)) match {
         case x : Some[u.Symbol] => x
@@ -241,17 +258,17 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       loadField(symbol, _.isType)
     }
 
-    def loadTypeParameter(target: Symbol.Global): Try[u.Symbol] = {
+    def loadTypeParameter(target: Symbol.Global): Option[u.Symbol] = {
       def search(s: Option[u.Symbol]) =
-        s.map(
-          _.typeSignature.typeParams
-            .find(_.toString.endsWith(target.cleanName))
-            .get)
+        s.flatMap(x => lookInTypeParams(target, x, _ => true))
 
-      Try(
-        search(loadClass(target.owner)).getOrElse(
-          search(loadModule(target.owner))
-            .getOrElse(search(loadPackage(target.owner)).get)))
+      search(loadClass(target.owner)) match {
+        case x : Some[u.Symbol] => x
+        case None => search(loadModule(target.owner)) match {
+          case x: Some[u.Symbol] => x
+          case None => search(loadPackage(target.owner))
+        }
+      }
     }
 
     def loadClass(symbol: Symbol): Option[u.ClassSymbol] =
@@ -261,12 +278,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         case s: Symbol.Global =>
           s.owner match {
             case o: Symbol.Global if o.isType =>
-              loadClass(o).map(
-                x =>
-                  x.typeSignature.members.sorted
-                    .find(_.toString.endsWith(s.cleanName))
-                    .get
-                    .asClass)
+              loadClass(o).flatMap(
+                x => lookInTypeSignature(s, x, _ => true).map(_.asClass))
             case _ => Try(_mirror.staticClass(s.cleanWhole)).toOption
           }
         case s =>
@@ -278,13 +291,8 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         case s: Symbol.Global =>
           s.owner match {
             case o: Symbol.Global if o.isType =>
-              loadClass(o).map(
-                x =>
-                  x.typeSignature.members.sorted
-                    .filter(_.isModule)
-                    .find(_.toString.endsWith(s.cleanName))
-                    .get
-                    .asModule)
+              loadClass(o).flatMap(
+                x => lookInTypeSignature(s, x, _.isModule).map(_.asModule))
             case _ => Try(_mirror.staticModule(s.cleanWhole)).toOption
           }
         case s =>
