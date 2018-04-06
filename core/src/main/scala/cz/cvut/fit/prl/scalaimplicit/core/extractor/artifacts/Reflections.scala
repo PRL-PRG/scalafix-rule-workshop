@@ -121,6 +121,9 @@ object DeclarationReflection {
   def baseClasses(ctx: ReflectiveCtx,
                   pos: Position,
                   ref: u.Symbol): List[ParentReflection] = {
+    if (!ref.getClass.getName.contains("SynchronizedSymbol")) {
+      throw new RuntimeException("asdfasdfasd")
+    }
     ReflectiveCtx
       .firstLevelBaseClasses(ref.typeSignature.baseClasses)
       .map(ref.typeSignature.baseType(_))

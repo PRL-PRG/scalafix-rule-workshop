@@ -80,17 +80,17 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     }
 
     def findCallSiteSymbol(metaSymbol: Symbol.Global): u.Symbol = {
-      def tryImplicitClass(metaSymbol: Symbol.Global): Try[u.Symbol] = {
+      def tryImplicitClass(metaSymbol: Symbol.Global): Option[u.Symbol] = {
         Loaders.loadClass(metaSymbol)
       }
 
-      def tryMethod(metaSymbol: Symbol.Global): Try[u.Symbol] = {
+      def tryMethod(metaSymbol: Symbol.Global): Option[u.Symbol] = {
         Loaders.loadMethod(metaSymbol)
       }
 
       tryImplicitClass(metaSymbol) match { // Impl
-        case Success(s) => s
-        case Failure(e) =>
+        case Some(s) => s
+        case _ =>
           tryMethod(metaSymbol).getOrElse(logAndThrow("call site", metaSymbol))
       }
     }
@@ -98,15 +98,15 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
     def findDefnSymbol(metaSymbol: Symbol.Global): u.Symbol = {
       //println(metaSymbol)
       Loaders.loadClass(metaSymbol) match { // class, trait, case class
-        case Success(s) => s
-        case Failure(_) =>
+        case Some(s) => s
+        case _ =>
           Loaders.loadModule(metaSymbol) match {
-            case Success(s) => s.asTerm // object
-            case Failure(ex) => // val, var, def
+            case Some(s) => s.asTerm // object
+            case _ => // val, var, def
               metaSymbol match {
                 case s if s.isTerm || s.isType || s.isMethod =>
                   Loaders.loadAnyField(metaSymbol) match {
-                    case Success(s) => s
+                    case Some(s) => s
                     case _ =>
                       if (metaSymbol.isInAnonScope) {
                         // Ugly special case: `a` in val aimpl = new A[Int] { def a(implicit v: Int): String = ??? }
@@ -117,13 +117,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
                               .owner
                               .asInstanceOf[Symbol.Global])
                           .getOrElse(
-                            logAndThrow("arg in anon scope", metaSymbol))
-                      } else logAndThrow("arg", metaSymbol)
+                            logAndThrow("defn in anon scope", metaSymbol))
+                      } else logAndThrow("value defn", metaSymbol)
                   }
                 case s if s.isTermParameter || s.isTypeParameter =>
                   Loaders.loadParameter(s) match {
-                    case Success(s) => s
-                    case _ => logAndThrow("arg", metaSymbol)
+                    case Some(s) => s
+                    case _ => logAndThrow("param defn", metaSymbol)
                   }
               }
           }
@@ -134,22 +134,22 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
       metaSymbol match {
         case s if s.isMethod => // def
           Loaders.loadMethod(metaSymbol) match {
-            case Success(s) if s.isMethod => s
-            case _ => logAndThrow("arg", metaSymbol)
+            case Some(s) if s.isMethod => s
+            case _ => logAndThrow("method arg", metaSymbol)
           }
         case s if s.isTerm || s.isType => // object, val or var
           Loaders.loadModule(metaSymbol) match {
-            case Success(s) => s.asTerm // object
-            case Failure(ex) => // val or var
+            case Some(s) => s.asTerm // object
+            case _ => // val or var
               Loaders.loadAnyField(metaSymbol) match {
-                case Success(s) => s
-                case _ => logAndThrow("arg", metaSymbol)
+                case Some(s) => s
+                case _ => logAndThrow("term or type arg", metaSymbol)
               }
           }
         case s if s.isTermParameter => // Things like (evidence$1)
           Loaders.loadParameter(s) match {
-            case Success(s) => s
-            case _ => logAndThrow("arg", metaSymbol)
+            case Some(s) => s
+            case _ => logAndThrow("termParameter (e.g. evidence$1) arg", metaSymbol)
           }
       }
     }
@@ -162,20 +162,20 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
         }
       } else {
         Loaders.loadClass(metaSymbol) match {
-          case Success(t) => t
-          case Failure(ex) =>
+          case Some(t) => t
+          case _ =>
             Loaders.loadPackage(metaSymbol) match {
-              case Success(t) => t
-              case Failure(ex) =>
+              case Some(t) => t
+              case _ =>
                 Loaders.loadModule(metaSymbol) match {
-                  case Success(t) => t.moduleClass
-                  case Failure(ex) =>
+                  case Some(t) => t.moduleClass
+                  case _ =>
                     // For some types, like String, scala aliases java.lang.String.
                     // The staticClass set of methods do recursive dealiasing, and probably
                     // can't handle Java classes
                     Loaders.loadTypeMember(metaSymbol) match {
-                      case Success(t) => t
-                      case Failure(_) => logAndThrow("type symbol", metaSymbol)
+                      case Some(t) => t
+                      case None => logAndThrow("type symbol", metaSymbol)
                     }
                 }
             }
@@ -186,48 +186,63 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
 
   object Loaders {
     private def loadField(
-        target: Symbol.Global,
-        filterFunction: (u.Symbol => Boolean)): Try[u.Symbol] = {
-      def searchInClass(s: Try[u.ClassSymbol]) =
-        s.map(
-          _.typeSignature.members.sorted
-            .filter(filterFunction)
-            .find(_.toString.endsWith(target.cleanName))
-            .get)
+                           target: Symbol.Global,
+                           filterFunction: (u.Symbol => Boolean)): Option[u.Symbol] = {
+      def searchInClass(s: Option[u.ClassSymbol]): Option[u.Symbol] =
+        s.flatMap(a => {
+              val candidates =
+                a.typeSignature.members.sorted
+                 .filter(filterFunction)
+                 .filter(_.toString.endsWith(target.cleanName))
+            assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in class ${s}")
+            candidates.size match {
+              case 1 => Some(candidates.head)
+              case 0 => None
+            }
+          })
 
-      def searchInModule(s: Try[u.ModuleSymbol]) =
-        s.map(
-          _.moduleClass.info.members.sorted
-            .filter(filterFunction)
-            .find(_.toString.endsWith(target.cleanName))
-            .get)
+      def searchInModule(s: Option[u.ModuleSymbol]): Option[u.Symbol] =
+        s.flatMap(a => {
+            val candidates =
+              a.moduleClass.info.members.sorted
+                .filter(filterFunction)
+                .filter(_.toString.endsWith(target.cleanName))
+            assert(candidates.size <= 1, s"Multiple candidates found for symbol ${target} in class ${s}")
+            candidates.size match {
+              case 1 => Some(candidates.head)
+              case 0 => None
+            }
+          })
 
-      Try(
-        searchInClass(loadClass(target.owner)).getOrElse(
-          searchInModule(loadModule(target.owner))
-            .getOrElse(searchInModule(loadPackage(target.owner)).get)))
+      searchInClass(loadClass(target.owner)) match {
+        case x : Some[u.Symbol] => x
+        case None => searchInModule(loadModule(target.owner)) match {
+          case x: Some[u.Symbol] => x
+          case None => searchInModule(loadPackage(target.owner))
+        }
+      }
     }
 
-    def loadAnyField(target: Symbol.Global): Try[u.Symbol] = {
+    def loadAnyField(target: Symbol.Global): Option[u.Symbol] = {
       loadField(target, { _ =>
         true
       })
     }
 
-    def loadParameter(symbol: Symbol.Global): Try[u.Symbol] = {
+    def loadParameter(symbol: Symbol.Global): Option[u.Symbol] = {
       loadAnyField(Symbol.Global(symbol.owner, Term(symbol.signature.name)))
     }
 
-    def loadMethod(symbol: Symbol.Global): Try[u.Symbol] = {
+    def loadMethod(symbol: Symbol.Global): Option[u.Symbol] = {
       loadField(symbol, (x => x.isMethod || x.isClass))
     }
 
-    def loadTypeMember(symbol: Symbol.Global): Try[u.Symbol] = {
+    def loadTypeMember(symbol: Symbol.Global): Option[u.Symbol] = {
       loadField(symbol, _.isType)
     }
 
     def loadTypeParameter(target: Symbol.Global): Try[u.Symbol] = {
-      def search(s: Try[u.Symbol]) =
+      def search(s: Option[u.Symbol]) =
         s.map(
           _.typeSignature.typeParams
             .find(_.toString.endsWith(target.cleanName))
@@ -239,7 +254,7 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
             .getOrElse(search(loadPackage(target.owner)).get)))
     }
 
-    def loadClass(symbol: Symbol): Try[u.ClassSymbol] =
+    def loadClass(symbol: Symbol): Option[u.ClassSymbol] =
       symbol match {
         case s: Symbol.Global if s.isMethod && s.cleanName == "<init>" =>
           loadClass(s.owner)
@@ -252,13 +267,13 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
                     .find(_.toString.endsWith(s.cleanName))
                     .get
                     .asClass)
-            case _ => Try(_mirror.staticClass(s.cleanWhole))
+            case _ => Try(_mirror.staticClass(s.cleanWhole)).toOption
           }
         case s =>
-          Failure(new RuntimeException(s"Cannot load non-global symbol ${s}"))
+          throw new RuntimeException(s"Cannot load non-global symbol ${s}")
       }
 
-    def loadModule(symbol: Symbol): Try[u.ModuleSymbol] =
+    def loadModule(symbol: Symbol): Option[u.ModuleSymbol] =
       symbol match {
         case s: Symbol.Global =>
           s.owner match {
@@ -270,14 +285,14 @@ class ReflectiveCtx(loader: ClassLoader, db: Database)
                     .find(_.toString.endsWith(s.cleanName))
                     .get
                     .asModule)
-            case _ => Try(_mirror.staticModule(s.cleanWhole))
+            case _ => Try(_mirror.staticModule(s.cleanWhole)).toOption
           }
         case s =>
-          Failure(new RuntimeException(s"Cannot load non-global symbol ${s}"))
+          throw new RuntimeException(s"Cannot load non-global symbol ${s}")
       }
 
-    def loadPackage(symbol: Symbol): Try[u.ModuleSymbol] =
-      Try(_mirror.staticPackage(symbol.cleanWhole))
+    def loadPackage(symbol: Symbol): Option[u.ModuleSymbol] =
+      Try(_mirror.staticPackage(symbol.cleanWhole)).toOption
   }
 }
 
