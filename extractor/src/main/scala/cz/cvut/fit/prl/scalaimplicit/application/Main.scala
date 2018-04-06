@@ -4,14 +4,11 @@ import java.io.{File, FileInputStream}
 import java.net.{URL, URLClassLoader}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.{
-  ErrorCollection,
-  OrphanCallSites,
-  ReflectExtract
-}
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.JSONSerializer
-import cz.cvut.fit.prl.scalaimplicit.core.runners.TreeWalker
 
+import cz.cvut.fit.prl.scalaimplicit.core.cli.Cli
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.{ErrorCollection, OrphanCallSites, ReflectExtract}
+import cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers.{JSONSerializer, ProtoSerializer}
+import cz.cvut.fit.prl.scalaimplicit.core.runners.TreeWalker
 import io.circe.generic.auto._
 
 import scala.io.Source
@@ -33,11 +30,8 @@ object Main extends LazyLogging {
         val extractFunction = new ExtractImplicitsFromCtx(conf.classpath)
         val res = TreeWalker(conf.root, extractFunction)
         val matchedDefs = DefnFiller(res)
-        JSONSerializer.saveJSON(matchedDefs, conf.outdir + "/results.json")
-        JSONSerializer.saveJSON(matchedDefs.callSites,
-                                conf.outdir + "/results-callsites.json")
-        JSONSerializer.saveJSON(matchedDefs.declarations,
-                                conf.outdir + "/results-declarations.json")
+        ProtoSerializer.save(res.callSites, conf.outdir + "/results-callsites.proto")
+        ProtoSerializer.save(res.declarations.toSeq, conf.outdir + "/results-declarations.proto")
         ErrorCollection().toFile(conf.outdir + "/errors.log")
         OrphanCallSites().toFile(conf.outdir + "/orphan-callsites.log")
       }
