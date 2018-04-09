@@ -1,9 +1,9 @@
-package cz.cvut.fit.prl.scalaimplicit.counter
+package cz.cvut.fit.prl.scalaimplicit.syntheticscounter
 
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import org.langmeta.semanticdb.Database
 
-class CallSiteCountTestSuite extends SemanticdbTest {
+class SyntheticCountsTestSuite extends SemanticdbTest {
 
   def checkDB(name: String, code: String, f: Database => Unit): Unit = {
     test(name) {
@@ -11,7 +11,7 @@ class CallSiteCountTestSuite extends SemanticdbTest {
     }
   }
 
-  implicit class NormalizedCallSiteCount(what: Seq[FileCount]) {
+  implicit class NormalizedSyntheticCount(what: Set[SyntheticCount]) {
     def normalized = what.map(_.copy(file = ""))
   }
 }

@@ -32,6 +32,7 @@ BASE_CONFIG = {
     "tools_base_url": "https://raw.githubusercontent.com/PRL-PRG/scalafix-rule-workshop/master/scripts/",
     "analyzer_name": "implicit-analyzer.jar",
     "callsite_counter_name": "callsite-counter.jar",
+    "synthetics_counter_name": "synthetics-counter.jar",
     "analyzer_jvm_options": "-Xmx2g",
 
     "sbt_plugins": ["scalameta-config"],
@@ -55,7 +56,8 @@ BASE_CONFIG = {
         "callsite_count_report": "CALLSITES_REPORT.TXT",
         "paths_extraction_report": "PATHS_REPORT.TXT",
         "project_info_report": "PROJECTINFO_REPORT.TXT",
-        "split_results_report": "SPLIT_REPORT.TXT"
+        "split_results_report": "SPLIT_REPORT.TXT",
+        "synthetics_count_report": "SYNTHETICS_REPORT.TXT",
     }
 }
 
@@ -459,6 +461,7 @@ def setup(tools_dest=BASE_CONFIG["tools_dir"]):
     # Stick to default tool names
     download_tool("Semanticdb Analyzer", BASE_CONFIG["analyzer_name"])
     download_tool("CallSite Counter", BASE_CONFIG["callsite_counter_name"])
+    download_tool("Synthetics Counter", BASE_CONFIG["synthetics_counter_name"])
     P.info("[Setup] Done")
 
 def get_project_list(projects_path, depth):
@@ -638,9 +641,9 @@ def count_callsites(project_path):
 
     failed = run_count_command(project_path, counter_tool_path)
     if failed:
-        phase.fail("callsite_counter_name")
+        phase.fail("callsite_count_report")
     else:
-        phase.succeed("callsite_couner_name")
+        phase.succeed("callsite_count_report")
 
 @task
 def merge_callsite_counts(
@@ -659,6 +662,43 @@ def merge_callsite_counts(
     merged = merge_all(with_project)
 
     with open(BASE_CONFIG["callsite_counts_merged"], 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+@task
+def count_synthetics(project_path):
+    def run_count_command(project_path, tool_path):
+        return Pipeline().local_canfail("Count Synthetics", "java -jar %s . ./%s" % (tool_path, BASE_CONFIG["reports_folder"]), project_path)
+
+    phase = Phase(project_path, "Synthetics")
+    cwd = os.getcwd()
+    counter_tool_path = os.path.join(cwd, BASE_CONFIG["tools_dir"], BASE_CONFIG["synthetics_counter_name"])
+
+    phase.stop_if_already_reported("synthetics_count_report")
+    phase.depend_on("semanticdb_report")
+
+    failed = run_count_command(project_path, counter_tool_path)
+    if failed:
+        phase.fail("synthetics_count_report")
+    else:
+        phase.succeed("synthetics_count_report")
+
+@task
+def merge_synthetics_counts(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "synthetics_count_report")
+    P.info(" Merging synthetic counts into %s" % "synthetics-counts.all.csv")
+    files = load_many([os.path.join(p, reports_folder, "synthetics-counts.csv") for p in projects])
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
+    merged = merge_all(with_project)
+
+    with open(BASE_CONFIG["synthetics_counts_merged"], 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
 @task
@@ -686,6 +726,7 @@ def merge(
         exclude_unfinished=True
 ):
     merge_callsite_counts(project_depth, projects_path, exclude_unfinished)
+    merge_synthetics_counts(project_depth, projects_path, exclude_unfinished)
     merge_paths(project_depth, projects_path, exclude_unfinished)
     merge_metadata(project_depth, projects_path, exclude_unfinished)
     merge_reports(project_depth, projects_path)

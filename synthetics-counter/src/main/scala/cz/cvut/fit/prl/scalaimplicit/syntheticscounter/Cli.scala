@@ -1,13 +1,13 @@
-package cz.cvut.fit.prl.scalaimplicit.counter
+package cz.cvut.fit.prl.scalaimplicit.syntheticscounter
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
 case class CliConfig(root: String = "Nodir", outdir: String = "Nodir")
 object Cli {
   def apply(args: Array[String]): Option[CliConfig] = {
     val optParser = new scopt.OptionParser[CliConfig]("collector") {
-      head("PRL-PRG Call Site Counter (c)", "0.1")
-      arg[String]("<directory>")
+      head("PRL-PRG Synthetic Counter (c)", "0.1")
+      arg[String]("<input folder>")
         .validate(
           x =>
             if (Files.exists(Paths.get(x)) && Files.isDirectory(Paths.get(x)))

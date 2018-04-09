@@ -1,32 +1,18 @@
-package cz.cvut.fit.prl.scalaimplicit.core.extractor.serializers
+package cz.cvut.fit.prl.scalaimplicit.reencoder
 
 import java.nio.file.Files.{size, write}
-
 import java.nio.file.{Files, Path, Paths}
-
 import java.util.stream.Collectors
 
 import com.typesafe.scalalogging.LazyLogging
-
 import cz.cvut.fit.prl.scalaimplicit.core.extractor.ImplicitAnalysisResult
-
-import cz.cvut.fit.prl.scalaimplicit.core.extractor.representation.Representation.{
-  Argument,
-  ImplicitArgument
-}
-
 import io.circe.generic.auto._
-
 import io.circe.syntax._
-
 import org.json4s.native.Serialization
-
 import org.json4s.native.Serialization.read
-
 import org.json4s.{FileInput, ShortTypeHints}
 
 import scala.collection.JavaConverters._
-
 import scala.util.{Failure, Try}
 
 object SchemaConverter extends App with LazyLogging {
