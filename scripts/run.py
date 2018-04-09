@@ -646,6 +646,25 @@ def count_callsites(project_path):
         phase.succeed("callsite_count_report")
 
 @task
+def merge_callsite_counts(
+        project_depth=BASE_CONFIG["default_location_depth"],
+        projects_path=BASE_CONFIG["projects_dest"],
+        exclude_unfinished=True
+):
+    P = Pipeline()
+    reports_folder = BASE_CONFIG["reports_folder"]
+    projects = get_project_list(projects_path, int(float(project_depth)))
+    if exclude_unfinished:
+        projects = P.exclude_non_successful(projects, "callsite_count_report")
+    P.info(" Merging call site counts into %s" % "callsite-counts.all.csv")
+    files = load_many([os.path.join(p, reports_folder, "callsite-counts.csv") for p in projects])
+    with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
+    merged = merge_all(with_project)
+
+    with open(BASE_CONFIG["callsite_counts_merged"], 'w') as pathsfile:
+        pathsfile.write(print_csv(merged))
+
+@task
 def count_synthetics(project_path):
     def run_count_command(project_path, tool_path):
         return Pipeline().local_canfail("Count Synthetics", "java -jar %s . ./%s" % (tool_path, BASE_CONFIG["reports_folder"]), project_path)
@@ -674,7 +693,7 @@ def merge_synthetics_counts(
     projects = get_project_list(projects_path, int(float(project_depth)))
     if exclude_unfinished:
         projects = P.exclude_non_successful(projects, "synthetics_count_report")
-    P.info(" Merging call site counts into %s" % "synthetics-counts.all.csv")
+    P.info(" Merging synthetic counts into %s" % "synthetics-counts.all.csv")
     files = load_many([os.path.join(p, reports_folder, "synthetics-counts.csv") for p in projects])
     with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
