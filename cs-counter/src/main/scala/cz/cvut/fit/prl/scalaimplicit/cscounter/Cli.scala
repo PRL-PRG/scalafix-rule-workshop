@@ -1,6 +1,6 @@
-package cz.cvut.fit.prl.scalaimplicit.counter
+package cz.cvut.fit.prl.scalaimplicit.cscounter
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
 case class CliConfig(root: String = "Nodir", outdir: String = "Nodir")
 object Cli {

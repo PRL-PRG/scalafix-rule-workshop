@@ -1,4 +1,4 @@
-package cz.cvut.fit.prl.scalaimplicit.counter
+package cz.cvut.fit.prl.scalaimplicit.cscounter
 
 import cz.cvut.fit.prl.scalaimplicit.core.framework.SemanticdbTest
 import org.langmeta.semanticdb.Database
@@ -11,7 +11,7 @@ class CallSiteCountTestSuite extends SemanticdbTest {
     }
   }
 
-  implicit class NormalizedCallSiteCount(what: Seq[FileCount]) {
+  implicit class NormalizedCallSiteCount(what: Seq[CallSiteCount]) {
     def normalized = what.map(_.copy(file = ""))
   }
 }

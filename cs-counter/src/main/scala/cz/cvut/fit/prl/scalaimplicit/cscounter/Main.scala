@@ -1,18 +1,15 @@
-package cz.cvut.fit.prl.scalaimplicit.counter
+package cz.cvut.fit.prl.scalaimplicit.cscounter
 
 import java.nio.file.{Files, Paths}
 
 import com.typesafe.scalalogging.LazyLogging
-import cz.cvut.fit.prl.scalaimplicit.core.runners.{
-  SemanticDBProcessing,
-  TreeWalker
-}
+import cz.cvut.fit.prl.scalaimplicit.core.runners.{SemanticDBProcessing, TreeWalker}
 import org.langmeta.ResolvedName
 import org.langmeta.semanticdb.{Database, Synthetic}
 
 object Main extends LazyLogging {
 
-  def toCSV(res: Seq[FileCount]): String = {
+  def toCSV(res: Seq[CallSiteCount]): String = {
     val header = "file,insource,synthetic"
     val values = res.map(_.toCSV).mkString("\n")
     s"${header}\n${values}"
@@ -34,11 +31,11 @@ object Main extends LazyLogging {
   }
 }
 
-case class FileCount(file: String, syntactic: Int, synthetic: Int) {
+case class CallSiteCount(file: String, syntactic: Int, synthetic: Int) {
   val toCSV = s"${file},${syntactic},${synthetic}"
 }
 
-object CountCallSites extends SemanticDBProcessing[Seq[FileCount]] {
+object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
   private def hasJVMSignaure(name: ResolvedName): Boolean = {
     name.symbol.syntax.contains("(") && name.symbol.syntax.contains(")")
   }
@@ -49,16 +46,16 @@ object CountCallSites extends SemanticDBProcessing[Seq[FileCount]] {
 
   def isConversion(s: Synthetic): Boolean = s.text.contains("(*)")
 
-  override def processDB(db: Database): Seq[FileCount] = {
+  override def processDB(db: Database): Seq[CallSiteCount] = {
     val syntactic =
       db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
     val synthetic = db.synthetics.count(s => isConversion(s) || isApply(s))
-    Seq(FileCount(db.file, syntactic, synthetic))
+    Seq(CallSiteCount(db.file, syntactic, synthetic))
   }
 
-  override def createEmpty: Seq[FileCount] = Seq()
+  override def createEmpty: Seq[CallSiteCount] = Seq()
 
-  override def merge(one: Seq[FileCount],
-                     other: Seq[FileCount]): Seq[FileCount] =
+  override def merge(one: Seq[CallSiteCount],
+                     other: Seq[CallSiteCount]): Seq[CallSiteCount] =
     one ++ other
 }
