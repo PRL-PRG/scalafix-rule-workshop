@@ -45,6 +45,7 @@ BASE_CONFIG = {
     "sloc_merged": "slocs.all.csv",
     "paths_merged": "paths.all.csv",
     "callsite_counts_merged": "callsite-counts.all.csv",
+    "synthetic_counts_merged": "synthetic-counts.all.csv",
 
     "reports_folder": "_reports",
     "phase_reports_folder": "_phases",
@@ -698,7 +699,7 @@ def merge_synthetics_counts(
     with_project = map(lambda i: extend_csv(files[i], "project", os.path.split(projects[i])[1]), range(0, len(files)))
     merged = merge_all(with_project)
 
-    with open(BASE_CONFIG["synthetics_counts_merged"], 'w') as pathsfile:
+    with open(BASE_CONFIG["synthetic_counts_merged"], 'w') as pathsfile:
         pathsfile.write(print_csv(merged))
 
 @task
