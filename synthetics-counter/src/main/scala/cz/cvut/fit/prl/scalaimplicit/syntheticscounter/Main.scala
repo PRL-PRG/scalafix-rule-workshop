@@ -8,7 +8,7 @@ import org.langmeta.semanticdb.Database
 
 object Main extends LazyLogging {
 
-  def toCSV(res: Seq[SyntheticCount]): String = {
+  def toCSV(res: Set[SyntheticCount]): String = {
     val header = "file,synthetics"
     val values = res.map(_.toCSV).mkString("\n")
     s"${header}\n${values}"
@@ -34,16 +34,19 @@ case class SyntheticCount(file: String, synthetics: Int) {
   val toCSV = s"${file},${synthetics}"
 }
 
-object CountSynthetics extends SemanticDBProcessing[Seq[SyntheticCount]] {
+// These need to be sets in case there are duplicate files.
+// Duplicate files can happen as a result of executing sbt assembly, since it bundles
+// everything in target.
+object CountSynthetics extends SemanticDBProcessing[Set[SyntheticCount]] {
   import cz.cvut.fit.prl.scalaimplicit.core.extractor.contexts.implicitSemanticDB._
 
-  override def processDB(db: Database): Seq[SyntheticCount] = {
-    Seq(SyntheticCount(db.file, db.synthetics.size))
+  override def processDB(db: Database): Set[SyntheticCount] = {
+    Set(SyntheticCount(db.file, db.synthetics.size))
   }
 
-  override def createEmpty: Seq[SyntheticCount] = Seq()
+  override def createEmpty: Set[SyntheticCount] = Set()
 
-  override def merge(one: Seq[SyntheticCount],
-                     other: Seq[SyntheticCount]): Seq[SyntheticCount] =
+  override def merge(one: Set[SyntheticCount],
+                     other: Set[SyntheticCount]): Set[SyntheticCount] =
     one ++ other
 }

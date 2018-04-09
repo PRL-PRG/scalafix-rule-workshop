@@ -9,7 +9,7 @@ import org.langmeta.semanticdb.{Database, Synthetic}
 
 object Main extends LazyLogging {
 
-  def toCSV(res: Seq[CallSiteCount]): String = {
+  def toCSV(res: Set[CallSiteCount]): String = {
     val header = "file,insource,synthetic"
     val values = res.map(_.toCSV).mkString("\n")
     s"${header}\n${values}"
@@ -35,7 +35,11 @@ case class CallSiteCount(file: String, syntactic: Int, synthetic: Int) {
   val toCSV = s"${file},${syntactic},${synthetic}"
 }
 
-object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
+
+// These need to be sets in case there are duplicate files.
+// Duplicate files can happen as a result of executing sbt assembly, since it bundles
+// everything in target.
+object CountCallSites extends SemanticDBProcessing[Set[CallSiteCount]] {
   private def hasJVMSignaure(name: ResolvedName): Boolean = {
     name.symbol.syntax.contains("(") && name.symbol.syntax.contains(")")
   }
@@ -46,16 +50,16 @@ object CountCallSites extends SemanticDBProcessing[Seq[CallSiteCount]] {
 
   def isConversion(s: Synthetic): Boolean = s.text.contains("(*)")
 
-  override def processDB(db: Database): Seq[CallSiteCount] = {
+  override def processDB(db: Database): Set[CallSiteCount] = {
     val syntactic =
       db.names.count(name => !name.isDefinition && hasJVMSignaure(name))
     val synthetic = db.synthetics.count(s => isConversion(s) || isApply(s))
-    Seq(CallSiteCount(db.file, syntactic, synthetic))
+    Set(CallSiteCount(db.file, syntactic, synthetic))
   }
 
-  override def createEmpty: Seq[CallSiteCount] = Seq()
+  override def createEmpty: Set[CallSiteCount] = Set()
 
-  override def merge(one: Seq[CallSiteCount],
-                     other: Seq[CallSiteCount]): Seq[CallSiteCount] =
+  override def merge(one: Set[CallSiteCount],
+                     other: Set[CallSiteCount]): Set[CallSiteCount] =
     one ++ other
 }

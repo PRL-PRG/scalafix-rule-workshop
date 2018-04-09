@@ -11,7 +11,7 @@ class SyntheticCountsTestSuite extends SemanticdbTest {
     }
   }
 
-  implicit class NormalizedSyntheticCount(what: Seq[SyntheticCount]) {
+  implicit class NormalizedSyntheticCount(what: Set[SyntheticCount]) {
     def normalized = what.map(_.copy(file = ""))
   }
 }
