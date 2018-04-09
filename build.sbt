@@ -86,6 +86,24 @@ lazy val callSiteCounter = (project in file("cs-counter"))
   )
   .dependsOn(coreutils % "test->test", coreutils)
 
+
+lazy val syntheticsCounter = (project in file("synthetics-counter"))
+  .settings(commonSettings: _*)
+  .settings(
+    assemblyJarName in assembly := "synthetics-counter.jar",
+    libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
+      //"com.github.scopt" % "scopt_2.12" % "3.7.0"
+      "com.github.scopt" %% "scopt" % "3.7.0"
+    ),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
+  )
+  .dependsOn(coreutils % "test->test", coreutils)
+
+
 lazy val jsonReencoder = (project in file("json-reencoder"))
   .settings(commonSettings: _*)
   .settings(
