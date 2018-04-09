@@ -726,6 +726,7 @@ def merge(
         exclude_unfinished=True
 ):
     merge_callsite_counts(project_depth, projects_path, exclude_unfinished)
+    merge_synthetics_counts(project_depth, projects_path, exclude_unfinished)
     merge_paths(project_depth, projects_path, exclude_unfinished)
     merge_metadata(project_depth, projects_path, exclude_unfinished)
     merge_reports(project_depth, projects_path)
