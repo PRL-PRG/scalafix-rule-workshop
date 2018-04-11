@@ -1072,10 +1072,20 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
           // Class constructor calls.
           // If the constructor is anonymous, we return the symbol of the class.
           // FIXME: This assumes that we won't find this in a synthetic
-          val app = t.init.name match {
-            case n: Name.Anonymous => finder(t.init.tpe)
+          val (app, targs) = t.init.name match {
+              // If new always is anonymous, we can forgo this first match
+            case n: Name.Anonymous => t.init.tpe match {
+              case tpe: Type.Apply => finder(tpe.tpe) -> tpe.args
+              case tpe: Type.Name => finder(tpe) -> Seq()
+              case tpe: Type => {
+                throw new MatchError(s"We don't handle type ${tpe} when breaking down constructor call ${t} @ ${t.pos}")
+              }
+            }
+            case n: Name => {
+              throw new MatchError(s"When analyzing Term.New, we don't know how to handle calls like ${t} @ ${t.pos}")
+            }
           }
-          BreakDown(app, Seq(), Seq(), pos = t.pos, code = t.syntax)
+          BreakDown(app, targs, Seq(), pos = t.pos, code = t.syntax)
         }
         case t: Term.NewAnonymous => {
           // Anonymously constructed objects:
