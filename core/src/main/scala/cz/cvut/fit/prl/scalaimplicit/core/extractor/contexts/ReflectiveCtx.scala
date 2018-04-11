@@ -524,7 +524,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         }
       }
 
-      val all = tryLoad(List(loadMethod, loadClass, loadModule), List())
+      val all = tryLoad(List(loadClass, loadMethod, loadModule), List())
       val symbol = all collectFirst { case Success(s) => s }
 
       // TODO: for debugging
