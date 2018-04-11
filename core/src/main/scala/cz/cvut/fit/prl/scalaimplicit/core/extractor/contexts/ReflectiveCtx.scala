@@ -38,7 +38,19 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         g.rootMirror.EmptyPackage
       case Symbol.Global(qual, Signature.Term(name)) =>
         val owner = loop(qual)
-        owner.info.member(g.TermName(name))
+        val n = g.TermName(name)
+        owner.info.member(n) match {
+          case g.NoSymbol =>
+            val candidates = owner.info.members.filter(_.nameString == name)
+            if (candidates.size == 0) {
+              g.NoSymbol
+            } else if (candidates.size == 1) {
+              candidates.head
+            } else {
+              owner.newOverloaded(g.NoPrefix, candidates.toList)
+            }
+          case x => x
+        }
       case Symbol.Global(qual, Signature.Type(name)) =>
         val owner = loop(qual)
         if (owner.isMethod) {
@@ -61,7 +73,10 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         }
       case Symbol.Global(qual, Signature.Method(name, jvmSignature)) =>
         val owner = loop(qual)
-        val all = owner.info.members
+        val all = owner.info match {
+          case x: g.OverloadedType => x.alternatives.flatMap(_.info.members)
+          case x: g.Type => x.members
+        }
         val candidates = all.filter(x => x.isMethod && x.nameString == name)
 
         val res = candidates
@@ -209,6 +224,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         case d: Decl.Var => handlePats(d)
         case d: Decl.Def => handleTermName(d)
         case d: Decl.Type => handleTypeName(d)
+        case d => throw new RuntimeException("Unknown defn symbol: " + d.toString())
       }) //.filterNot(x => SemanticCtx.isKnowCornerCase(defn, x))
       metaSymbols.map {
         case s: Symbol.Global =>
@@ -329,7 +345,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
 
   def createTypeParameter(tipe: g.TypeSymbol): s.Type = {
     s.Type(
-      name = tipe.fullName,
+      name = tipe.fullNameString,
       parameters = tipe.typeParams.map(t => createTypeParameter(t.asType))
     )
   }
@@ -448,6 +464,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
       term match {
         case t: Init => InitDecomposer(term.asInstanceOf[Init], finder)
         case t: Term => TermDecomposer(term.asInstanceOf[Term], finder)
+        case _ => throw new RuntimeException("Unknown term: " + term.toString())
       }
     }
 
@@ -745,7 +762,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
       new ImplicitReflection(
         originalSymbol = bd.symbol,
         reflectiveSymbol = ref,
-        fullName = ref.fullName,
+        fullName = ref.fullNameString,
         pos = bd.pos,
         declaration = DeclarationReflection(Position.None, ref, den),
         code = bd.code,
@@ -787,7 +804,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
               denot: Option[Denotation]): DeclarationReflection =
       DeclarationReflection(
         sym = sym,
-        fullName = sym.fullName,
+        fullName = sym.fullNameString,
         kind = denot match {
           case Some(d) => SemanticCtx.getKind(d)
           case None => getReflectiveKind(sym)
@@ -848,8 +865,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
           if (SemanticCtx.isLocalTypeReference(s)) handleLocalTypeReference(s)
           else reflectOnType(s).fullName // TODO: perhaps should just be a name
         }
-        case s => ??? // This is to prevent a warning, for incomplete matching
-        // This warning malforms the semanticdb file.
+        case s => throw new RuntimeException("Unknown symbol type " + symbol.toString)
       }
     }
 
