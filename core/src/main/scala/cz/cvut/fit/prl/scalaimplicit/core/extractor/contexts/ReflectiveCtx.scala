@@ -884,8 +884,9 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
       case t: Type.Refine => ReflectiveTArg(t.toString)
       case t: Type.Function => ReflectiveTArg(t.toString)
       case t: Type.Singleton => ReflectiveTArg(t.toString)
+      case t: Type.Tuple => ReflectiveTArg(t.toString)
       case t =>
-        throw new RuntimeException("Unknown type " + targ.toString())
+        throw new RuntimeException("Unknown type " + targ.toString() + " " + t.structure)
     }
 
     def apply(targ: Type,
@@ -1015,7 +1016,6 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         case t: Term.Repeated => RawCode(t.syntax, t.pos)
         case t: Term.Throw => RawCode(t.syntax, t.pos)
         case t: Term.Tuple => RawCode(t.syntax, t.pos)
-        case t: Term.Ascribe => RawCode(t.syntax, t.pos)
         case t: Term.Eta => RawCode(t.syntax, t.pos)
         case t: Term.For => RawCode(t.syntax, t.pos)
         case t: Term.ForYield => RawCode(t.syntax, t.pos)
