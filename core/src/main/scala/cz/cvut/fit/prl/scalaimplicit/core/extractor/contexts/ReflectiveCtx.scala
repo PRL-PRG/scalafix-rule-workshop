@@ -1062,11 +1062,11 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
               case tpe: Type.Apply => finder(tpe.tpe) -> tpe.args
               case tpe: Type.Name => finder(tpe) -> Seq()
               case tpe: Type => {
-                throw new MatchError(s"We don't handle type ${tpe} when breaking down constructor call ${t}")
+                throw new MatchError(s"We don't handle type ${tpe} when breaking down constructor call ${t} @ ${t.pos}")
               }
             }
             case n: Name => {
-              throw new MatchError(s"When analyzing Term.New, we can't handle constructors like ${n}")
+              throw new MatchError(s"When analyzing Term.New, we don't know how to handle calls like ${t} @ ${t.pos}")
             }
           }
           BreakDown(app, targs, Seq(), pos = t.pos, code = t.syntax)
