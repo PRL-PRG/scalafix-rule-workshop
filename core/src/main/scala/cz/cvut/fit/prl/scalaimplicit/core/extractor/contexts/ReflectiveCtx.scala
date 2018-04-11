@@ -883,6 +883,9 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
       case t: Type.Select => ReflectiveTArg(t.syntax)
       case t: Type.Refine => ReflectiveTArg(t.toString)
       case t: Type.Function => ReflectiveTArg(t.toString)
+      case t: Type.Singleton => ReflectiveTArg(t.toString)
+      case t =>
+        throw new RuntimeException("Unknown type " + targ.toString())
     }
 
     def apply(targ: Type,
