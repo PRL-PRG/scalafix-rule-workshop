@@ -41,22 +41,48 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         owner.info.member(g.TermName(name))
       case Symbol.Global(qual, Signature.Type(name)) =>
         val owner = loop(qual)
-        owner.info.member(g.TypeName(name))
+        if (owner.isMethod) {
+          owner.info.typeParams.find(_.nameString == name).get
+        } else {
+          owner.info.member(g.TypeName(name))
+        }
       case Symbol.Global(qual, Signature.TypeParameter(name)) =>
         val owner = loop(qual)
         owner.typeParams.find(_.nameString == name).get
+      case Symbol.Global(qual, Signature.TermParameter(name)) =>
+        val owner = loop(qual)
+        // this goes below, in termparameter
+        if (owner.isMethod) {
+          owner.info.params.find(_.nameString == name).get
+        } else if (owner.isClass || owner.isModule) {
+          owner.info.member(g.TermName(name))
+        } else {
+          throw new RuntimeException("Do not know how to resolve TermParameter in " + owner)
+        }
       case Symbol.Global(qual, Signature.Method(name, jvmSignature)) =>
         val owner = loop(qual)
         val all = owner.info.members
         val candidates = all.filter(x => x.isMethod && x.nameString == name)
 
-        candidates
-          .find(x => toMeta(x)
-            .asInstanceOf[Symbol.Global]
-            .signature.asInstanceOf[Signature.Method]
-            .jvmSignature == jvmSignature
-          )
+        val res = candidates
+          .find { x =>
+            val meta = toMeta(x)
+            if (meta.isInstanceOf[Symbol.Global]) {
+              val asSymbol = meta.asInstanceOf[Symbol.Global]
+              val signature = asSymbol.signature
+              if (signature.isInstanceOf[Signature.Method]) {
+                val asMethodSignature = signature.asInstanceOf[Signature.Method]
+                asMethodSignature.jvmSignature == jvmSignature
+              } else {
+                false
+              }
+            } else {
+              false
+            }
+          }
           .get
+
+        res
       case _ =>
         throw new RuntimeException(symbol.structure)
     }
@@ -137,18 +163,10 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
   }
 
   private implicit class TryCollection[A](from: Seq[Try[A]]) {
-    def reportAndExtract(header: String): Seq[A] =
-      from
-        .map {
-          case Failure(t) => {
-            ErrorCollection().report(header, t)
-          };
-            Failure(t)
-          case t => t
-        }
-        .collect {
-          case Success(t) => t
-        }
+    def reportAndExtract(header: String): Seq[A] = {
+      from.collect { case f@Failure(_) => f }.foreach(f => ErrorCollection().report(header, f.exception))
+      from.collect { case Success(t) => t }
+    }
   }
 
   def getDefn(tree: Tree): Seq[DefnBreakdown] = {
@@ -487,112 +505,93 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
 
   object Finders {
     def logAndThrow(what: String, sym: Symbol) = {
+      val owner = sym match {
+        case x: Symbol.Global => toGlobal(x.owner).map(_.kindString).getOrElse("Unknown owner")
+        case _ => "Unknown owner"
+      }
+
+      val e = new RuntimeException(s"Could not find symbol for ${what} ${sym} (owner: $owner)")
       logger.error(s"Could not find symbol for ${what} ${sym}")
-      throw new RuntimeException(s"Could not find symbol for ${what} ${sym}")
+      throw e
     }
 
     def findCallSiteSymbol(metaSymbol: Symbol.Global): g.Symbol = {
-      def tryImplicitClass(metaSymbol: Symbol.Global): Try[g.Symbol] = {
-        loadClass(metaSymbol)
+      def tryLoad(attempts: List[Symbol.Global => Try[g.Symbol]], results: List[Try[g.Symbol]]): List[Try[g.Symbol]] = attempts match {
+        case Nil => results
+        case x :: xs => x(metaSymbol) match {
+          case s@Success(_) => s :: results
+          case s@Failure(_) => tryLoad(xs, s :: results)
+        }
       }
 
-      def tryMethod(metaSymbol: Symbol.Global): Try[g.Symbol] = {
-        loadMethod(metaSymbol)
-      }
+      val all = tryLoad(List(loadMethod, loadClass, loadModule), List())
+      val symbol = all collectFirst { case Success(s) => s }
 
-      tryImplicitClass(metaSymbol) match { // Impl
-        case Success(s) => s
-        case Failure(e) =>
-          tryMethod(metaSymbol).getOrElse(logAndThrow("call site", metaSymbol))
+      // TODO: for debugging
+      if (symbol.isDefined) {
+        symbol.get
+      } else {
+        logAndThrow("call site", metaSymbol)
       }
     }
 
     def findDefnSymbol(metaSymbol: Symbol.Global): g.Symbol = {
-      //println(metaSymbol)
-      loadClass(metaSymbol) match { // class, trait, case class
-        case Success(s) => s
-        case Failure(_) =>
-          loadModule(metaSymbol) match {
-            case Success(s) => s.asTerm // object
-            case Failure(ex) => // val, var, def
-              metaSymbol match {
-                case s if s.isTerm || s.isType || s.isMethod =>
-                  loadAnyField(metaSymbol) match {
-                    case Success(s) => s
-                    case _ =>
-                      if (metaSymbol.isInAnonScope) {
-                        // Ugly special case: `a` in val aimpl = new A[Int] { def a(implicit v: Int): String = ??? }
-                        loadAnyField(
-                            metaSymbol.owner
-                              .asInstanceOf[Symbol.Global]
-                              .owner
-                              .asInstanceOf[Symbol.Global])
-                          .getOrElse(
-                            logAndThrow("arg in anon scope", metaSymbol))
-                      } else logAndThrow("arg", metaSymbol)
-                  }
-                case s if s.isTermParameter || s.isTypeParameter =>
-                  loadParameter(s) match {
-                    case Success(s) => s
-                    case _ => logAndThrow("arg", metaSymbol)
-                  }
-              }
-          }
+      val x = toGlobal(metaSymbol)
+
+      if (x.isFailure) {
+        logAndThrow(s"defn symbol - isAnon:${metaSymbol.isInAnonScope}", metaSymbol)
+      } else {
+        x.get
       }
     }
 
     def findArgumentSymbol(metaSymbol: Symbol.Global): g.Symbol = {
-      metaSymbol match {
-        case s if s.isMethod => // def
-          loadMethod(metaSymbol) match {
-            case Success(s) if s.isMethod => s
-            case _ => logAndThrow("arg", metaSymbol)
-          }
-        case s if s.isTerm || s.isType => // object, val or var
-          loadModule(metaSymbol) match {
-            case Success(s) => s.asTerm // object
-            case Failure(ex) => // val or var
-              loadAnyField(metaSymbol) match {
-                case Success(s) => s
-                case _ => logAndThrow("arg", metaSymbol)
-              }
-          }
-        case s if s.isTermParameter => // Things like (evidence$1)
-          loadParameter(s) match {
-            case Success(s) => s
-            case _ => logAndThrow("arg", metaSymbol)
-          }
+      val x = toGlobal(metaSymbol)
+
+      if (x.isFailure) {
+        logAndThrow(s"argument - isAnon:${metaSymbol.isInAnonScope}", metaSymbol)
+      } else {
+        x.get
       }
     }
 
     def findTypeSymbol(metaSymbol: Symbol.Global): g.Symbol = {
-      if (metaSymbol.isTypeParameter) {
-        loadTypeParameter(metaSymbol) match {
-          case Success(s) => s
-          case Failure(_) => logAndThrow("type symbol param", metaSymbol)
-        }
+      val x = toGlobal(metaSymbol)
+
+      if (x.isFailure) {
+        logAndThrow(s"type symbol - isAnon:${metaSymbol.isInAnonScope}", metaSymbol)
       } else {
-        loadClass(metaSymbol) match {
-          case Success(t) => t
-          case Failure(ex) =>
-            loadPackage(metaSymbol) match {
-              case Success(t) => t
-              case Failure(ex) =>
-                loadModule(metaSymbol) match {
-                  case Success(t) => t.moduleClass
-                  case Failure(ex) =>
-                    // For some types, like String, scala aliases java.lang.String.
-                    // The staticClass set of methods do recursive dealiasing, and probably
-                    // can't handle Java classes
-                    loadTypeMember(metaSymbol) match {
-                      case Success(t) => t
-                      case Failure(_) => logAndThrow("type symbol", metaSymbol)
-                    }
-                }
-            }
-        }
+        x.get
       }
     }
+
+    //      if (metaSymbol.isTypeParameter) {
+    //        loadTypeParameter(metaSymbol) match {
+    //          case Success(s) => s
+    //          case Failure(_) => logAndThrow("type symbol param", metaSymbol)
+    //        }
+    //      } else {
+    //        loadClass(metaSymbol) match {
+    //          case Success(t) => t
+    //          case Failure(ex) =>
+    //            loadPackage(metaSymbol) match {
+    //              case Success(t) => t
+    //              case Failure(ex) =>
+    //                loadModule(metaSymbol) match {
+    //                  case Success(t) => t.moduleClass
+    //                  case Failure(ex) =>
+    //                    // For some types, like String, scala aliases java.lang.String.
+    //                    // The staticClass set of methods do recursive dealiasing, and probably
+    //                    // can't handle Java classes
+    //                    loadTypeMember(metaSymbol) match {
+    //                      case Success(t) => t
+    //                      case Failure(_) => logAndThrow("type symbol", metaSymbol)
+    //                    }
+    //                }
+    //            }
+    //        }
+    //      }
+    //    }
   }
 
   private def loadField(target: Symbol.Global, f: g.Symbol => Boolean): Try[g.Symbol] =
@@ -607,8 +606,8 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
     loadAnyField(Symbol.Global(symbol.owner, Signature.Term(symbol.signature.name)))
     }
 
-  def loadMethod(symbol: Symbol.Global): Try[g.MethodSymbol] =
-    toGlobal(symbol).map(_.asMethod)
+  def loadMethod(symbol: Symbol.Global): Try[g.Symbol] =
+    toGlobal(symbol)
 
   def loadTypeMember(symbol: Symbol.Global): Try[g.Symbol] = {
       loadField(symbol, _.isType)
@@ -996,6 +995,7 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
         case t: Term.Interpolate => RawCode(t.syntax, t.pos)
         case t: Term.Repeated => RawCode(t.syntax, t.pos)
         case t: Term.Throw => RawCode(t.syntax, t.pos)
+        case t: Term.Tuple => RawCode(t.syntax, t.pos)
         case t: Lit => RawCode(t.syntax, t.pos)
         case t: Term => {
           val bd = breakDown(t)
@@ -1100,13 +1100,6 @@ class ReflectiveCtx(compiler: Global, db: Database) extends SemanticCtx(db) {
 }
 
 object ReflectiveCtx {
-  def fromClasspath(classpath: String, usejavacp: Boolean, db: Database): ReflectiveCtx = {
-    val global = newCompiler(classpath, Nil, usejavacp)
-    global.rootMirror.RootPackage.info.members
-
-    new ReflectiveCtx(global, db)
-  }
-
   def newCompiler(classpath: String, scalacOptions: List[String], usejavacp: Boolean): Global = {
     val vd = new VirtualDirectory("(memory)", None)
     val settings = new Settings
@@ -1121,7 +1114,9 @@ object ReflectiveCtx {
     val compiler = new Global(settings, new StoreReporter)
 
     // TODO: do we need this?
-    new SemanticdbPlugin(compiler) // hijack reporter/analyzer
+    //new SemanticdbPlugin(compiler) // hijack reporter/analyzer
+
+    compiler.rootMirror.RootPackage.info.members
     compiler
   }
 }

@@ -168,8 +168,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
       // FIXME Perhaps computesemanticdbFromCode could return the path of the compiled sources
       val db = computeSemanticdbFromCode(code)
       val classpath = workingDir.getCanonicalPath
-      val ctx = ReflectiveCtx.fromClasspath(classpath, true, db)
-
+      val compiler = ReflectiveCtx.newCompiler(classpath, List(), true)
+      val ctx = new ReflectiveCtx(compiler, db)
       f(ctx)
     }
   }
@@ -278,7 +278,8 @@ abstract class SemanticdbTest extends FunSuite with Matchers with LazyLogging {
         new URLClassLoader(Array(workingDir.getCanonicalFile.toURI.toURL),
                            this.getClass.getClassLoader)
       val classpath = workingDir.getCanonicalPath
-      val ctx = ReflectiveCtx.fromClasspath(classpath, true, db)
+      val compiler = ReflectiveCtx.newCompiler(classpath, List(), true)
+      val ctx = new ReflectiveCtx(compiler, db)
       val res = FailFastReflectExtract(ctx)
       val resStrings: Seq[String] =
         res.normalizedCallSites.map(

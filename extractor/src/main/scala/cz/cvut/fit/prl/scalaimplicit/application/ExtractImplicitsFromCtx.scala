@@ -13,7 +13,8 @@ class ExtractImplicitsFromCtx(classpath: String)
     extends SemanticDBProcessing[ImplicitAnalysisResult]
     with LazyLogging {
   override def processDB(db: Database): ImplicitAnalysisResult = {
-    val ctx = ReflectiveCtx.fromClasspath(classpath, true, db)
+    val compiler = ReflectiveCtx.newCompiler(classpath, List(), false)
+    val ctx = new ReflectiveCtx(compiler, db)
     logger.debug(s"Exracting implicits from ${ctx.file}")
     ReflectExtract(ctx)
   }
@@ -24,4 +25,6 @@ class ExtractImplicitsFromCtx(classpath: String)
   override def merge(one: ImplicitAnalysisResult,
                      other: ImplicitAnalysisResult): ImplicitAnalysisResult =
     ImplicitAnalysisResult.merge(one, other)
+
+  override def empty(): ImplicitAnalysisResult = ImplicitAnalysisResult(Seq(), Set())
 }

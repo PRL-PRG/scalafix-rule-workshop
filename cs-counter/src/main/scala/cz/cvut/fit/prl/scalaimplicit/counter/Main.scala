@@ -61,4 +61,6 @@ object CountCallSites extends SemanticDBProcessing[Seq[FileCount]] {
   override def merge(one: Seq[FileCount],
                      other: Seq[FileCount]): Seq[FileCount] =
     one ++ other
+
+  override def empty(): Seq[FileCount] = Seq()
 }

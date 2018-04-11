@@ -12,6 +12,8 @@ trait SemanticDBProcessing[A] {
   def processDB(db: Database): A
   def createEmpty: A
   def merge(one: A, other: A): A
+
+  def empty(): A
 }
 
 object TreeWalker extends LazyLogging {
@@ -34,7 +36,13 @@ object TreeWalker extends LazyLogging {
       .par
       .map(file => {
         logger.debug(s"Processing ${file}")
-        processing.processDB(DBOps.loadDB(file))
+        try {
+          processing.processDB(DBOps.loadDB(file))
+        } catch {
+          case e =>
+            logger.warn(s"Unable to process ${file}", e)
+            processing.empty()
+        }
       })
       .fold(processing.createEmpty)(processing.merge)
   }
