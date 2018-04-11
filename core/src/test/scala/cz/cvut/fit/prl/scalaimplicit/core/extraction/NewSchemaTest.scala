@@ -408,6 +408,25 @@ class NewSchemaTest extends SemanticdbTest {
     )
   )
 
+  checkReflContext(
+    "EV is just code",
+    """
+      |package playground
+      |object constructors {
+      |case class M()
+      | implicit def a(s: String): M = ???
+      | class ExtendedAny[A](what: A)(implicit sth: A => M) {}
+      | def Create[T](x: T)(implicit ev: T => M) = new ExtendedAny[T](x)
+      | Create("Hello")
+      |}
+    """.trim.stripMargin,
+    ctx => {
+      val res = FailFastReflectExtract(ctx)
+      res.callSites.forall(_.implicitArguments.forall(_.info.isDefined)) shouldBe true
+      println(res)
+    }
+  )
+
   /*
   checkReflContext(
     "Infix application corner case",
